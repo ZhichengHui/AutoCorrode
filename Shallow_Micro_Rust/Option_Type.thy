@@ -13,11 +13,11 @@ subsection\<open>Core material related to the \<^emph>\<open>Option\<close> type
 
 text\<open>This is the embedding of the \<^emph>\<open>Some\<close> constructor.  Note that if the argument panics, or
 returns, or similar, then the entire expression does, too.\<close>
-definition some :: \<open>('s, 'v, 'r, 'abort, 'i, 'o) expression \<Rightarrow> ('s, 'v option, 'r, 'abort, 'i, 'o) expression\<close> where
+definition some :: \<open>('s, 'v, 'r, 'abort, 'i, 'o) expression \<Rightarrow> ('s, 'v option, 'r, 'abort, 'i, 'o) expression\<close> where [micro_rust_simps]:
   \<open>some \<equiv> bindlift1 Some\<close>
 
 text\<open>This is the embedding of the \<^emph>\<open>None\<close> constructor.\<close>
-definition none :: \<open>('s, 'v option, 'r, 'abort, 'i, 'o) expression\<close> where
+definition none :: \<open>('s, 'v option, 'r, 'abort, 'i, 'o) expression\<close> where [micro_rust_simps]:
   \<open>none \<equiv> literal None\<close>
 
 text\<open>This is an internal definition. User-level uRust code should use the \<^emph>\<open>function\<close> \<^verbatim>\<open>unwrap()\<close>
