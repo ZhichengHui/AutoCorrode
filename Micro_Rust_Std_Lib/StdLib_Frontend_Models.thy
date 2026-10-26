@@ -1,6 +1,6 @@
 (*<*)
 theory StdLib_Frontend_Models
-  imports Crush.Crush StdLib_References StdLib_Slice
+  imports Crush.Crush StdLib_References
 begin
 (*>*)
 
@@ -11,22 +11,13 @@ text\<open>
   call of a model of the function. The models below are written by hand: Rust's own definitions are
   not translated yet, and this library has no counterpart for them. A Rust \<^verbatim>\<open>Vec<T>\<close> and a
   slice \<^verbatim>\<open>[T]\<close> are values of type @{typ \<open>'v list\<close>} (their elements); a \<^verbatim>\<open>&mut\<close>
-  reference to one is a reference to such a list. Undefined behaviour in Rust (e.g.
-  \<^verbatim>\<open>get_unchecked\<close> out of bounds) aborts with a panic whose message starts with
-  \<^verbatim>\<open>undefined behaviour\<close>, so that it is not mistaken for a Rust panic.
+  reference to one is a reference to such a list.
 \<close>
 
 text\<open>\<^verbatim>\<open>alloc::vec::from_elem(elem, n)\<close> (the expansion of \<^verbatim>\<open>vec![elem; n]\<close>): \<open>n\<close> copies of
   \<open>elem\<close>.\<close>
 definition vec_from_elem :: \<open>'v \<Rightarrow> 64 word \<Rightarrow> ('s, 'v list, 'abort, 'i, 'o) function_body\<close> where
   \<open>vec_from_elem x n \<equiv> FunctionBody (literal (replicate (unat n) x))\<close>
-
-text\<open>\<^verbatim>\<open><[T]>::get_unchecked(&self, i)\<close> with \<^verbatim>\<open>i: usize\<close>: the \<open>i\<close>-th element; out of
-  bounds is undefined behaviour.\<close>
-definition slice_get_unchecked :: \<open>'v list \<Rightarrow> 64 word \<Rightarrow> ('s, 'v, 'abort, 'i, 'o) function_body\<close> where
-  \<open>slice_get_unchecked ls i \<equiv> FunctionBody (
-     if unat i < length ls then literal (ls ! unat i)
-     else abort (Panic (STR ''undefined behaviour: get_unchecked out of bounds'')))\<close>
 
 context reference
 begin
@@ -66,18 +57,6 @@ definition slice_swap :: \<open>('a, 'b, 'v list) Global_Store.ref \<Rightarrow>
      } else {
         panic!("index out of bounds")
      }
-  \<rbrakk>\<close>
-
-text\<open>\<^verbatim>\<open><[T]>::get_unchecked_mut(&mut self, i)\<close> with \<^verbatim>\<open>i: usize\<close>: a reference to the
-  \<open>i\<close>-th element; out of bounds is undefined behaviour.\<close>
-definition slice_get_unchecked_mut :: \<open>('a, 'b, 'v list) Global_Store.ref \<Rightarrow> 64 word \<Rightarrow>
-      ('s, ('a, 'b, 'v) Global_Store.ref, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
-  \<open>slice_get_unchecked_mut ptr i \<equiv> FunctionBody \<lbrakk>
-     let ls = *ptr;
-     if \<llangle>unat i < length ls\<rrangle> {
-        return \<llangle>focus_nth (unat i) ptr\<rrangle>;
-     };
-     \<epsilon>\<open>abort (Panic (STR ''undefined behaviour: get_unchecked_mut out of bounds''))\<close>
   \<rbrakk>\<close>
 
 no_adhoc_overloading store_update_const \<rightleftharpoons> update_fun
