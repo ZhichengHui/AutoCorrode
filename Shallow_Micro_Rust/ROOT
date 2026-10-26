@@ -1,5 +1,5 @@
 session Shallow_Micro_Rust = HOL +
-  options [document = pdf, document_output = "output"]
+  options [document_output = "output"]
   sessions
     "HOL-Eisbach"
     "HOL-Library"
@@ -26,7 +26,7 @@ session Shallow_Micro_Rust = HOL +
     Micro_Rust
     Prompts_And_Responses
     SSA
-  theories [document=false]
+  theories
     Shallow_Micro_Rust
   document_files
     "root.tex"

@@ -1,16 +1,15 @@
 session Autogen = HOL +
-  options [document = pdf, document_output = "output"]
+  options [document_output = "output"]
   sessions
     Misc
     Lenses_And_Other_Optics
-  theories [document=false]
+  theories
     AutoCommon
     AutoLens
     AutoLocality
     Autogen
 
 session AutoLocality_Tests in "AutoLocality_Tests" = Autogen +
-  options [document = false]
   sessions
     Crush
   theories

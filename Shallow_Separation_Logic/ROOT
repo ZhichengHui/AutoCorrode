@@ -1,5 +1,5 @@
 session Shallow_Separation_Logic = HOL +
-  options [document = pdf, document_output = "output"]
+  options [document_output = "output"]
   sessions
     "HOL-Eisbach"
     "HOL-Library"
@@ -22,7 +22,7 @@ session Shallow_Separation_Logic = HOL +
     Triple
     Weak_Triple
     Weakest_Precondition 
-  theories [document=false]
+  theories
     Shallow_Separation_Logic
   document_files
     "root.tex"

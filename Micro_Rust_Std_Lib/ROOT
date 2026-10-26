@@ -1,5 +1,5 @@
 session Micro_Rust_Std_Lib = HOL +
-  options [document = pdf, document_output = "output"]
+  options [document_output = "output"]
   sessions
     "HOL-Eisbach"
     "HOL-Library"
@@ -21,7 +21,7 @@ session Micro_Rust_Std_Lib = HOL +
     StdLib_References
     StdLib_Result
     StdLib_Tuple
-  theories [document=false]
+  theories
     StdLib_Frontend_Models
     Micro_Rust_Std_Lib
   document_files
