@@ -22,6 +22,7 @@ session Micro_Rust_Std_Lib = HOL +
     StdLib_Result
     StdLib_Tuple
   theories [document=false]
+    StdLib_Frontend_Models
     Micro_Rust_Std_Lib
   document_files
     "root.tex"

@@ -6,6 +6,7 @@ theory Micro_Rust_Std_Lib
   imports
     StdLib_All
     StdLib_Arithmetic
+    StdLib_Frontend_Models
     StdLib_Iterators
     StdLib_Logging
     StdLib_Option
