@@ -346,7 +346,6 @@ consts
   index_const :: \<open>'a \<Rightarrow> 'idx \<Rightarrow> ('s,'b, 'abort, 'i, 'o) function_body\<close>
   negation_const :: \<open>('s,'v,'c, 'abort, 'i, 'o) expression \<Rightarrow> ('s,'v,'c, 'abort, 'i, 'o) expression\<close>
   propagate_const :: \<open>('s,'v,'c, 'abort, 'i, 'o) expression \<Rightarrow> ('s,'w,'c, 'abort, 'i, 'o) expression\<close>
-  assign_add_const :: \<open>('a, 'b, 'v) Global_Store.ref \<Rightarrow> 'w \<Rightarrow> ('s,unit, 'abort, 'i, 'o) function_body\<close>
 
 syntax
   "_urust_shallow_match_convert_branches" :: \<open>urust_shallow_match_branches \<Rightarrow> case_basic_branches\<close>
@@ -488,7 +487,7 @@ translations
   "_urust_shallow_word_assign_and ptr assign"
     \<rightharpoonup> "_urust_shallow_store_update ptr (_urust_shallow_word_bitwise_and (_urust_shallow_store_dereference ptr) assign)"
   "_urust_shallow_assign_add ptr assign"
-    \<rightharpoonup> "CONST funcall2 (CONST assign_add_const) ptr assign"
+    \<rightharpoonup> "_urust_shallow_store_update ptr (_urust_shallow_add (_urust_shallow_store_dereference ptr) assign)"
   "_urust_shallow_assign_minus ptr assign"
     \<rightharpoonup> "_urust_shallow_store_update ptr (_urust_shallow_minus (_urust_shallow_store_dereference ptr) assign)"
   "_urust_shallow_assign_mul ptr assign"
