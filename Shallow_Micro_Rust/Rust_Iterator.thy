@@ -115,40 +115,48 @@ definition iterator_filter :: \<open>('s, 'a, 'abort, 'i, 'o) iterator \<Rightar
     )
   )\<close>
 
-definition raw_for_loop :: \<open>'a list \<Rightarrow> ('a \<Rightarrow> ('s,'v,'r, 'abort, 'i, 'o) expression) \<Rightarrow> ('s, unit, 'r, 'abort, 'i, 'o) expression\<close> where
-  \<open>raw_for_loop ls body \<equiv> sequence' (List.map body ls)\<close>
+text\<open>A loop with label \<^term>\<open>lbl\<close> runs the body once for every element of the list. Each
+iteration is a \<^term>\<open>loop_step\<close>, so that a \<^verbatim>\<open>continue\<close> caught by the loop goes on with
+the next element and a \<^verbatim>\<open>break\<close> caught by the loop skips the remaining ones.\<close>
+definition raw_for_loop :: \<open>String.literal option \<Rightarrow> 'a list \<Rightarrow> ('a \<Rightarrow> ('s,'v,'r, 'abort, 'i, 'o) expression) \<Rightarrow>
+    ('s, unit, 'r, 'abort, 'i, 'o) expression\<close> where
+  \<open>raw_for_loop lbl ls body \<equiv>
+     foldr (\<lambda>x k. bind (loop_step lbl (sequence (body x) (literal True))) (\<lambda>c. if c then k else skip))
+       ls skip\<close>
 
 subsection\<open>Bounded while loops\<close>
 
-text\<open>A fuel-based while-loop combinator. Terminates by structural recursion on the fuel @{typ nat}.
-When fuel reaches 0 the loop returns @{term skip} (unit). The WP invariant rules force the user to
-prove fuel sufficiency, so the fuel=0 case is unreachable in verified code.\<close>
-fun bounded_while :: \<open>nat \<Rightarrow>
+text\<open>A fuel-based while-loop combinator with label \<^term>\<open>lbl\<close>. Terminates by structural recursion
+on the fuel @{typ nat}. When fuel reaches 0 the loop returns @{term skip} (unit). The WP invariant
+rules force the user to prove fuel sufficiency, so the fuel=0 case is unreachable in verified code.
+Each iteration, consisting of the condition and the body, is a \<^term>\<open>loop_step\<close>, so that the
+loop catches the \<^verbatim>\<open>break\<close>s and \<^verbatim>\<open>continue\<close>s in both.\<close>
+fun bounded_while :: \<open>String.literal option \<Rightarrow> nat \<Rightarrow>
     ('s, bool, 'r, 'abort, 'i, 'o) expression \<Rightarrow>
     ('s, unit, 'r, 'abort, 'i, 'o) expression \<Rightarrow>
     ('s, unit, 'r, 'abort, 'i, 'o) expression\<close> where
-  \<open>bounded_while 0 cond body = skip\<close>
-| \<open>bounded_while (Suc n) cond body =
-     bind cond (\<lambda>c. if c then sequence body (bounded_while n cond body)
-                     else skip)\<close>
+  \<open>bounded_while lbl 0 cond body = skip\<close>
+| \<open>bounded_while lbl (Suc n) cond body =
+     bind (loop_step lbl (bind cond (\<lambda>c. if c then sequence body (literal True) else literal False)))
+       (\<lambda>c. if c then bounded_while lbl n cond body else skip)\<close>
 
-definition for_loop_core :: \<open>('s, 'a, 'abort, 'i, 'o) iterator \<Rightarrow> ('a \<Rightarrow> ('s,'v,'r, 'abort, 'i, 'o) expression) \<Rightarrow>
-    ('s, unit, 'r, 'abort, 'i, 'o) expression\<close> where
-  \<open>for_loop_core iter body \<equiv>
-     raw_for_loop [0..<(length (iterator_ethunks iter :: (_, _, 'r, 'abort, 'i, 'o) expression list))]
+definition for_loop_core :: \<open>String.literal option \<Rightarrow> ('s, 'a, 'abort, 'i, 'o) iterator \<Rightarrow>
+    ('a \<Rightarrow> ('s,'v,'r, 'abort, 'i, 'o) expression) \<Rightarrow> ('s, unit, 'r, 'abort, 'i, 'o) expression\<close> where
+  \<open>for_loop_core lbl iter body \<equiv>
+     raw_for_loop lbl [0..<(length (iterator_ethunks iter :: (_, _, 'r, 'abort, 'i, 'o) expression list))]
        (\<lambda>i. bind ((iterator_ethunks iter :: (_, _, 'r, 'abort, 'i, 'o) expression list) ! i) body)\<close>
 
 lemma for_loop_core_alt [code]:
   fixes iter :: \<open>('s, 'a, 'abort, 'i, 'o) iterator\<close>
     and body :: \<open>('a \<Rightarrow> ('s,'v,'r, 'abort, 'i, 'o) expression)\<close>
-  shows \<open>for_loop_core iter body = (
+  shows \<open>for_loop_core lbl iter body = (
            let t = iterator_ethunks iter :: (_, _, 'r, 'abort, 'i, 'o) expression list in
-             raw_for_loop [0..<(length t)] (\<lambda>i. bind (t ! i) body))\<close>
+             raw_for_loop lbl [0..<(length t)] (\<lambda>i. bind (t ! i) body))\<close>
 by (simp add: Let_def for_loop_core_def)
 
-definition for_loop :: \<open>('s, ('s, 'a, 'abort, 'i, 'o) iterator, 'r, 'abort, 'i, 'o) expression \<Rightarrow> ('a \<Rightarrow> ('s, 'v, 'r, 'abort, 'i, 'o) expression) \<Rightarrow>
-      ('s, unit, 'r, 'abort, 'i, 'o) expression\<close> where
-  \<open>for_loop iter body \<equiv> bind iter (\<lambda>it. for_loop_core it body)\<close>
+definition for_loop :: \<open>String.literal option \<Rightarrow> ('s, ('s, 'a, 'abort, 'i, 'o) iterator, 'r, 'abort, 'i, 'o) expression \<Rightarrow>
+      ('a \<Rightarrow> ('s, 'v, 'r, 'abort, 'i, 'o) expression) \<Rightarrow> ('s, unit, 'r, 'abort, 'i, 'o) expression\<close> where
+  \<open>for_loop lbl iter body \<equiv> bind iter (\<lambda>it. for_loop_core lbl it body)\<close>
 
 (*<*)
 end

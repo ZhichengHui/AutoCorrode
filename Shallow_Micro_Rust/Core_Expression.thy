@@ -25,7 +25,9 @@ text\<open>This describes the different ways that a runtime abort may have come 
 similar construct in Rust.
 \item A programmer-facing assertion failed dynamically at runtime.
 \item A dangling pointer.
-\end{enumerate*}\<close>
+\end{enumerate*}
+Moreover, \<^verbatim>\<open>break\<close> and \<^verbatim>\<open>continue\<close> leave a loop body like an abort, which the loop then
+catches. They carry the label of the loop they name, or \<^term>\<open>None\<close> if they name none.\<close>
 datatype 'abort abort
   = Panic \<open>String.literal\<close>
   | Unimplemented \<open>String.literal\<close>
@@ -35,6 +37,8 @@ datatype 'abort abort
   | ResumedFromFatal
   | UnexpectedYield
   | CustomAbort 'abort
+  | LoopBreak \<open>String.literal option\<close>
+  | LoopContinue \<open>String.literal option\<close>
 
 subsection\<open>Continuations\<close>
 
@@ -622,6 +626,111 @@ declare Core_Expression.call_function_body.simps[simp del]
 text \<open>Execute a Rust function.\<close>
 definition call :: \<open>('s, 'b, 'abort, 'i, 'o) function_body \<Rightarrow> ('s, 'b, 'r, 'abort, 'i, 'o) expression\<close> where
   \<open>call fn \<equiv> case fn of FunctionBody body \<Rightarrow> call_function_body body\<close>
+
+subsection \<open>Loop control\<close>
+
+text \<open>\<^verbatim>\<open>break\<close> and \<^verbatim>\<open>continue\<close> abort the enclosing computation until a loop catches
+them. Their argument is the label they name, or \<^term>\<open>None\<close>.\<close>
+
+abbreviation loop_break :: \<open>String.literal option \<Rightarrow> ('s, 'v, 'r, 'abort, 'i, 'o) expression\<close> where
+  \<open>loop_break l \<equiv> abort (LoopBreak l)\<close>
+
+abbreviation loop_continue :: \<open>String.literal option \<Rightarrow> ('s, 'v, 'r, 'abort, 'i, 'o) expression\<close> where
+  \<open>loop_continue l \<equiv> abort (LoopContinue l)\<close>
+
+text \<open>A loop with label \<^term>\<open>lbl\<close> catches the \<^verbatim>\<open>break\<close>s and \<^verbatim>\<open>continue\<close>s that name
+no label or name \<^term>\<open>lbl\<close>. An unlabeled loop has \<^term>\<open>lbl = None\<close>.\<close>
+
+definition loop_catches :: \<open>String.literal option \<Rightarrow> String.literal option \<Rightarrow> bool\<close> where
+  \<open>loop_catches lbl l \<equiv> l = None \<or> l = lbl\<close>
+
+lemma loop_catches_simps [simp]:
+  shows \<open>loop_catches lbl None\<close>
+    and \<open>loop_catches lbl (Some l) \<longleftrightarrow> lbl = Some l\<close>
+  by (auto simp add: loop_catches_def)
+
+text \<open>One iteration of a loop with label \<^term>\<open>lbl\<close>. The iteration \<^term>\<open>e\<close> computes whether the
+loop goes on. A \<^verbatim>\<open>continue\<close> caught by the loop goes on with the next iteration, and a
+\<^verbatim>\<open>break\<close> caught by the loop stops it.\<close>
+
+function loop_step :: \<open>String.literal option \<Rightarrow> ('s, bool, 'r, 'abort, 'i, 'o) expression \<Rightarrow>
+    ('s, bool, 'r, 'abort, 'i, 'o) expression\<close> where
+  \<open>loop_step lbl e =
+    Expression (\<lambda>\<sigma>.
+          (case evaluate e \<sigma> of
+             Success c \<sigma>' \<Rightarrow> Success c \<sigma>'
+           | Return r \<sigma>'  \<Rightarrow> Return r \<sigma>'
+           | Yield \<pi> \<sigma>' e' \<Rightarrow> Yield \<pi> \<sigma>' (\<lambda>\<omega>. loop_step lbl (e' \<omega>))
+           | Abort a \<sigma>'  \<Rightarrow>
+               (case a of
+                  LoopBreak l \<Rightarrow> if loop_catches lbl l then Success False \<sigma>' else Abort a \<sigma>'
+                | LoopContinue l \<Rightarrow> if loop_catches lbl l then Success True \<sigma>' else Abort a \<sigma>'
+                | _ \<Rightarrow> Abort a \<sigma>')))\<close>
+by pat_completeness auto
+
+termination
+  loop_step
+proof(relation \<open>inv_image expression_wf snd\<close>)
+  show \<open>wf (inv_image expression_wf snd)\<close>
+    by force
+next
+     fix lbl :: \<open>String.literal option\<close>
+     and e :: \<open>('a, bool, 'b, 'c, 'd, 'e) expression\<close>
+     and x x1 x2 x3 a
+  assume \<open>evaluate e x = Yield x1 x2 x3\<close>
+  from this show \<open>((lbl, x3 a), lbl, e) \<in> inv_image expression_wf snd\<close>
+    by (force simp add: expression_wf_def expression_wf_base_def)
+qed
+
+lemma evaluate_loop_step:
+  \<open>evaluate (loop_step lbl e) \<sigma> =
+          (case evaluate e \<sigma> of
+             Success c \<sigma>' \<Rightarrow> Success c \<sigma>'
+           | Return r \<sigma>'  \<Rightarrow> Return r \<sigma>'
+           | Yield \<pi> \<sigma>' e' \<Rightarrow> Yield \<pi> \<sigma>' (\<lambda>\<omega>. loop_step lbl (e' \<omega>))
+           | Abort a \<sigma>'  \<Rightarrow>
+               (case a of
+                  LoopBreak l \<Rightarrow> if loop_catches lbl l then Success False \<sigma>' else Abort a \<sigma>'
+                | LoopContinue l \<Rightarrow> if loop_catches lbl l then Success True \<sigma>' else Abort a \<sigma>'
+                | _ \<Rightarrow> Abort a \<sigma>'))\<close>
+  by (simp add: evaluate_def)
+
+declare Core_Expression.loop_step.simps[simp del]
+
+text \<open>The postcondition for the aborts of an iteration of a loop with label \<^term>\<open>lbl\<close>: a
+\<^verbatim>\<open>break\<close> caught by the loop establishes \<^term>\<open>\<beta>\<close>, a \<^verbatim>\<open>continue\<close> caught by the loop
+establishes \<^term>\<open>\<kappa>\<close>, and every other abort establishes the postcondition \<^term>\<open>\<theta>\<close> for the
+aborts of the loop.\<close>
+
+definition loop_abort :: \<open>String.literal option \<Rightarrow> 'x \<Rightarrow> 'x \<Rightarrow> ('abort abort \<Rightarrow> 'x) \<Rightarrow> 'abort abort \<Rightarrow> 'x\<close> where
+  \<open>loop_abort lbl \<beta> \<kappa> \<theta> a \<equiv>
+     case a of
+       LoopBreak l \<Rightarrow> if loop_catches lbl l then \<beta> else \<theta> a
+     | LoopContinue l \<Rightarrow> if loop_catches lbl l then \<kappa> else \<theta> a
+     | _ \<Rightarrow> \<theta> a\<close>
+
+lemma loop_abort_simps [simp]:
+  shows \<open>loop_abort lbl \<beta> \<kappa> \<theta> (LoopBreak l) = (if loop_catches lbl l then \<beta> else \<theta> (LoopBreak l))\<close>
+    and \<open>loop_abort lbl \<beta> \<kappa> \<theta> (LoopContinue l) = (if loop_catches lbl l then \<kappa> else \<theta> (LoopContinue l))\<close>
+    and \<open>loop_abort lbl \<beta> \<kappa> \<theta> (Panic m) = \<theta> (Panic m)\<close>
+    and \<open>loop_abort lbl \<beta> \<kappa> \<theta> (Unimplemented m) = \<theta> (Unimplemented m)\<close>
+    and \<open>loop_abort lbl \<beta> \<kappa> \<theta> AssertionFailed = \<theta> AssertionFailed\<close>
+    and \<open>loop_abort lbl \<beta> \<kappa> \<theta> DanglingPointer = \<theta> DanglingPointer\<close>
+    and \<open>loop_abort lbl \<beta> \<kappa> \<theta> TypeError = \<theta> TypeError\<close>
+    and \<open>loop_abort lbl \<beta> \<kappa> \<theta> ResumedFromFatal = \<theta> ResumedFromFatal\<close>
+    and \<open>loop_abort lbl \<beta> \<kappa> \<theta> UnexpectedYield = \<theta> UnexpectedYield\<close>
+    and \<open>loop_abort lbl \<beta> \<kappa> \<theta> (CustomAbort c) = \<theta> (CustomAbort c)\<close>
+  by (auto simp add: loop_abort_def)
+
+text \<open>An abort that a loop with label \<^term>\<open>lbl\<close> does not catch:\<close>
+
+definition loop_passes :: \<open>String.literal option \<Rightarrow> 'abort abort \<Rightarrow> bool\<close> where
+  \<open>loop_passes lbl a \<equiv> loop_abort lbl False False (\<lambda>_. True) a\<close>
+
+lemma loop_passes_loop_abort:
+  assumes \<open>loop_passes lbl a\<close>
+    shows \<open>loop_abort lbl \<beta> \<kappa> \<theta> a = \<theta> a\<close>
+  using assms by (auto simp add: loop_passes_def loop_abort_def split: abort.splits if_splits)
 
 subsection\<open>Binary operations\<close>
 

@@ -18,11 +18,13 @@ datatype_record ('st, 'abort, 'i, 'o) striple_context_raw =
 
 text\<open>The following class of yield handlers is sufficient for functions which can never
 throw \<^verbatim>\<open>FatalError\<close>s. If \<^verbatim>\<open>FatalError\<close> can occur, specifications are likely only true
-for \<^term>\<open>standard_yield_handler\<close>.\<close>
+for \<^term>\<open>standard_yield_handler\<close>. The yield handler must not raise the aborts of
+\<^verbatim>\<open>break\<close> and \<^verbatim>\<open>continue\<close>, since a loop cannot catch them.\<close>
 definition is_valid_striple_context :: \<open>('st, 'abort, 'i prompt, 'o prompt_output) striple_context_raw \<Rightarrow> bool\<close> where
   \<open>is_valid_striple_context \<Gamma> \<equiv>
       is_log_transparent_yield_handler (yield_handler_raw \<Gamma>) \<and>
-      is_nondet_order_yield_handler (yield_handler_raw \<Gamma>)\<close>
+      is_nondet_order_yield_handler (yield_handler_raw \<Gamma>) \<and>
+      is_loop_transparent_yield_handler (yield_handler_raw \<Gamma>)\<close>
 
 text\<open>Until the context is properly integrated, offer a dummy context\<close>
 definition striple_context_raw_no_yield :: \<open>('st, 'abort, 'i prompt, 'o prompt_output) striple_context_raw\<close> where
@@ -54,6 +56,13 @@ lemma striple_context_yh_is_log_transparaent[simp]:
 lemma striple_context_yh_is_nondet_order[simp]:
   shows \<open>is_nondet_order_yield_handler (yh \<Gamma>)\<close>
   by (transfer, simp add: is_valid_striple_context_def)
+
+lemma striple_context_yh_is_loop_transparent[simp]:
+  shows \<open>is_loop_transparent_yield_handler (yh \<Gamma>)\<close>
+  by (transfer, simp add: is_valid_striple_context_def)
+
+lemmas urust_eval_predicate_loop_step_yh =
+  urust_eval_predicate_loop_step[OF striple_context_yh_is_loop_transparent]
 
 definition is_aborting_striple_context where
   \<open>is_aborting_striple_context \<Gamma> \<equiv> is_aborting_yield_handler (yh \<Gamma>)\<close>
@@ -1030,60 +1039,147 @@ by (intro stripleI; clarsimp simp add: urust_eval_predicate_not asepconj_simp at
 
 subsection\<open>Loops\<close>
 
+text\<open>Postconditions for the aborts of a loop iteration commute with frames and are monotone:\<close>
+
+lemma loop_abort_asepconj:
+  shows \<open>loop_abort lbl \<beta> \<kappa> \<theta> a \<star> \<pi> = loop_abort lbl (\<beta> \<star> \<pi>) (\<kappa> \<star> \<pi>) (\<lambda>a. \<theta> a \<star> \<pi>) a\<close>
+  by (simp add: loop_abort_def split: abort.splits)
+
+lemma loop_abort_aentails:
+  assumes \<open>\<beta> \<longlongrightarrow> \<beta>'\<close>
+      and \<open>\<kappa> \<longlongrightarrow> \<kappa>'\<close>
+      and \<open>\<And>a. \<theta> a \<longlongrightarrow> \<theta>' a\<close>
+    shows \<open>loop_abort lbl \<beta> \<kappa> \<theta> a \<longlongrightarrow> loop_abort lbl \<beta>' \<kappa>' \<theta>' a\<close>
+  using assms by (simp add: loop_abort_def split: abort.splits)
+
+lemma asepconj_awand_frameI:
+  assumes \<open>\<pi> \<longlongrightarrow> (\<phi> \<Zsurj> \<psi>)\<close>
+    shows \<open>\<phi> \<star> \<pi> \<longlongrightarrow> \<psi>\<close>
+  using assms by (simp add: awand_adjoint asepconj_comm)
+
+text\<open>One iteration of a loop with label \<^term>\<open>lbl\<close>: the aborts of \<^verbatim>\<open>break\<close> and
+\<^verbatim>\<open>continue\<close> caught by the loop become the values \<^term>\<open>False\<close> and \<^term>\<open>True\<close>.\<close>
+
+lemma striple_loop_stepI:
+  assumes \<open>\<Gamma> ; \<phi> \<turnstile> e \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> loop_abort lbl (\<psi> False) (\<psi> True) \<theta>\<close>
+    shows \<open>\<Gamma> ; \<phi> \<turnstile> loop_step lbl e \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+proof (intro stripleI)
+  fix c s s'
+  assume \<open>s \<leadsto>\<^sub>v\<langle>yh \<Gamma>,loop_step lbl e\<rangle> (c, s')\<close>
+  then consider \<open>s \<leadsto>\<^sub>v\<langle>yh \<Gamma>,e\<rangle> (c, s')\<close>
+    | l where \<open>loop_catches lbl l\<close> \<open>c\<close> \<open>s \<leadsto>\<^sub>a\<langle>yh \<Gamma>,e\<rangle> (LoopContinue l, s')\<close>
+    | l where \<open>loop_catches lbl l\<close> \<open>\<not> c\<close> \<open>s \<leadsto>\<^sub>a\<langle>yh \<Gamma>,e\<rangle> (LoopBreak l, s')\<close>
+    by (auto simp add: urust_eval_predicate_loop_step_yh split: if_splits)
+  then show \<open>\<phi> \<tturnstile> (s, s') \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> c\<close>
+    by cases (auto elim: stripleE_value[OF assms] stripleE_abort[OF assms])
+next
+  fix r s s'
+  assume \<open>s \<leadsto>\<^sub>r\<langle>yh \<Gamma>,loop_step lbl e\<rangle> (r, s')\<close>
+  then show \<open>\<phi> \<tturnstile> (s, s') \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<rho> r\<close>
+    by (auto simp add: urust_eval_predicate_loop_step_yh elim: stripleE_return[OF assms])
+next
+  fix a s s'
+  assume \<open>s \<leadsto>\<^sub>a\<langle>yh \<Gamma>,loop_step lbl e\<rangle> (a, s')\<close>
+  then show \<open>\<phi> \<tturnstile> (s, s') \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<theta> a\<close>
+    by (auto simp add: urust_eval_predicate_loop_step_yh loop_passes_loop_abort
+      elim: stripleE_abort[OF assms])
+qed
+
+text\<open>A loop body that ends normally or with a \<^verbatim>\<open>continue\<close> caught by the loop establishes
+\<^term>\<open>\<kappa>\<close>, and one that ends with a \<^verbatim>\<open>break\<close> caught by the loop establishes \<^term>\<open>\<beta>\<close>:\<close>
+
+lemma striple_loop_iterationI:
+  assumes \<open>\<Gamma> ; \<phi> \<turnstile> f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. \<kappa>) \<bowtie> \<rho> \<bowtie> loop_abort lbl \<beta> \<kappa> \<theta>\<close>
+    shows \<open>\<Gamma> ; \<phi> \<turnstile> loop_step lbl (sequence f (literal True)) \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>c. if c then \<kappa> else \<beta>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+proof (rule striple_loop_stepI)
+  show \<open>\<Gamma> ; \<phi> \<turnstile> sequence f (literal True) \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>c. if c then \<kappa> else \<beta>) \<bowtie> \<rho> \<bowtie>
+          loop_abort lbl (if False then \<kappa> else \<beta>) (if True then \<kappa> else \<beta>) \<theta>\<close>
+    unfolding sequence_def if_False if_True
+    by (rule striple_bindI[OF assms]) (simp add: striple_literal aentails_refl)
+qed
+
+lemma striple_skip_unitI:
+  assumes \<open>\<phi> \<longlongrightarrow> \<psi> ()\<close>
+    shows \<open>\<Gamma> ; \<phi> \<turnstile> skip \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  using assms by (intro striple_consequence[OF striple_skipI[where \<psi>=\<phi> and \<rho>=\<rho> and \<theta>=\<theta>]])
+    (auto simp add: aentails_refl)
+
+text\<open>In the loop rules below, a \<^verbatim>\<open>break\<close> caught by the loop establishes the postcondition of
+the loop, and a \<^verbatim>\<open>continue\<close> caught by the loop establishes the invariant for the next
+iteration. The other aborts, including \<^verbatim>\<open>break\<close>s and \<^verbatim>\<open>continue\<close>s for enclosing loops,
+establish the postcondition for the aborts of the loop.\<close>
+
 lemma striple_raw_for_loop:
     fixes I :: \<open>'t list \<Rightarrow> 't list \<Rightarrow> 'a assert\<close>
-  assumes \<open>\<And>past cur todo. \<Gamma> ; I past (cur # todo) \<turnstile> f cur \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I (past @ [cur]) todo) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-    shows \<open>\<Gamma> ; I [] xs \<turnstile> raw_for_loop xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I xs []) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-  using assms 
+  assumes \<open>\<And>past cur todo. \<Gamma> ; I past (cur # todo) \<turnstile> f cur \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I (past @ [cur]) todo)
+             \<bowtie> \<rho> \<bowtie> loop_abort lbl (\<psi> ()) (I (past @ [cur]) todo) \<theta>\<close>
+      and \<open>I xs [] \<longlongrightarrow> \<psi> ()\<close>
+    shows \<open>\<Gamma> ; I [] xs \<turnstile> raw_for_loop lbl xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  using assms
 proof (induction xs arbitrary: I)
   case Nil
   then show ?case
-    by (simp add: raw_for_loop_nil striple_skipI)
+    by (simp add: raw_for_loop_nil striple_skip_unitI)
 next
   case (Cons x xs)
-  then have \<open>\<Gamma> ; I [] (x # xs) \<turnstile> f x \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I [x] xs) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-    by (metis append_Nil)
-  moreover have \<open>\<Gamma> ; I [x] xs \<turnstile> raw_for_loop xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I (x # xs) []) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-    using Cons.prems Cons.IH[where I=\<open>\<lambda>past todo. I (x # past) todo\<close>] by (metis append_Cons)
-  ultimately have \<open>\<Gamma> ; I [] (x # xs) \<turnstile> (bind (f x) (\<lambda>_. raw_for_loop xs f)) \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I (x # xs) []) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-    by (rule striple_bindI[where \<psi>=\<open>\<lambda> _. I [x] xs\<close>])
-  then show ?case
-    by (simp add: raw_for_loop_cons sequence_def)
+  have \<open>\<Gamma> ; I [] (x # xs) \<turnstile> f x \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I [x] xs) \<bowtie> \<rho> \<bowtie> loop_abort lbl (\<psi> ()) (I [x] xs) \<theta>\<close>
+    using Cons.prems(1) by (metis append_Nil)
+  then have \<open>\<Gamma> ; I [] (x # xs) \<turnstile> loop_step lbl (sequence (f x) (literal True))
+               \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>c. if c then I [x] xs else \<psi> ()) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+    by (rule striple_loop_iterationI)
+  moreover have \<open>\<Gamma> ; I [x] xs \<turnstile> raw_for_loop lbl xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  proof (rule Cons.IH[where I=\<open>\<lambda>past todo. I (x # past) todo\<close>])
+    fix past cur todo
+    show \<open>\<Gamma> ; I (x # past) (cur # todo) \<turnstile> f cur \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I (x # (past @ [cur])) todo)
+            \<bowtie> \<rho> \<bowtie> loop_abort lbl (\<psi> ()) (I (x # (past @ [cur])) todo) \<theta>\<close>
+      using Cons.prems(1) by (metis append_Cons)
+  next
+    show \<open>I (x # xs) [] \<longlongrightarrow> \<psi> ()\<close>
+      using Cons.prems(2) .
+  qed
+  ultimately show ?case
+    unfolding raw_for_loop_cons
+    by (auto intro!: striple_bindI[where \<psi>=\<open>\<lambda>c. if c then I [x] xs else \<psi> ()\<close>]
+      simp add: striple_skip_unitI aentails_refl)
 qed
 
 lemma striple_raw_for_loop_framed:
     notes aentails_intro [intro]
-    fixes INV :: \<open>'t list \<Rightarrow> 't list \<Rightarrow> 'a assert\<close>
-  assumes \<open>\<And>past cur todo. \<Gamma> ;  INV past (cur # todo) \<turnstile> f cur \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. INV (past @ [cur]) todo) \<bowtie> \<tau> \<bowtie> \<theta>\<close>
-    shows \<open>\<Gamma> ; INV [] xs \<star> ((INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a))
-               \<turnstile> raw_for_loop xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
+    fixes INV BRK :: \<open>'t list \<Rightarrow> 't list \<Rightarrow> 'a assert\<close>
+  assumes \<open>\<And>past cur todo. \<Gamma> ;  INV past (cur # todo) \<turnstile> f cur \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. INV (past @ [cur]) todo)
+             \<bowtie> \<tau> \<bowtie> loop_abort lbl (BRK past (cur # todo)) (INV (past @ [cur]) todo) \<theta>\<close>
+    shows \<open>\<Gamma> ; INV [] xs \<star> ((INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>p. \<Sqinter>t. BRK p t \<Zsurj> \<psi> ())
+                \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a))
+               \<turnstile> raw_for_loop lbl xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
 proof -
-  let ?pc = \<open>(INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a)\<close>
-  have \<open>\<Gamma> ; INV [] xs \<star> ?pc  \<turnstile> raw_for_loop xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. INV xs [] \<star> ?pc) \<bowtie> \<rho> \<bowtie> \<chi>\<close>
-  proof (intro striple_raw_for_loop)
+  let ?pc = \<open>(INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>p. \<Sqinter>t. BRK p t \<Zsurj> \<psi> ())
+                \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a)\<close>
+  have inv: \<open>INV xs [] \<star> ?pc \<longlongrightarrow> \<psi> ()\<close>
+    by (intro asepconj_awand_frameI aentails_inter_weaken2 aentails_refl)
+  have brk: \<open>BRK p t \<star> ?pc \<longlongrightarrow> \<psi> ()\<close> for p t
+    by (rule asepconj_awand_frameI, rule aentails_inter_weaken2, rule aentails_inter_weaken2,
+      rule aentails_inter_weaken, rule aforall_entailsL, rule aforall_entailsL, rule aentails_refl)
+  have ret: \<open>\<tau> r \<star> ?pc \<longlongrightarrow> \<rho> r\<close> for r
+    by (rule asepconj_awand_frameI, rule aentails_inter_weaken2, rule aentails_inter_weaken,
+      rule aforall_entailsL, rule aentails_refl)
+  have abt: \<open>\<theta> a \<star> ?pc \<longlongrightarrow> \<chi> a\<close> for a
+    by (rule asepconj_awand_frameI, rule aentails_inter_weaken, rule aforall_entailsL, rule aentails_refl)
+  have \<open>\<Gamma> ; INV [] xs \<star> ?pc \<turnstile> raw_for_loop lbl xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
+  proof (rule striple_raw_for_loop[where I=\<open>\<lambda>p t. INV p t \<star> ?pc\<close>])
     fix past cur todo
-    have \<open>\<Gamma> ; INV past (cur # todo) \<turnstile> f cur \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. INV (past @ [cur]) todo) \<bowtie> \<tau> \<bowtie> \<theta>\<close>
-      using assms by auto
-    moreover have \<open>\<Gamma> ; INV past (cur # todo) \<star> ?pc \<turnstile> f cur \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k
-        (\<lambda>_. INV (past @ [cur]) todo \<star> ?pc) \<bowtie> (\<lambda>r. \<tau> r \<star> ?pc) \<bowtie> (\<lambda>a. \<theta> a \<star> ?pc)\<close>
-      using assms by (intro striple_frame_rule; clarsimp)
-    moreover have \<open>\<And>r. \<tau> r \<star> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<longlongrightarrow> \<rho> r\<close>
-      by (meson aentails_refl_eq aentails_trans' local.aforall_entailsL local.asepconj_mono3 local.awand_counit)
-    moreover from this have \<open>\<And>r. \<tau> r \<star> ?pc \<longlongrightarrow> \<rho> r\<close>
-      by (metis (no_types, lifting) aentails_inter_weaken aentails_inter_weaken2 asepconj_comm awand_adjoint)
-    moreover have \<open>\<And>a. \<theta> a \<star> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a) \<longlongrightarrow> \<chi> a\<close>
-      by (meson aentails_refl_eq aentails_trans' local.aforall_entailsL local.asepconj_mono3 local.awand_counit)
-    moreover from this have \<open>\<And>a. \<theta> a \<star> ?pc \<longlongrightarrow> \<chi> a\<close>
-      by (metis (no_types, lifting) aentails_inter_weaken asepconj_comm local.awand_adjoint)
-    ultimately show \<open>\<Gamma> ; INV past (cur # todo) \<star> ?pc \<turnstile> f cur \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. INV (past @ [cur]) todo \<star> ?pc) \<bowtie> \<rho> \<bowtie> \<chi>\<close>
-      using assms by (meson aentails_refl striple_consequence)
+    have \<open>\<Gamma> ; INV past (cur # todo) \<star> ?pc \<turnstile> f cur \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k
+        (\<lambda>_. INV (past @ [cur]) todo \<star> ?pc) \<bowtie> (\<lambda>r. \<tau> r \<star> ?pc)
+        \<bowtie> (\<lambda>a. loop_abort lbl (BRK past (cur # todo)) (INV (past @ [cur]) todo) \<theta> a \<star> ?pc)\<close>
+      by (rule striple_frame_rule, rule assms)
+    then show \<open>\<Gamma> ; INV past (cur # todo) \<star> ?pc \<turnstile> f cur \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. INV (past @ [cur]) todo \<star> ?pc)
+        \<bowtie> \<rho> \<bowtie> loop_abort lbl (\<psi> ()) (INV (past @ [cur]) todo \<star> ?pc) \<chi>\<close>
+      by (rule striple_consequence)
+        (auto simp add: loop_abort_asepconj intro!: loop_abort_aentails brk ret abt aentails_refl)
+  next
+    show \<open>INV xs [] \<star> ?pc \<longlongrightarrow> \<psi> ()\<close>
+      by (rule inv)
   qed
-  moreover have \<open>INV xs [] \<star> ?pc \<longlongrightarrow> \<psi> ()\<close>
-    by (metis (no_types, lifting) aentails_refl local.asepconj_comm local.aentails_int local.awand_adjoint)
-  ultimately have \<open>\<Gamma> ; INV [] xs \<star> ?pc \<turnstile> raw_for_loop xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
-    using local.striple_consequence by (fastforce simp: aentails_refl)
-  then show ?thesis
-    using aentails_refl local.asepconj_comm local.awand_mp local.striple_consequence by fastforce
+  then show ?thesis .
 qed
 
 text\<open>Alternative loop rule which might be easier to use in some situations. Passing the list to the
@@ -1091,66 +1187,81 @@ invariant may seem redundant because it's part of the context, but we don't alwa
 list will be named in the current proof state.\<close>
 lemma striple_raw_for_loop':
     fixes I :: \<open>'t list \<Rightarrow> nat \<Rightarrow> 'a assert\<close>
-  assumes \<open>\<And>i. i < length xs \<Longrightarrow> (\<Gamma> ; I xs i \<turnstile> f (xs ! i) \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I xs (i+1)) \<bowtie> \<rho> \<bowtie> \<theta>)\<close>
-    shows \<open>\<Gamma> ; I xs 0 \<turnstile> raw_for_loop xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I xs (length xs)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-  using assms 
+  assumes \<open>\<And>i. i < length xs \<Longrightarrow> (\<Gamma> ; I xs i \<turnstile> f (xs ! i) \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I xs (i+1))
+             \<bowtie> \<rho> \<bowtie> loop_abort lbl (\<psi> ()) (I xs (i+1)) \<theta>)\<close>
+      and \<open>I xs (length xs) \<longlongrightarrow> \<psi> ()\<close>
+    shows \<open>\<Gamma> ; I xs 0 \<turnstile> raw_for_loop lbl xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  using assms
 proof (induction xs arbitrary: I)
   case Nil
   then show ?case
-    by (simp add: raw_for_loop_nil striple_skipI)
+    by (simp add: raw_for_loop_nil striple_skip_unitI)
 next
   case (Cons x xs)
-  then have \<open>\<Gamma> ; I (x # xs) 0 \<turnstile> f x \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I (x # xs) 1) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-    by fastforce
-  moreover have \<open>\<And>i. i < length xs \<Longrightarrow> \<Gamma> ; I (x # xs) (Suc i) \<turnstile> f (xs ! i) \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I (x # xs) (Suc (Suc i))) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-    by (metis Cons.prems Suc_eq_plus1 Suc_mono length_Cons nth_Cons_Suc)
-  then have \<open>\<Gamma> ; I (x # xs) 1 \<turnstile> raw_for_loop xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I (x # xs) (Suc (length xs))) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-    using Cons.IH[where I=\<open>\<lambda>_ i. I (x # xs) (i+1)\<close>] by force
-  ultimately have \<open>\<Gamma> ; I (x # xs) 0 \<turnstile> (bind (f x) (\<lambda>_. raw_for_loop xs f)) \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I (x # xs) (Suc (length xs))) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-    by (auto intro: striple_bindI[where \<psi>=\<open>\<lambda> _. I (x # xs) 1\<close>])
-  then show ?case
-    by (simp add: raw_for_loop_cons sequence_def)
+  have \<open>\<Gamma> ; I (x # xs) 0 \<turnstile> f x \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I (x # xs) 1)
+          \<bowtie> \<rho> \<bowtie> loop_abort lbl (\<psi> ()) (I (x # xs) 1) \<theta>\<close>
+    using Cons.prems(1) by fastforce
+  then have \<open>\<Gamma> ; I (x # xs) 0 \<turnstile> loop_step lbl (sequence (f x) (literal True))
+               \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>c. if c then I (x # xs) 1 else \<psi> ()) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+    by (rule striple_loop_iterationI)
+  moreover have \<open>\<Gamma> ; I (x # xs) (0+1) \<turnstile> raw_for_loop lbl xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  proof (rule Cons.IH[where I=\<open>\<lambda>_ i. I (x # xs) (i+1)\<close>])
+    fix i
+    assume \<open>i < length xs\<close>
+    then have \<open>Suc i < length (x # xs)\<close>
+      by simp
+    from Cons.prems(1)[OF this]
+    show \<open>\<Gamma> ; I (x # xs) (i+1) \<turnstile> f (xs ! i) \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. I (x # xs) (i+1+1))
+            \<bowtie> \<rho> \<bowtie> loop_abort lbl (\<psi> ()) (I (x # xs) (i+1+1)) \<theta>\<close>
+      by simp
+  next
+    show \<open>I (x # xs) (length xs + 1) \<longlongrightarrow> \<psi> ()\<close>
+      using Cons.prems(2) by simp
+  qed
+  ultimately show ?case
+    unfolding raw_for_loop_cons
+    by (auto intro!: striple_bindI[where \<psi>=\<open>\<lambda>c. if c then I (x # xs) 1 else \<psi> ()\<close>]
+      simp add: striple_skip_unitI aentails_refl)
 qed
 
 lemma striple_raw_for_loop_framed':
     notes aentails_intro [intro]
-    fixes INV :: \<open>'t list \<Rightarrow> nat \<Rightarrow> 'a assert\<close>
-  assumes \<open>\<And>i. (i < length xs) \<Longrightarrow> (\<Gamma> ; INV xs i \<turnstile> f (xs ! i) \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. INV xs (i+1)) \<bowtie> \<tau> \<bowtie> \<theta>)\<close>
-    shows \<open>\<Gamma> ; INV xs 0 \<star> ((INV xs (length xs) \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a)) \<turnstile> raw_for_loop xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
+    fixes INV BRK :: \<open>'t list \<Rightarrow> nat \<Rightarrow> 'a assert\<close>
+  assumes \<open>\<And>i. (i < length xs) \<Longrightarrow> (\<Gamma> ; INV xs i \<turnstile> f (xs ! i) \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. INV xs (i+1))
+             \<bowtie> \<tau> \<bowtie> loop_abort lbl (BRK xs i) (INV xs (i+1)) \<theta>)\<close>
+    shows \<open>\<Gamma> ; INV xs 0 \<star> ((INV xs (length xs) \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>i. BRK xs i \<Zsurj> \<psi> ())
+                \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a))
+             \<turnstile> raw_for_loop lbl xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
 proof -
-  let ?pc = \<open>(INV xs (length xs) \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a)\<close>
-  have \<open>\<Gamma> ; INV xs 0 \<star> ?pc \<turnstile> raw_for_loop xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. INV xs (length xs) \<star> ?pc) \<bowtie> \<rho> \<bowtie> \<chi>\<close>
-  proof (intro striple_raw_for_loop')
+  let ?pc = \<open>(INV xs (length xs) \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>i. BRK xs i \<Zsurj> \<psi> ())
+                \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a)\<close>
+  have inv: \<open>INV xs (length xs) \<star> ?pc \<longlongrightarrow> \<psi> ()\<close>
+    by (intro asepconj_awand_frameI aentails_inter_weaken2 aentails_refl)
+  have brk: \<open>BRK xs i \<star> ?pc \<longlongrightarrow> \<psi> ()\<close> for i
+    by (rule asepconj_awand_frameI, rule aentails_inter_weaken2, rule aentails_inter_weaken2,
+      rule aentails_inter_weaken, rule aforall_entailsL, rule aentails_refl)
+  have ret: \<open>\<tau> r \<star> ?pc \<longlongrightarrow> \<rho> r\<close> for r
+    by (rule asepconj_awand_frameI, rule aentails_inter_weaken2, rule aentails_inter_weaken,
+      rule aforall_entailsL, rule aentails_refl)
+  have abt: \<open>\<theta> a \<star> ?pc \<longlongrightarrow> \<chi> a\<close> for a
+    by (rule asepconj_awand_frameI, rule aentails_inter_weaken, rule aforall_entailsL, rule aentails_refl)
+  have \<open>\<Gamma> ; INV xs 0 \<star> ?pc \<turnstile> raw_for_loop lbl xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
+  proof (rule striple_raw_for_loop'[where I=\<open>\<lambda>xs' i. INV xs' i \<star> ?pc\<close>])
     fix i
     assume \<open>i < length xs\<close>
-    then have \<open>\<Gamma> ; INV xs i \<turnstile> f (xs ! i) \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. INV xs (i+1)) \<bowtie> \<tau> \<bowtie> \<theta>\<close>
-      using assms by auto
-    then have \<open>\<Gamma> ; INV xs i \<star> ?pc \<turnstile> f (xs ! i) \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k
-        (\<lambda>_. INV xs (i+1) \<star> ?pc) \<bowtie> (\<lambda>r. \<tau> r \<star> ?pc) \<bowtie> (\<lambda>a. \<theta> a \<star> ?pc)\<close>
-      using assms by (auto intro!: striple_frame_rule)
-    moreover have \<open>\<And>r. \<tau> r \<star> ?pc \<longlongrightarrow> \<rho> r\<close>
-    proof -
-      have \<open>\<And>r. \<tau> r \<star> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<longlongrightarrow> \<rho> r\<close>
-        by (meson aentails_refl aentails_trans aforall_entailsL asepconj_mono3 awand_counit)
-      from this show \<open>\<And>r. \<tau> r \<star> ?pc \<longlongrightarrow> \<rho> r\<close>
-        by (meson aentails_fold_def aentails_inter_weaken aentails_inter_weaken2 asepconj_mono awand_adjointI)
-    qed
-    moreover have \<open>\<And>a. \<theta> a \<star> ?pc \<longlongrightarrow> \<chi> a\<close>
-    proof -
-      have \<open>\<And>a. \<theta> a \<star> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a) \<longlongrightarrow> \<chi> a\<close>
-        by (meson aentails_refl aentails_trans aforall_entailsL asepconj_mono3 awand_counit)
-      from this show \<open>\<And>a. \<theta> a \<star> ?pc \<longlongrightarrow> \<chi> a\<close>
-        by (meson aentails_fold_def aentails_inter_weaken aentails_inter_weaken2 asepconj_mono awand_adjointI)
-    qed
-    ultimately show \<open>\<Gamma> ; INV xs i \<star> ?pc \<turnstile> f (xs ! i) \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. INV xs (i+1) \<star> ?pc) \<bowtie> \<rho> \<bowtie> \<chi>\<close>
-      by (meson aentails_refl striple_consequence)
+    have \<open>\<Gamma> ; INV xs i \<star> ?pc \<turnstile> f (xs ! i) \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k
+        (\<lambda>_. INV xs (i+1) \<star> ?pc) \<bowtie> (\<lambda>r. \<tau> r \<star> ?pc)
+        \<bowtie> (\<lambda>a. loop_abort lbl (BRK xs i) (INV xs (i+1)) \<theta> a \<star> ?pc)\<close>
+      by (rule striple_frame_rule, rule assms, fact)
+    then show \<open>\<Gamma> ; INV xs i \<star> ?pc \<turnstile> f (xs ! i) \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. INV xs (i+1) \<star> ?pc)
+        \<bowtie> \<rho> \<bowtie> loop_abort lbl (\<psi> ()) (INV xs (i+1) \<star> ?pc) \<chi>\<close>
+      by (rule striple_consequence)
+        (auto simp add: loop_abort_asepconj intro!: loop_abort_aentails brk ret abt aentails_refl)
+  next
+    show \<open>INV xs (length xs) \<star> ?pc \<longlongrightarrow> \<psi> ()\<close>
+      by (rule inv)
   qed
-  moreover have \<open>INV xs (length xs) \<star> ?pc \<longlongrightarrow> \<psi> ()\<close>
-    by (metis (no_types, lifting) aentails_refl local.asepconj_comm local.aentails_int local.awand_adjoint)
-  ultimately have \<open>\<Gamma> ; INV xs 0 \<star> ?pc \<turnstile> raw_for_loop xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
-    using local.striple_consequence by (fastforce simp: aentails_refl)
-  then show ?thesis
-    using aentails_refl local.asepconj_comm local.awand_mp local.striple_consequence by fastforce
+  then show ?thesis .
 qed
 
 lemma gather_spec':

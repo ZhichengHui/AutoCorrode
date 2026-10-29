@@ -355,6 +355,15 @@ syntax
     ("return _;")
   "_urust_return_unit" :: \<open>urust\<close>
     ("return/ ;")
+  \<comment>\<open>Loop control. As in Rust, loops may be labeled \<^verbatim>\<open>'label\<close>.\<close>
+  "_urust_break" :: \<open>urust\<close>
+    ("break/ ;")
+  "_urust_continue" :: \<open>urust\<close>
+    ("continue/ ;")
+  "_urust_break_label" :: \<open>tid_position \<Rightarrow> urust\<close>
+    ("break _;")
+  "_urust_continue_label" :: \<open>tid_position \<Rightarrow> urust\<close>
+    ("continue _;")
   \<comment>\<open>Unsafe\<close>
   "_urust_unsafe_block" :: \<open>urust \<Rightarrow> urust\<close>
     ("unsafe/ {/ _ /}")
@@ -395,6 +404,20 @@ syntax
     :: \<open>urust_antiquotation \<Rightarrow> urust_pattern \<Rightarrow> urust \<Rightarrow> urust \<Rightarrow> urust\<close>
     ("#'[fuel'(_') '] while let _ = (_) {/ _/ }" [0,100,20,0]11)
 
+  \<comment>\<open>Labeled loops. As in Rust, attributes precede the label.\<close>
+  "_urust_labeled_for_loop"
+    :: \<open>tid_position \<Rightarrow> urust_pattern \<Rightarrow> urust \<Rightarrow> urust \<Rightarrow> urust\<close>
+    ("_: for _ in (_) {/ _/ }" [0,100,20,0]11)
+  "_urust_labeled_while_loop"
+    :: \<open>urust_antiquotation \<Rightarrow> tid_position \<Rightarrow> urust \<Rightarrow> urust \<Rightarrow> urust\<close>
+    ("#'[fuel'(_') '] _: while (_) {/ _/ }" [0,0,20,0]11)
+  "_urust_labeled_loop"
+    :: \<open>urust_antiquotation \<Rightarrow> tid_position \<Rightarrow> urust \<Rightarrow> urust\<close>
+    ("#'[fuel'(_') '] _: loop {/ _/ }" [0,0,0]11)
+  "_urust_labeled_while_let"
+    :: \<open>urust_antiquotation \<Rightarrow> tid_position \<Rightarrow> urust_pattern \<Rightarrow> urust \<Rightarrow> urust \<Rightarrow> urust\<close>
+    ("#'[fuel'(_') '] _: while let _ = (_) {/ _/ }" [0,0,100,20,0]11)
+
   \<comment>\<open>Rust-style statement sequencing: block-like expressions may omit a trailing semicolon.\<close>
   "_urust_sequence_if_then_else"
     :: \<open>urust \<Rightarrow> urust \<Rightarrow> urust \<Rightarrow> urust \<Rightarrow> urust\<close>
@@ -426,6 +449,18 @@ syntax
   "_urust_sequence_while_let"
     :: \<open>urust_antiquotation \<Rightarrow> urust_pattern \<Rightarrow> urust \<Rightarrow> urust \<Rightarrow> urust \<Rightarrow> urust\<close>
     ("#'[fuel'(_') '] while let _ = (_) {/ _/ }/ _" [0,100,20,0,10]10)
+  "_urust_sequence_labeled_for_loop"
+    :: \<open>tid_position \<Rightarrow> urust_pattern \<Rightarrow> urust \<Rightarrow> urust \<Rightarrow> urust \<Rightarrow> urust\<close>
+    ("_: for _ in (_) {/ _/ }/ _" [0,100,20,0,10]10)
+  "_urust_sequence_labeled_while_loop"
+    :: \<open>urust_antiquotation \<Rightarrow> tid_position \<Rightarrow> urust \<Rightarrow> urust \<Rightarrow> urust \<Rightarrow> urust\<close>
+    ("#'[fuel'(_') '] _: while (_) {/ _/ }/ _" [0,0,20,0,10]10)
+  "_urust_sequence_labeled_loop"
+    :: \<open>urust_antiquotation \<Rightarrow> tid_position \<Rightarrow> urust \<Rightarrow> urust \<Rightarrow> urust\<close>
+    ("#'[fuel'(_') '] _: loop {/ _/ }/ _" [0,0,0,10]10)
+  "_urust_sequence_labeled_while_let"
+    :: \<open>urust_antiquotation \<Rightarrow> tid_position \<Rightarrow> urust_pattern \<Rightarrow> urust \<Rightarrow> urust \<Rightarrow> urust \<Rightarrow> urust\<close>
+    ("#'[fuel'(_') '] _: while let _ = (_) {/ _/ }/ _" [0,0,100,20,0,10]10)
   "_urust_sequence_temporary_match"
     :: \<open>urust \<Rightarrow> urust_match_branches \<Rightarrow> urust \<Rightarrow> urust\<close>
     ("match (_) {/ _/ }/ _" [20,10,10]10)
@@ -674,6 +709,14 @@ translations
     "_urust_sequence (_urust_if_let_else ptrn exp this that) next"
   "_urust_sequence_while_let fuel ptrn expr body next"
     => "_urust_sequence (_urust_while_let fuel ptrn expr body) next"
+  "_urust_sequence_labeled_for_loop l x iter body next"
+    => "_urust_sequence (_urust_labeled_for_loop l x iter body) next"
+  "_urust_sequence_labeled_while_loop fuel l cond body next"
+    => "_urust_sequence (_urust_labeled_while_loop fuel l cond body) next"
+  "_urust_sequence_labeled_loop fuel l body next"
+    => "_urust_sequence (_urust_labeled_loop fuel l body) next"
+  "_urust_sequence_labeled_while_let fuel l ptrn expr body next"
+    => "_urust_sequence (_urust_labeled_while_let fuel l ptrn expr body) next"
   "_urust_sequence_scoping body next" => "_urust_sequence (_urust_scoping body) next"
   "_urust_sequence_unsafe_block body next" => "_urust_sequence (_urust_unsafe_block body) next"
 

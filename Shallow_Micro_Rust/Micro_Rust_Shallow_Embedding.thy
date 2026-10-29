@@ -257,6 +257,9 @@ syntax
 
   "_string_token_to_hol" :: \<open>string_token \<Rightarrow> logic\<close>
 
+  \<comment>\<open>The label of a loop, as introduced by the parse AST translation for loop control below\<close>
+  "_urust_label" :: \<open>id \<Rightarrow> logic\<close>
+
 text\<open>We define the shallow embedding of uRust into HOL via a series of transformations
 at the syntax level.\<close>
 
@@ -452,6 +455,14 @@ translations
     \<rightharpoonup> "_urust_shallow_return (CONST literal ())"
   "_shallow (_urust_return exp)"
     \<rightharpoonup> "_urust_shallow_return (_shallow exp)"
+  "_shallow (_urust_break)"
+    \<rightharpoonup> "CONST Core_Expression.abort (CONST LoopBreak CONST None)"
+  "_shallow (_urust_continue)"
+    \<rightharpoonup> "CONST Core_Expression.abort (CONST LoopContinue CONST None)"
+  "_shallow (_urust_break_label l)"
+    \<rightharpoonup> "CONST Core_Expression.abort (CONST LoopBreak (CONST Some l))"
+  "_shallow (_urust_continue_label l)"
+    \<rightharpoonup> "CONST Core_Expression.abort (CONST LoopContinue (CONST Some l))"
   "_shallow (_urust_bind_immutable pattern exp cont)"
     \<rightharpoonup> "CONST Core_Expression.bind (_shallow exp) (_abs (_shallow_let_pattern pattern) (_shallow cont))"
   "_shallow (_urust_bind_immutable' pattern exp cont)"
@@ -863,7 +874,7 @@ translations
 
   \<comment>\<open>While let — tuple pattern special case (irrefutable)\<close>
   "_shallow (_urust_while_let (_urust_antiquotation fuel) (_urust_let_pattern_tuple args) expr body)"
-    \<rightharpoonup> "CONST bounded_while fuel
+    \<rightharpoonup> "CONST bounded_while CONST None fuel
           (CONST Core_Expression.bind (_shallow expr)
             (_abs (_shallow_let_pattern (_urust_let_pattern_tuple args))
               (CONST Core_Expression.sequence (_shallow body) (CONST Core_Expression.literal (CONST HOL.True)))))
@@ -872,6 +883,22 @@ translations
   \<comment>\<open>While let — general pattern case\<close>
   "_shallow (_urust_while_let (_urust_antiquotation fuel) ptrn expr body)"
     \<rightharpoonup> "_urust_shallow_while_let fuel (_shallow_match_pattern ptrn) (_shallow expr) (_shallow body)"
+
+  \<comment>\<open>Labeled loops\<close>
+  "_shallow (_urust_labeled_for_loop l x iter body)"
+    \<rightharpoonup> "_urust_shallow_labeled_for_loop l (_shallow_let_pattern x) (_shallow iter) (_shallow body)"
+  "_shallow (_urust_labeled_while_loop (_urust_antiquotation fuel) l cond body)"
+    \<rightharpoonup> "_urust_shallow_labeled_while_loop l fuel (_shallow cond) (_shallow body)"
+  "_shallow (_urust_labeled_loop (_urust_antiquotation fuel) l body)"
+    \<rightharpoonup> "_urust_shallow_labeled_loop l fuel (_shallow body)"
+  "_shallow (_urust_labeled_while_let (_urust_antiquotation fuel) l (_urust_let_pattern_tuple args) expr body)"
+    \<rightharpoonup> "CONST bounded_while (CONST Some l) fuel
+          (CONST Core_Expression.bind (_shallow expr)
+            (_abs (_shallow_let_pattern (_urust_let_pattern_tuple args))
+              (CONST Core_Expression.sequence (_shallow body) (CONST Core_Expression.literal (CONST HOL.True)))))
+          (CONST skip)"
+  "_shallow (_urust_labeled_while_let (_urust_antiquotation fuel) l ptrn expr body)"
+    \<rightharpoonup> "_urust_shallow_labeled_while_let l fuel (_shallow_match_pattern ptrn) (_shallow expr) (_shallow body)"
 
 micro_rust_notation \<open>lift_fun1 Some\<close> ("Some")
 micro_rust_notation \<open>lift_fun1 Ok\<close>   ("Ok")
@@ -1609,6 +1636,121 @@ fun str_tok_to_hol ctxt [Free (str, _)] =
 
 in
   [(\<^syntax_const>\<open>_string_token_to_hol\<close>, str_tok_to_hol)]
+end
+\<close>
+
+subsection\<open>Checking loop control\<close>
+
+text\<open>\<^verbatim>\<open>break\<close> and \<^verbatim>\<open>continue\<close> become the aborts \<^term>\<open>LoopBreak l\<close> and
+\<^term>\<open>LoopContinue l\<close>, which the targeted loop catches (see \<^term>\<open>loop_step\<close>). As in Rust, we
+reject a \<^verbatim>\<open>break\<close> or \<^verbatim>\<open>continue\<close>
+\<^item> outside of a loop,
+\<^item> with a label that names no enclosing loop, or
+\<^item> without a label in the condition of a \<^verbatim>\<open>while\<close> or \<^verbatim>\<open>while let\<close> loop.
+
+Which loops enclose a given \<^verbatim>\<open>break\<close> or \<^verbatim>\<open>continue\<close> is a property of the whole function body,
+so we check loop control by a single top-down pass over the uRust AST of \<^verbatim>\<open>\<lbrakk> \<dots> \<rbrakk>\<close>.
+Since parse AST translations are applied bottom-up, the translation for \<^verbatim>\<open>_shallow\<close> sees the
+complete body. The pass also turns each label \<^verbatim>\<open>'l\<close> into the string literal
+\<^term>\<open>STR ''l''\<close>. Closures start a new function body, and HOL terms embedded into uRust are
+left alone.\<close>
+
+parse_ast_translation\<open>
+let
+  val mk = Ast.mk_appl o Ast.Constant
+
+  fun label_of (Ast.Variable l) = l
+    | label_of (Ast.Appl [Ast.Constant \<^syntax_const>\<open>_ofsort\<close>, Ast.Variable l, _]) = l
+    | label_of ast = raise Ast.AST ("label_of", [ast])
+
+  fun label_name ast = unprefix "'" (label_of ast)
+  fun label_ast ast = mk \<^syntax_const>\<open>_urust_label\<close> [Ast.Variable (label_name ast)]
+
+  \<comment>\<open>The enclosing loops, innermost first: their label, and whether we are in their body (rather
+     than in their condition)\<close>
+  fun check what [] NONE = error ("uRust: " ^ what ^ " outside of a loop")
+    | check what ((_, false) :: _) NONE =
+        error ("uRust: " ^ what ^ " without a label in the condition of a while loop")
+    | check _ _ NONE = ()
+    | check what loops (SOME l) =
+        if exists (fn (l', _) => l' = SOME l) loops then ()
+        else error ("uRust: " ^ what ^ " with unknown label '" ^ l)
+
+  \<comment>\<open>Loops, and where their arguments lie: 0 outside the loop, 1 in its condition, 2 in its body\<close>
+  val loop_forms =
+    [(\<^syntax_const>\<open>_urust_for_loop\<close>, [0, 0, 2]),
+     (\<^syntax_const>\<open>_urust_while_loop\<close>, [0, 1, 2]),
+     (\<^syntax_const>\<open>_urust_loop\<close>, [0, 2]),
+     (\<^syntax_const>\<open>_urust_while_let\<close>, [0, 0, 1, 2]),
+     (\<^syntax_const>\<open>_urust_sequence_for_loop\<close>, [0, 0, 2, 0]),
+     (\<^syntax_const>\<open>_urust_sequence_while_loop\<close>, [0, 1, 2, 0]),
+     (\<^syntax_const>\<open>_urust_sequence_loop\<close>, [0, 2, 0]),
+     (\<^syntax_const>\<open>_urust_sequence_while_let\<close>, [0, 0, 1, 2, 0])]
+
+  \<comment>\<open>Labeled loops, their unlabeled counterparts, and the position of the label\<close>
+  val labeled_loop_forms =
+    [(\<^syntax_const>\<open>_urust_labeled_for_loop\<close>, (\<^syntax_const>\<open>_urust_for_loop\<close>, 0)),
+     (\<^syntax_const>\<open>_urust_labeled_while_loop\<close>, (\<^syntax_const>\<open>_urust_while_loop\<close>, 1)),
+     (\<^syntax_const>\<open>_urust_labeled_loop\<close>, (\<^syntax_const>\<open>_urust_loop\<close>, 1)),
+     (\<^syntax_const>\<open>_urust_labeled_while_let\<close>, (\<^syntax_const>\<open>_urust_while_let\<close>, 1)),
+     (\<^syntax_const>\<open>_urust_sequence_labeled_for_loop\<close>, (\<^syntax_const>\<open>_urust_sequence_for_loop\<close>, 0)),
+     (\<^syntax_const>\<open>_urust_sequence_labeled_while_loop\<close>, (\<^syntax_const>\<open>_urust_sequence_while_loop\<close>, 1)),
+     (\<^syntax_const>\<open>_urust_sequence_labeled_loop\<close>, (\<^syntax_const>\<open>_urust_sequence_loop\<close>, 1)),
+     (\<^syntax_const>\<open>_urust_sequence_labeled_while_let\<close>, (\<^syntax_const>\<open>_urust_sequence_while_let\<close>, 1))]
+
+  \<comment>\<open>Subterms which are not uRust of the current function body\<close>
+  val opaque = [\<^syntax_const>\<open>_shallow\<close>, \<^syntax_const>\<open>_urust_literal\<close>,
+                \<^syntax_const>\<open>_urust_antiquotation\<close>]
+
+  fun walk loops (ast as Ast.Constant c) =
+        (if c = \<^syntax_const>\<open>_urust_break\<close> then check "break" loops NONE
+         else if c = \<^syntax_const>\<open>_urust_continue\<close> then check "continue" loops NONE
+         else ();
+         ast)
+    | walk loops (ast as Ast.Appl (Ast.Constant c :: args)) =
+        if member (op =) opaque c then ast
+        else (case (c, args) of
+          (\<^syntax_const>\<open>_urust_break_label\<close>, [l]) =>
+            (check "break" loops (SOME (label_name l)); mk c [label_ast l])
+        | (\<^syntax_const>\<open>_urust_continue_label\<close>, [l]) =>
+            (check "continue" loops (SOME (label_name l)); mk c [label_ast l])
+        \<comment>\<open>Closures are separate function bodies\<close>
+        | (\<^syntax_const>\<open>_urust_closure_no_args\<close>, [e]) =>
+            mk c [walk [] e]
+        | (\<^syntax_const>\<open>_urust_closure_with_args\<close>, [xs, e]) =>
+            mk c [xs, walk [] e]
+        | _ =>
+          (case AList.lookup (op =) loop_forms c of
+            SOME places => mk c (walk_loop loops NONE places args)
+          | NONE =>
+            (case AList.lookup (op =) labeled_loop_forms c of
+              SOME (c', i) =>
+                let
+                  val l = nth args i
+                  val places = the (AList.lookup (op =) loop_forms c')
+                  val args' = walk_loop loops (SOME (label_name l)) places (nth_drop i args)
+                in mk c (take i args' @ [label_ast l] @ drop i args') end
+            | NONE => Ast.Appl (Ast.Constant c :: map (walk loops) args))))
+    | walk loops (Ast.Appl asts) = Ast.Appl (map (walk loops) asts)
+    | walk _ ast = ast
+  and walk_loop loops label =
+    map2 (fn 0 => walk loops
+           | 1 => walk ((label, false) :: loops)
+           | _ => walk ((label, true) :: loops))
+
+  fun shallow_tr [body] = mk \<^syntax_const>\<open>_shallow\<close> [walk [] body]
+    | shallow_tr args = raise Ast.AST ("shallow_tr", args)
+in
+  [(\<^syntax_const>\<open>_shallow\<close>, K shallow_tr)]
+end
+\<close>
+
+parse_translation\<open>
+let
+  fun label_tr [Free (l, _)] = HOLogic.mk_literal l
+    | label_tr ts = raise TERM ("label_tr", ts)
+in
+  [(\<^syntax_const>\<open>_urust_label\<close>, K label_tr)]
 end
 \<close>
 

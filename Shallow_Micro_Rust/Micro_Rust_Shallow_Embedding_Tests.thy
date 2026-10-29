@@ -1308,6 +1308,142 @@ term \<open>\<lbrakk>
 \<rbrakk>\<close>
 
 end
+
+subsubsection\<open>Break and Continue\<close>
+
+text\<open>\<^verbatim>\<open>break\<close> and \<^verbatim>\<open>continue\<close> become the aborts \<^term>\<open>LoopBreak l\<close> and
+\<^term>\<open>LoopContinue l\<close>, which the loop catches. \<^verbatim>\<open>return\<close> and \<^verbatim>\<open>?\<close> are unchanged
+inside loops.\<close>
+
+context
+  fixes n :: nat
+begin
+term \<open>\<lbrakk>
+  let mut x = \<llangle>0 :: 32 word\<rrangle>;
+  #[fuel(\<epsilon>\<open>n\<close>)] loop {
+    if *x == 10_u32 {
+      break;
+    }
+    x += 1_u32;
+  };
+  *x
+\<rbrakk>\<close>
+
+term \<open>\<lbrakk>
+  let mut x = \<llangle>0 :: 32 word\<rrangle>;
+  for i in (\<llangle>[1 :: 32 word, 2, 3]\<rrangle>) {
+    if i == 2_u32 {
+      continue;
+    }
+    x += i;
+  };
+  *x
+\<rbrakk>\<close>
+end
+
+context
+  fixes n m :: nat
+    and v :: \<open>32 word\<close>
+    and c :: bool
+    and x :: \<open>32 word option\<close>
+begin
+
+lemma \<open>\<lbrakk> #[fuel(\<epsilon>\<open>n\<close>)] loop { break; } \<rbrakk>
+         = bounded_while None n (literal True) (loop_break None)\<close>
+  by (rule refl)
+
+lemma \<open>\<lbrakk> #[fuel(\<epsilon>\<open>n\<close>)] while (\<llangle>c\<rrangle>) { continue; } \<rbrakk>
+         = bounded_while None n (literal c) (loop_continue None)\<close>
+  by (rule refl)
+
+lemma \<open>(\<lbrakk> #[fuel(\<epsilon>\<open>n\<close>)] loop { return \<llangle>v\<rrangle>; } \<rbrakk>
+          :: ('s, unit, 32 word, 'abort, 'i, 'o) expression)
+         = bounded_while None n (literal True) (return_func (literal v))\<close>
+  by (rule refl)
+
+lemma \<open>(\<lbrakk> #[fuel(\<epsilon>\<open>n\<close>)] loop { \<llangle>x\<rrangle>?; () } \<rbrakk> :: ('s, unit, 32 word option, 'abort, 'i, 'o) expression)
+         = bounded_while None n (literal True) (sequence (propagate_option (literal x)) (literal ()))\<close>
+  by (rule refl)
+
+\<comment>\<open>Nested loops: an unlabeled \<^verbatim>\<open>break\<close> names no loop; the inner loop catches it\<close>
+lemma \<open>(\<lbrakk>
+    #[fuel(\<epsilon>\<open>n\<close>)] loop {
+      #[fuel(\<epsilon>\<open>m\<close>)] loop {
+        if \<llangle>c\<rrangle> { break; } else { return \<llangle>v\<rrangle>; }
+      }
+    }
+  \<rbrakk> :: ('s, unit, 32 word, 'abort, 'i, 'o) expression)
+    = bounded_while None n (literal True) (bounded_while None m (literal True)
+        (two_armed_conditional (literal c) (loop_break None) (return_func (literal v))))\<close>
+  by (rule refl)
+
+end
+
+subsubsection\<open>Labeled Loops\<close>
+
+context
+  fixes n m :: nat
+    and c :: bool
+    and x :: \<open>32 word option\<close>
+begin
+
+term \<open>\<lbrakk>
+  let mut s = \<llangle>0 :: 32 word\<rrangle>;
+  'outer: for i in (\<llangle>[1 :: 32 word, 2, 3]\<rrangle>) {
+    for j in (\<llangle>[1 :: 32 word, 2, 3]\<rrangle>) {
+      if j == i {
+        continue 'outer;
+      }
+      s += j;
+    }
+  };
+  *s
+\<rbrakk>\<close>
+
+term \<open>\<lbrakk>
+  #[fuel(\<epsilon>\<open>n\<close>)] 'a: while let Some(u) = \<llangle>x\<rrangle> {
+    #[fuel(\<epsilon>\<open>m\<close>)] 'b: while (\<llangle>c\<rrangle>) {
+      break 'a;
+    }
+  }
+\<rbrakk>\<close>
+
+lemma \<open>\<lbrakk> #[fuel(\<epsilon>\<open>n\<close>)] 'outer: loop { #[fuel(\<epsilon>\<open>m\<close>)] loop { break 'outer; } } \<rbrakk>
+         = bounded_while (Some STR ''outer'') n (literal True) (bounded_while None m (literal True)
+             (loop_break (Some STR ''outer'')))\<close>
+  by (rule refl)
+
+lemma \<open>\<lbrakk> #[fuel(\<epsilon>\<open>n\<close>)] 'outer: while (\<llangle>c\<rrangle>) { #[fuel(\<epsilon>\<open>m\<close>)] loop { continue 'outer; } } \<rbrakk>
+         = bounded_while (Some STR ''outer'') n (literal c) (bounded_while None m (literal True)
+             (loop_continue (Some STR ''outer'')))\<close>
+  by (rule refl)
+
+\<comment>\<open>A labeled \<^verbatim>\<open>break\<close> in the condition of a \<^verbatim>\<open>while\<close> loop may name that loop\<close>
+lemma \<open>\<lbrakk> #[fuel(\<epsilon>\<open>n\<close>)] 'a: while ({ break 'a; }) { () } \<rbrakk>
+         = bounded_while (Some STR ''a'') n (loop_break (Some STR ''a'')) (literal ())\<close>
+  by (rule refl)
+
+end
+
+subsubsection\<open>Rejected Loop Control\<close>
+
+text\<open>\<^verbatim>\<open>break\<close> and \<^verbatim>\<open>continue\<close> outside of a loop, including inside a closure within a
+loop, with an unknown label, and without a label in the condition of a \<^verbatim>\<open>while\<close> loop are
+rejected.\<close>
+
+ML_val\<open>
+  fun rejected s = not (can (Syntax.read_term \<^context>) s)
+  val _ = \<^assert> (rejected "\<lbrakk> break; \<rbrakk>")
+  val _ = \<^assert> (rejected "\<lbrakk> continue; \<rbrakk>")
+  val _ = \<^assert> (rejected "\<lbrakk> break 'a; \<rbrakk>")
+  val _ = \<^assert> (rejected "\<lbrakk> #[fuel(\<epsilon>\<open>0\<close>)] 'a: loop { break 'b; } \<rbrakk>")
+  val _ = \<^assert> (rejected "\<lbrakk> #[fuel(\<epsilon>\<open>0\<close>)] loop { let f = ( |y| { break; } ); break; } \<rbrakk>")
+  val _ = \<^assert> (rejected "\<lbrakk> #[fuel(\<epsilon>\<open>0\<close>)] 'a: loop { let f = ( |y| { break 'a; } ); break; } \<rbrakk>")
+  val _ = \<^assert> (rejected "\<lbrakk> #[fuel(\<epsilon>\<open>0\<close>)] while ({ break; }) { () } \<rbrakk>")
+  val _ = \<^assert> (rejected "\<lbrakk> #[fuel(\<epsilon>\<open>0\<close>)] 'a: while ({ continue; }) { () } \<rbrakk>")
+  val _ = \<^assert> (not (rejected "\<lbrakk> #[fuel(\<epsilon>\<open>0\<close>)] 'a: while ({ continue 'a; }) { () } \<rbrakk>"))
+\<close>
+
 subsection\<open>Control Flow - Return\<close>
 
 subsubsection\<open>Return Without Value\<close>

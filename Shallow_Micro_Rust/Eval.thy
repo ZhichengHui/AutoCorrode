@@ -491,6 +491,105 @@ lemma urust_eval_action_call [urust_eval_action_simps]:
     and \<open>(\<Gamma>, call f) \<diamondop>\<^sub>r \<sigma> = {}\<close>
 by (auto simp add: urust_eval_action_via_predicate urust_eval_predicate_call)
 
+text\<open>Loop iterations\<close>
+
+definition loop_step_result :: \<open>String.literal option \<Rightarrow> ('s, bool, 'r, 'abort, 'i, 'o) continuation \<Rightarrow>
+    ('s, bool, 'r, 'abort, 'i, 'o) continuation\<close> where
+  \<open>loop_step_result lbl c \<equiv>
+     case c of
+       Abort a \<sigma>' \<Rightarrow> loop_abort lbl (Success False \<sigma>') (Success True \<sigma>') (\<lambda>a. Abort a \<sigma>') a
+     | _ \<Rightarrow> c\<close>
+
+lemma evaluate_loop_step_no_yield:
+  assumes \<open>\<forall>\<pi> \<sigma>' e'. evaluate e \<sigma> \<noteq> Yield \<pi> \<sigma>' e'\<close>
+    shows \<open>evaluate (loop_step lbl e) \<sigma> = loop_step_result lbl (evaluate e \<sigma>)\<close>
+  using assms by (auto simp add: evaluate_loop_step loop_step_result_def loop_abort_def
+    split: continuation.splits abort.splits)
+
+lemma deep_evaluates_nondet_basic_no_yield_singleton:
+  assumes \<open>evaluate e \<sigma> = c\<close>
+      and \<open>\<forall>\<pi> \<sigma>' e'. c \<noteq> Yield \<pi> \<sigma>' e'\<close>
+    shows \<open>deep_evaluates_nondet_basic y e \<sigma> = {c}\<close>
+  using assms by (subst deep_evaluates_nondet_basic.simps) (cases c; simp)
+
+text\<open>An abort raised by the yield handler is not caught by \<^term>\<open>loop_step\<close>. For a yield handler
+that never raises \<^term>\<open>LoopBreak\<close> or \<^term>\<open>LoopContinue\<close>, the evaluations of
+\<^term>\<open>loop_step lbl e\<close> are thus those of \<^term>\<open>e\<close>, with the caught \<^verbatim>\<open>break\<close>s and
+\<^verbatim>\<open>continue\<close>s turned into values:\<close>
+
+lemma deep_evaluate_basic_loop_step:
+  assumes \<open>is_loop_transparent_yield_handler y\<close>
+    shows \<open>deep_evaluates_nondet_basic y (loop_step lbl e) \<sigma> =
+             loop_step_result lbl ` deep_evaluates_nondet_basic y e \<sigma>\<close>
+  using expression_wf_base_is_wf
+proof (induct e arbitrary: \<sigma> rule: wf_induct_rule)
+  case (less e)
+  show ?case
+  proof (cases \<open>evaluate e \<sigma>\<close>)
+    case (Yield \<pi> \<sigma>'' e')
+    then have \<omega>: \<open>(e' \<omega>, e) \<in> expression_wf_base\<close> for \<omega>
+      using expression_wf_base_def by fastforce
+    have abort: \<open>loop_step_result lbl (Abort a \<sigma>''') = Abort a \<sigma>'''\<close>
+      if \<open>YieldAbort a \<sigma>''' \<in> y \<pi> \<sigma>''\<close> for a \<sigma>'''
+      using that assms by (cases a; auto simp add: loop_step_result_def
+        is_loop_transparent_yield_handler_def)
+    from Yield show ?thesis
+      apply (subst (1 2) deep_evaluates_nondet_basic.simps)
+      apply (simp add: evaluate_loop_step image_UN)
+      apply (rule SUP_cong[OF refl])
+      apply (auto simp add: less[OF \<omega>] abort split: yield_handler_nondet_basic_result.splits)
+      done
+  next
+    case (Success c \<sigma>')
+    then have \<open>evaluate (loop_step lbl e) \<sigma> = Success c \<sigma>'\<close>
+      by (simp add: evaluate_loop_step)
+    with Success show ?thesis
+      by (simp add: deep_evaluates_nondet_basic_no_yield_singleton[where c=\<open>Success c \<sigma>'\<close>]
+        loop_step_result_def)
+  next
+    case (Return r \<sigma>')
+    then have \<open>evaluate (loop_step lbl e) \<sigma> = Return r \<sigma>'\<close>
+      by (simp add: evaluate_loop_step)
+    with Return show ?thesis
+      by (simp add: deep_evaluates_nondet_basic_no_yield_singleton[where c=\<open>Return r \<sigma>'\<close>]
+        loop_step_result_def)
+  next
+    case (Abort a \<sigma>')
+    have ny: \<open>\<forall>\<pi> \<sigma>'' e''. loop_step_result lbl (Abort a \<sigma>') \<noteq> Yield \<pi> \<sigma>'' e''\<close>
+      by (cases a; simp add: loop_step_result_def)
+    from Abort have \<open>evaluate (loop_step lbl e) \<sigma> = loop_step_result lbl (Abort a \<sigma>')\<close>
+      by (simp add: evaluate_loop_step_no_yield)
+    from deep_evaluates_nondet_basic_no_yield_singleton[OF this ny]
+         deep_evaluates_nondet_basic_no_yield_singleton[OF Abort] show ?thesis
+      by simp
+  qed
+qed
+
+lemma urust_eval_predicate_loop_step:
+  assumes \<open>is_loop_transparent_yield_handler \<Gamma>\<close>
+  shows \<open>\<sigma> \<leadsto>\<^sub>v\<langle>\<Gamma>,loop_step lbl e\<rangle> (c,\<sigma>') \<longleftrightarrow> (\<sigma> \<leadsto>\<^sub>v\<langle>\<Gamma>,e\<rangle> (c,\<sigma>')) \<or>
+           (\<exists>l. loop_catches lbl l \<and>
+              (if c then \<sigma> \<leadsto>\<^sub>a\<langle>\<Gamma>,e\<rangle> (LoopContinue l,\<sigma>') else \<sigma> \<leadsto>\<^sub>a\<langle>\<Gamma>,e\<rangle> (LoopBreak l,\<sigma>')))\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>r\<langle>\<Gamma>,loop_step lbl e\<rangle> (r,\<sigma>') \<longleftrightarrow> (\<sigma> \<leadsto>\<^sub>r\<langle>\<Gamma>,e\<rangle> (r,\<sigma>'))\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>a\<langle>\<Gamma>,loop_step lbl e\<rangle> (a,\<sigma>') \<longleftrightarrow> (\<sigma> \<leadsto>\<^sub>a\<langle>\<Gamma>,e\<rangle> (a,\<sigma>')) \<and> loop_passes lbl a\<close>
+proof -
+  have v: \<open>Success c \<sigma>' = loop_step_result lbl k \<longleftrightarrow> k = Success c \<sigma>' \<or>
+          (\<exists>l. loop_catches lbl l \<and> k = (if c then Abort (LoopContinue l) \<sigma>' else Abort (LoopBreak l) \<sigma>'))\<close>
+       and r: \<open>Return r \<sigma>' = loop_step_result lbl k \<longleftrightarrow> k = Return r \<sigma>'\<close>
+       and a: \<open>Abort a \<sigma>' = loop_step_result lbl k \<longleftrightarrow> k = Abort a \<sigma>' \<and> loop_passes lbl a\<close>
+    for k :: \<open>(_, bool, _, _, _, _) continuation\<close>
+    by (auto simp add: loop_step_result_def loop_passes_def loop_abort_def
+      split: continuation.splits abort.splits if_splits)
+  show \<open>\<sigma> \<leadsto>\<^sub>v\<langle>\<Gamma>,loop_step lbl e\<rangle> (c,\<sigma>') \<longleftrightarrow> (\<sigma> \<leadsto>\<^sub>v\<langle>\<Gamma>,e\<rangle> (c,\<sigma>')) \<or>
+           (\<exists>l. loop_catches lbl l \<and>
+              (if c then \<sigma> \<leadsto>\<^sub>a\<langle>\<Gamma>,e\<rangle> (LoopContinue l,\<sigma>') else \<sigma> \<leadsto>\<^sub>a\<langle>\<Gamma>,e\<rangle> (LoopBreak l,\<sigma>')))\<close>
+    by (auto simp add: urust_eval_predicate_defs deep_evaluate_basic_loop_step[OF assms] image_iff v)
+  show \<open>\<sigma> \<leadsto>\<^sub>r\<langle>\<Gamma>,loop_step lbl e\<rangle> (r,\<sigma>') \<longleftrightarrow> (\<sigma> \<leadsto>\<^sub>r\<langle>\<Gamma>,e\<rangle> (r,\<sigma>'))\<close>
+    by (auto simp add: urust_eval_predicate_defs deep_evaluate_basic_loop_step[OF assms] image_iff r)
+  show \<open>\<sigma> \<leadsto>\<^sub>a\<langle>\<Gamma>,loop_step lbl e\<rangle> (a,\<sigma>') \<longleftrightarrow> (\<sigma> \<leadsto>\<^sub>a\<langle>\<Gamma>,e\<rangle> (a,\<sigma>')) \<and> loop_passes lbl a\<close>
+    by (auto simp add: urust_eval_predicate_defs deep_evaluate_basic_loop_step[OF assms] image_iff a)
+qed
+
 text\<open>Conditionals\<close>
 
 corollary urust_eval_action_two_armed_conditional [urust_eval_action_simps]:

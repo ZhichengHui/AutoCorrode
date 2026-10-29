@@ -925,40 +925,75 @@ declare aexists_entailsL aexists_entailsR aforall_entailsL aforall_entailsR
 
 subsection\<open>Loops\<close>
 
-text\<open>Note that this is not added to \<^verbatim>\<open>micro_rust_wp_intros\<close>. The invariant pretty much always needs
-to be provided, so there is not much point.\<close>
-lemma wp_raw_for_loopI:
-    notes aentails_intro [intro]
-      and aentails_simp [simp]
-      and asepconj_simp [simp]
-  assumes \<open>\<phi> \<longlongrightarrow> INV [] xs\<close>
-      and \<open>\<And>past cur todo. xs = past@(cur#todo) \<Longrightarrow> INV past (cur#todo) \<longlongrightarrow> \<W>\<P> \<Gamma> (f cur) (\<lambda>_. INV (past@[cur]) todo) \<rho> \<theta>\<close>
-      and \<open>INV xs [] \<longlongrightarrow> \<psi> ()\<close>
-    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> (raw_for_loop xs f) \<psi> \<rho> \<theta>\<close>
+text\<open>One iteration of a loop with label \<^term>\<open>lbl\<close>: a \<^verbatim>\<open>break\<close> caught by the loop gives
+\<^term>\<open>False\<close> and a \<^verbatim>\<open>continue\<close> caught by the loop gives \<^term>\<open>True\<close>.\<close>
+lemma wp_loop_stepI [micro_rust_wp_intros]:
+  assumes \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> e \<psi> \<rho> (loop_abort lbl (\<psi> False) (\<psi> True) \<theta>)\<close>
+    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> (loop_step lbl e) \<psi> \<rho> \<theta>\<close>
 proof -
-  from assms have H: \<open>\<Gamma> ; \<langle>xs = []@xs\<rangle> \<star> INV [] xs \<turnstile> raw_for_loop xs f
-        \<stileturn> (\<lambda>_. \<langle>xs = xs@[]\<rangle> \<star> INV xs []) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-    by (intro sstriple_raw_for_loop)
-      (force intro: wp_to_sstriple apure_precise_entailsL apure_precise_entailsR)
-  from assms have \<open>INV [] xs \<longlongrightarrow>  \<W>\<P> \<Gamma> (raw_for_loop xs f) \<psi> \<rho> \<theta>\<close>
-    by (intro wp_is_weakest_precondition; clarsimp)
-      (rule sstriple_consequence[OF H];
-       clarsimp simp add: aentails_refl apure_precise_entailsL apure_precise_entailsR)
+  have \<open>\<W>\<P> \<Gamma> e \<psi> \<rho> (loop_abort lbl (\<psi> False) (\<psi> True) \<theta>) \<longlongrightarrow> \<W>\<P> \<Gamma> (loop_step lbl e) \<psi> \<rho> \<theta>\<close>
+    by (intro wp_is_weakest_precondition sstriple_loop_stepI wp_is_precondition)
   from this and assms show ?thesis
-    by blast
+    by (rule aentails_trans')
 qed
 
-text\<open>The following is a framed version of \<^text>\<open>wp_raw_for_loopI\<close> recovering the latter if
-\<^term>\<open>\<xi> = UNIV\<close>.\<close>
-lemma wp_raw_for_loop_framedI:
-  assumes \<open>\<phi> \<longlongrightarrow> INV [] xs \<star> ((INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>r. \<theta> r \<Zsurj> \<chi> r))\<close>
-      and \<open>\<And>past cur todo. INV past (cur#todo) \<longlongrightarrow> \<W>\<P> \<Gamma> (f cur) (\<lambda>_. INV (past@[cur]) todo) \<tau> \<theta>\<close>
-    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> (raw_for_loop xs f) \<psi> \<rho> \<chi>\<close>
+text\<open>Note that this is not added to \<^verbatim>\<open>micro_rust_wp_intros\<close>. The invariant pretty much always needs
+to be provided, so there is not much point. A \<^verbatim>\<open>break\<close> caught by the loop establishes the
+postcondition of the loop, and a \<^verbatim>\<open>continue\<close> caught by the loop establishes the invariant for
+the next iteration.\<close>
+lemma wp_raw_for_loopI:
+  assumes \<open>\<phi> \<longlongrightarrow> INV [] xs\<close>
+      and \<open>\<And>past cur todo. xs = past@(cur#todo) \<Longrightarrow> INV past (cur#todo) \<longlongrightarrow>
+             \<W>\<P> \<Gamma> (f cur) (\<lambda>_. INV (past@[cur]) todo) \<rho> (loop_abort lbl (\<psi> ()) (INV (past@[cur]) todo) \<theta>)\<close>
+      and \<open>INV xs [] \<longlongrightarrow> \<psi> ()\<close>
+    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> (raw_for_loop lbl xs f) \<psi> \<rho> \<theta>\<close>
 proof -
-  let ?pc = \<open>((INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>r. \<theta> r \<Zsurj> \<chi> r))\<close>
-  from assms have \<open>\<Gamma> ; INV [] xs \<star> ?pc \<turnstile> raw_for_loop xs f \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
-    by (intro sstriple_raw_for_loop_framed) (auto simp add: local.wp_to_sstriple)
-  from this have X: \<open>INV [] xs \<star> ?pc \<longlongrightarrow> \<W>\<P> \<Gamma> (raw_for_loop xs f) \<psi> \<rho> \<chi>\<close>
+  have \<open>\<Gamma> ; \<langle>xs = [] @ xs\<rangle> \<star> INV [] xs \<turnstile> raw_for_loop lbl xs f \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  proof (rule sstriple_raw_for_loop[where I=\<open>\<lambda>p t. \<langle>xs = p @ t\<rangle> \<star> INV p t\<close>])
+    fix past cur todo
+    show \<open>\<Gamma> ; \<langle>xs = past @ cur # todo\<rangle> \<star> INV past (cur # todo) \<turnstile> f cur \<stileturn>
+            (\<lambda>_. \<langle>xs = (past @ [cur]) @ todo\<rangle> \<star> INV (past @ [cur]) todo) \<bowtie> \<rho>
+            \<bowtie> loop_abort lbl (\<psi> ()) (\<langle>xs = (past @ [cur]) @ todo\<rangle> \<star> INV (past @ [cur]) todo) \<theta>\<close>
+    proof (rule sstriple_assume_is_sat)
+      assume \<open>is_sat (\<langle>xs = past @ cur # todo\<rangle> \<star> INV past (cur # todo))\<close>
+      then have xs: \<open>xs = past @ cur # todo\<close>
+        by (auto elim: is_sat_splitE)
+      from assms(2)[OF xs] have \<open>\<Gamma> ; INV past (cur # todo) \<turnstile> f cur \<stileturn> (\<lambda>_. INV (past @ [cur]) todo)
+          \<bowtie> \<rho> \<bowtie> loop_abort lbl (\<psi> ()) (INV (past @ [cur]) todo) \<theta>\<close>
+        by (rule wp_to_sstriple)
+      then show \<open>\<Gamma> ; \<langle>xs = past @ cur # todo\<rangle> \<star> INV past (cur # todo) \<turnstile> f cur \<stileturn>
+            (\<lambda>_. \<langle>xs = (past @ [cur]) @ todo\<rangle> \<star> INV (past @ [cur]) todo) \<bowtie> \<rho>
+            \<bowtie> loop_abort lbl (\<psi> ()) (\<langle>xs = (past @ [cur]) @ todo\<rangle> \<star> INV (past @ [cur]) todo) \<theta>\<close>
+        by (rule sstriple_consequence)
+          (use xs in \<open>auto intro!: apure_precise_entailsL apure_precise_entailsR loop_abort_aentails
+             aentails_refl\<close>)
+    qed
+  next
+    show \<open>\<langle>xs = xs @ []\<rangle> \<star> INV xs [] \<longlongrightarrow> \<psi> ()\<close>
+      by (rule apure_precise_entailsL) (rule assms(3))
+  qed
+  then have \<open>\<langle>xs = [] @ xs\<rangle> \<star> INV [] xs \<longlongrightarrow> \<W>\<P> \<Gamma> (raw_for_loop lbl xs f) \<psi> \<rho> \<theta>\<close>
+    by (rule wp_is_weakest_precondition)
+  moreover have \<open>\<phi> \<longlongrightarrow> \<langle>xs = [] @ xs\<rangle> \<star> INV [] xs\<close>
+    using assms(1) by (intro apure_precise_entailsR) simp_all
+  ultimately show ?thesis
+    by (rule aentails_trans')
+qed
+
+text\<open>The following is a framed version of \<^text>\<open>wp_raw_for_loopI\<close>. The assertion
+\<^term>\<open>BRK\<close> holds after a \<^verbatim>\<open>break\<close> caught by the loop.\<close>
+lemma wp_raw_for_loop_framedI:
+  assumes \<open>\<phi> \<longlongrightarrow> INV [] xs \<star> ((INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>p. \<Sqinter>t. BRK p t \<Zsurj> \<psi> ())
+                \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>r. \<theta> r \<Zsurj> \<chi> r))\<close>
+      and \<open>\<And>past cur todo. INV past (cur#todo) \<longlongrightarrow> \<W>\<P> \<Gamma> (f cur) (\<lambda>_. INV (past@[cur]) todo) \<tau>
+             (loop_abort lbl (BRK past (cur#todo)) (INV (past@[cur]) todo) \<theta>)\<close>
+    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> (raw_for_loop lbl xs f) \<psi> \<rho> \<chi>\<close>
+proof -
+  let ?pc = \<open>(INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>p. \<Sqinter>t. BRK p t \<Zsurj> \<psi> ())
+                \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>r. \<theta> r \<Zsurj> \<chi> r)\<close>
+  from assms have \<open>\<Gamma> ; INV [] xs \<star> ?pc \<turnstile> raw_for_loop lbl xs f \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
+    by (intro sstriple_raw_for_loop_framed) (auto simp add: wp_to_sstriple)
+  from this have X: \<open>INV [] xs \<star> ?pc \<longlongrightarrow> \<W>\<P> \<Gamma> (raw_for_loop lbl xs f) \<psi> \<rho> \<chi>\<close>
     by (rule wp_is_weakest_precondition)
   show ?thesis
     by (rule aentails_trans'[OF X assms(1)])
@@ -966,18 +1001,23 @@ qed
 
 text\<open>Alternative loop rule which might be easier to use in some situations. Passing the list to the
 invariant may seem redundant because it's part of the context, but we don't always know what the
-list will be named in the current proof state.\<close>
+list will be named in the current proof state. The assertion \<^term>\<open>BRK xs i\<close> holds after a
+\<^verbatim>\<open>break\<close> in iteration \<^term>\<open>i\<close> caught by the loop; for a loop without \<^verbatim>\<open>break\<close>,
+it can be \<^term>\<open>\<lambda>_ _. \<langle>False\<rangle>\<close>.\<close>
 lemma wp_raw_for_loop_framedI':
     fixes xs :: \<open>'e list\<close>
-      and INV :: \<open>'e list \<Rightarrow> nat \<Rightarrow> 'a assert\<close>
-  assumes \<open>\<phi> \<longlongrightarrow> INV xs 0 \<star> ((INV xs (length xs) \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>r. \<theta> r \<Zsurj> \<chi> r))\<close>
-      and \<open>\<And>i. i < length xs \<Longrightarrow> INV xs i \<longlongrightarrow> \<W>\<P> \<Gamma> (f (xs ! i)) (\<lambda>_. INV xs (i+1)) \<tau> \<theta>\<close>
-    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> (raw_for_loop xs f) \<psi> \<rho> \<chi>\<close>
+      and INV BRK :: \<open>'e list \<Rightarrow> nat \<Rightarrow> 'a assert\<close>
+  assumes \<open>\<phi> \<longlongrightarrow> INV xs 0 \<star> ((INV xs (length xs) \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>i. BRK xs i \<Zsurj> \<psi> ())
+                \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>r. \<theta> r \<Zsurj> \<chi> r))\<close>
+      and \<open>\<And>i. i < length xs \<Longrightarrow> INV xs i \<longlongrightarrow> \<W>\<P> \<Gamma> (f (xs ! i)) (\<lambda>_. INV xs (i+1)) \<tau>
+             (loop_abort lbl (BRK xs i) (INV xs (i+1)) \<theta>)\<close>
+    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> (raw_for_loop lbl xs f) \<psi> \<rho> \<chi>\<close>
 proof -
-  let ?pc = \<open>((INV xs (length xs) \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>r. \<theta> r \<Zsurj> \<chi> r))\<close>
-  from assms have \<open>\<Gamma> ; INV xs 0 \<star> ?pc \<turnstile> raw_for_loop xs f \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
-    by (intro sstriple_raw_for_loop_framed') (auto simp add: local.wp_to_sstriple)
-  from this have X: \<open>INV xs 0 \<star> ?pc \<longlongrightarrow> \<W>\<P> \<Gamma> (raw_for_loop xs f) \<psi> \<rho> \<chi>\<close>
+  let ?pc = \<open>(INV xs (length xs) \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>i. BRK xs i \<Zsurj> \<psi> ())
+                \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>r. \<theta> r \<Zsurj> \<chi> r)\<close>
+  from assms have \<open>\<Gamma> ; INV xs 0 \<star> ?pc \<turnstile> raw_for_loop lbl xs f \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
+    by (intro sstriple_raw_for_loop_framed') (auto simp add: wp_to_sstriple)
+  from this have X: \<open>INV xs 0 \<star> ?pc \<longlongrightarrow> \<W>\<P> \<Gamma> (raw_for_loop lbl xs f) \<psi> \<rho> \<chi>\<close>
     by (rule wp_is_weakest_precondition)
   show ?thesis
     by (rule aentails_trans'[OF X assms(1)])
@@ -988,19 +1028,22 @@ subsection\<open>Bounded while loops\<close>
 lemma wp_bounded_while_framedI:
     fixes INV :: \<open>nat \<Rightarrow> 'a assert\<close>
       and INV' :: \<open>nat \<Rightarrow> 'a assert\<close>
-  assumes \<open>\<phi> \<longlongrightarrow> INV n \<star> ((INV 0 \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>r. \<theta> r \<Zsurj> \<chi> r))\<close>
+      and BRK :: \<open>nat \<Rightarrow> 'a assert\<close>
+  assumes \<open>\<phi> \<longlongrightarrow> INV n \<star> ((INV 0 \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>k. BRK k \<Zsurj> \<psi> ())
+                \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>r. \<theta> r \<Zsurj> \<chi> r))\<close>
       and \<open>\<And>k. k < n \<Longrightarrow>
             INV (Suc k) \<longlongrightarrow> \<W>\<P> \<Gamma> cond (\<lambda>c.
-              if c then INV' k else INV 0) \<tau> \<theta>\<close>
+              if c then INV' k else INV 0) \<tau> (loop_abort lbl (BRK k) (INV k) \<theta>)\<close>
       and \<open>\<And>k. k < n \<Longrightarrow>
-            INV' k \<longlongrightarrow> \<W>\<P> \<Gamma> body (\<lambda>_. INV k) \<tau> \<theta>\<close>
-    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> (bounded_while n cond body) \<psi> \<rho> \<chi>\<close>
+            INV' k \<longlongrightarrow> \<W>\<P> \<Gamma> body (\<lambda>_. INV k) \<tau> (loop_abort lbl (BRK k) (INV k) \<theta>)\<close>
+    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> (bounded_while lbl n cond body) \<psi> \<rho> \<chi>\<close>
 proof -
-  let ?pc = \<open>((INV 0 \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>r. \<theta> r \<Zsurj> \<chi> r))\<close>
-  from assms have \<open>\<Gamma> ; INV n \<star> ?pc \<turnstile> bounded_while n cond body \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
+  let ?pc = \<open>(INV 0 \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>k. BRK k \<Zsurj> \<psi> ())
+                \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>r. \<theta> r \<Zsurj> \<chi> r)\<close>
+  from assms have \<open>\<Gamma> ; INV n \<star> ?pc \<turnstile> bounded_while lbl n cond body \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
     by (intro sstriple_bounded_while_framed[where INV'=INV'])
        (auto simp add: local.wp_to_sstriple)
-  from this have X: \<open>INV n \<star> ?pc \<longlongrightarrow> \<W>\<P> \<Gamma> (bounded_while n cond body) \<psi> \<rho> \<chi>\<close>
+  from this have X: \<open>INV n \<star> ?pc \<longlongrightarrow> \<W>\<P> \<Gamma> (bounded_while lbl n cond body) \<psi> \<rho> \<chi>\<close>
     by (rule wp_is_weakest_precondition)
   show ?thesis
     by (rule aentails_trans'[OF X assms(1)])

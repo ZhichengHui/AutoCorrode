@@ -479,9 +479,9 @@ lemma ssa_transform_urust_lt [micro_rust_ssa]:
 subsection\<open>Single static assignment form for loops\<close>
 
 lemma ssa_transform_for_loop [micro_rust_ssa]:
-  shows \<open>\<lbrace> MICRO_RUST_SSA_CONTROL (for_loop i body) \<rbrace> = 
+  shows \<open>\<lbrace> MICRO_RUST_SSA_CONTROL (for_loop lbl i body) \<rbrace> =
          \<lbrace> let x = MICRO_RUST_SSA_CONTROL i;
-           for_loop (literal x) (\<lambda>idx. MICRO_RUST_SSA_CONTROL (body idx)) \<rbrace>\<close>
+           for_loop lbl (literal x) (\<lambda>idx. MICRO_RUST_SSA_CONTROL (body idx)) \<rbrace>\<close>
   unfolding MICRO_RUST_SSA_CONTROL_def
   by (simp add: bind_literal_unit for_loop_def)
 
