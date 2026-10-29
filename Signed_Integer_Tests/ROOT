@@ -1,0 +1,27 @@
+session Signed_Tests_Language in "Language" = HOL +
+  description "Tests of signed integers: syntax, translation, definitions and executable semantics"
+  options [document = false]
+  sessions
+    "HOL-Library"
+    Separation_Lenses
+    Shallow_Micro_Rust
+    Shallow_Separation_Logic
+    Micro_Rust_Std_Lib
+    Crush
+    Lenses_And_Other_Optics
+  theories
+    Signed_Tests_Language
+
+session Signed_Tests_Automation in "Automation" = HOL +
+  description "Tests of signed integers: evaluation, triple and WP rules, Crush and specification checks"
+  options [document = false]
+  sessions
+    "HOL-Library"
+    Separation_Lenses
+    Shallow_Micro_Rust
+    Shallow_Separation_Logic
+    Micro_Rust_Std_Lib
+    Crush
+    Lenses_And_Other_Optics
+  theories
+    Signed_Tests_Automation
