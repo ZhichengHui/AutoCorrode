@@ -340,6 +340,12 @@ translations
     \<rightharpoonup> "CONST ucasti64 (_shallow e)"
   "_shallow(_urust_primitive_integral_cast_usize e)"
     \<rightharpoonup> "CONST ucastu64 (_shallow e)"
+  "_shallow(_urust_primitive_integral_cast_i8 e)"
+    \<rightharpoonup> "CONST ucasti8 (_shallow e)"
+  "_shallow(_urust_primitive_integral_cast_i16 e)"
+    \<rightharpoonup> "CONST ucasti16 (_shallow e)"
+  "_shallow(_urust_primitive_integral_cast_isize e)"
+    \<rightharpoonup> "CONST ucasti64 (_shallow e)"
   \<comment>\<open>Raw pointer casts\<close>
   "_shallow(_urust_ptr_const_cast_u8 e)"
     \<rightharpoonup> "CONST raw_ptr_cast_u8 (_shallow e)"
@@ -351,6 +357,16 @@ translations
     \<rightharpoonup> "CONST raw_ptr_cast_u64 (_shallow e)"
   "_shallow(_urust_ptr_const_cast_usize e)"
     \<rightharpoonup> "CONST raw_ptr_cast_u64 (_shallow e)"
+  "_shallow(_urust_ptr_const_cast_i8 e)"
+    \<rightharpoonup> "CONST raw_ptr_cast_i8 (_shallow e)"
+  "_shallow(_urust_ptr_const_cast_i16 e)"
+    \<rightharpoonup> "CONST raw_ptr_cast_i16 (_shallow e)"
+  "_shallow(_urust_ptr_const_cast_i32 e)"
+    \<rightharpoonup> "CONST raw_ptr_cast_i32 (_shallow e)"
+  "_shallow(_urust_ptr_const_cast_i64 e)"
+    \<rightharpoonup> "CONST raw_ptr_cast_i64 (_shallow e)"
+  "_shallow(_urust_ptr_const_cast_isize e)"
+    \<rightharpoonup> "CONST raw_ptr_cast_i64 (_shallow e)"
   "_shallow(_urust_numeral_ascription_0_u8)"
     \<rightharpoonup> "CONST ascribeu8 0"
   "_shallow(_urust_numeral_ascription_1_u8)"
@@ -381,6 +397,36 @@ translations
     \<rightharpoonup> "CONST ascribeu64 1"
   "_shallow(_urust_numeral_ascription_usize e)"
     \<rightharpoonup> "CONST ascribeu64 (_Numeral e)"
+  "_shallow(_urust_numeral_ascription_0_i8)"
+    \<rightharpoonup> "CONST ascribei8 0"
+  "_shallow(_urust_numeral_ascription_1_i8)"
+    \<rightharpoonup> "CONST ascribei8 1"
+  "_shallow(_urust_numeral_ascription_i8 e)"
+    \<rightharpoonup> "CONST ascribei8 (_Numeral e)"
+  "_shallow(_urust_numeral_ascription_0_i16)"
+    \<rightharpoonup> "CONST ascribei16 0"
+  "_shallow(_urust_numeral_ascription_1_i16)"
+    \<rightharpoonup> "CONST ascribei16 1"
+  "_shallow(_urust_numeral_ascription_i16 e)"
+    \<rightharpoonup> "CONST ascribei16 (_Numeral e)"
+  "_shallow(_urust_numeral_ascription_0_i32)"
+    \<rightharpoonup> "CONST ascribei32 0"
+  "_shallow(_urust_numeral_ascription_1_i32)"
+    \<rightharpoonup> "CONST ascribei32 1"
+  "_shallow(_urust_numeral_ascription_i32 e)"
+    \<rightharpoonup> "CONST ascribei32 (_Numeral e)"
+  "_shallow(_urust_numeral_ascription_0_i64)"
+    \<rightharpoonup> "CONST ascribei64 0"
+  "_shallow(_urust_numeral_ascription_1_i64)"
+    \<rightharpoonup> "CONST ascribei64 1"
+  "_shallow(_urust_numeral_ascription_i64 e)"
+    \<rightharpoonup> "CONST ascribei64 (_Numeral e)"
+  "_shallow(_urust_numeral_ascription_0_isize)"
+    \<rightharpoonup> "CONST ascribei64 0"
+  "_shallow(_urust_numeral_ascription_1_isize)"
+    \<rightharpoonup> "CONST ascribei64 1"
+  "_shallow(_urust_numeral_ascription_isize e)"
+    \<rightharpoonup> "CONST ascribei64 (_Numeral e)"
   \<comment>\<open>Explicit scopes are relevant for initial parsing and can be removed when operating on ASTs\<close>
   "_shallow(_urust_scoping f)"
     \<rightharpoonup> "(_shallow f)"
@@ -775,6 +821,46 @@ translations
 
   "_shallow (_urust_negation exp)"
     \<rightharpoonup> "_urust_shallow_negation (_shallow exp)"
+  \<comment>\<open>A minus sign directly in front of a numeral is part of the literal, as in Rust: the literal
+    \<^verbatim>\<open>-128_i8\<close> denotes the minimum value and does not negate \<^verbatim>\<open>128_i8\<close>.\<close>
+  "_shallow (_urust_uminus _urust_numeral_0)"
+    \<rightharpoonup> "CONST literal 0"
+  "_shallow (_urust_uminus _urust_numeral_1)"
+    \<rightharpoonup> "CONST literal (- 1)"
+  "_shallow (_urust_uminus (_urust_numeral n))"
+    \<rightharpoonup> "CONST literal (- (_Numeral n))"
+  "_shallow (_urust_uminus _urust_numeral_ascription_0_i8)"
+    \<rightharpoonup> "CONST ascribei8 0"
+  "_shallow (_urust_uminus _urust_numeral_ascription_1_i8)"
+    \<rightharpoonup> "CONST ascribei8 (- 1)"
+  "_shallow (_urust_uminus (_urust_numeral_ascription_i8 e))"
+    \<rightharpoonup> "CONST ascribei8 (- (_Numeral e))"
+  "_shallow (_urust_uminus _urust_numeral_ascription_0_i16)"
+    \<rightharpoonup> "CONST ascribei16 0"
+  "_shallow (_urust_uminus _urust_numeral_ascription_1_i16)"
+    \<rightharpoonup> "CONST ascribei16 (- 1)"
+  "_shallow (_urust_uminus (_urust_numeral_ascription_i16 e))"
+    \<rightharpoonup> "CONST ascribei16 (- (_Numeral e))"
+  "_shallow (_urust_uminus _urust_numeral_ascription_0_i32)"
+    \<rightharpoonup> "CONST ascribei32 0"
+  "_shallow (_urust_uminus _urust_numeral_ascription_1_i32)"
+    \<rightharpoonup> "CONST ascribei32 (- 1)"
+  "_shallow (_urust_uminus (_urust_numeral_ascription_i32 e))"
+    \<rightharpoonup> "CONST ascribei32 (- (_Numeral e))"
+  "_shallow (_urust_uminus _urust_numeral_ascription_0_i64)"
+    \<rightharpoonup> "CONST ascribei64 0"
+  "_shallow (_urust_uminus _urust_numeral_ascription_1_i64)"
+    \<rightharpoonup> "CONST ascribei64 (- 1)"
+  "_shallow (_urust_uminus (_urust_numeral_ascription_i64 e))"
+    \<rightharpoonup> "CONST ascribei64 (- (_Numeral e))"
+  "_shallow (_urust_uminus _urust_numeral_ascription_0_isize)"
+    \<rightharpoonup> "CONST ascribei64 0"
+  "_shallow (_urust_uminus _urust_numeral_ascription_1_isize)"
+    \<rightharpoonup> "CONST ascribei64 (- 1)"
+  "_shallow (_urust_uminus (_urust_numeral_ascription_isize e))"
+    \<rightharpoonup> "CONST ascribei64 (- (_Numeral e))"
+  "_shallow (_urust_uminus exp)"
+    \<rightharpoonup> "_urust_shallow_uminus (_shallow exp)"
   "_shallow (_urust_bool_conjunction x y)"
     \<rightharpoonup> "_urust_shallow_bool_conjunction (_shallow x) (_shallow y)"
   "_shallow (_urust_bool_disjunction x y)"
@@ -819,6 +905,10 @@ translations
     \<rightharpoonup> "_urust_shallow_match_pattern_zero"
   "_shallow_match_pattern (_urust_match_pattern_one)"
     \<rightharpoonup> "_urust_shallow_match_pattern_one"
+  "_shallow_match_pattern (_urust_match_pattern_neg_num_const num)"
+    \<rightharpoonup> "_urust_shallow_match_pattern_neg_num_const num"
+  "_shallow_match_pattern (_urust_match_pattern_neg_one)"
+    \<rightharpoonup> "_urust_shallow_match_pattern_neg_one"
   \<comment>\<open>Match-arm constructor heads continue to route through the
     value-position \<^verbatim>\<open>_shallow_identifier_as_literal\<close>: \<open>case_tr\<close>
     downstream tolerates a \<^verbatim>\<open>urust_dispatch\<close> marker as the head and
@@ -1344,6 +1434,8 @@ ML\<open>
             mk_literal_expr v
         | Const (\<^syntax_const>\<open>_urust_match_pattern_num_const\<close>, _) $ n =>
             mk_literal_expr (num_const_to_hol n)
+        | Const (\<^syntax_const>\<open>_urust_match_pattern_neg_num_const\<close>, _) $ n =>
+            mk_literal_expr (mk \<^const_syntax>\<open>uminus\<close> $ num_const_to_hol n)
         | _ => mk_shallow t)
 
       fun tuple_args_destruct (Const (\<^syntax_const>\<open>_urust_let_pattern_tuple_base_pair\<close>, _) $ a $ b) = [a, b]
@@ -1415,6 +1507,10 @@ ML\<open>
                 mk \<^syntax_const>\<open>_urust_shallow_match_pattern_zero\<close>
             | Const (\<^syntax_const>\<open>_urust_match_pattern_one\<close>, _) =>
                 mk \<^syntax_const>\<open>_urust_shallow_match_pattern_one\<close>
+            | Const (\<^syntax_const>\<open>_urust_match_pattern_neg_num_const\<close>, _) $ num =>
+                mk \<^syntax_const>\<open>_urust_shallow_match_pattern_neg_num_const\<close> $ num
+            | Const (\<^syntax_const>\<open>_urust_match_pattern_neg_one\<close>, _) =>
+                mk \<^syntax_const>\<open>_urust_shallow_match_pattern_neg_one\<close>
             | Const (\<^syntax_const>\<open>_urust_match_pattern_true\<close>, _) =>
                 mk_pat_literal (mk_literal_expr (mk \<^const_syntax>\<open>True\<close>))
             | Const (\<^syntax_const>\<open>_urust_match_pattern_false\<close>, _) =>

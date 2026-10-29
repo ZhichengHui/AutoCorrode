@@ -47,7 +47,7 @@ definition slice_index :: \<open>('a, 'b, 'v list) Global_Store.ref \<Rightarrow
         ('s, ('a, 'b, 'v) Global_Store.ref, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>slice_index r i \<equiv> FunctionBody \<lbrakk>
      let ls = *r;
-     if \<llangle>unat i\<rrangle> < \<llangle>length\<rrangle>\<^sub>1(ls) {
+     if \<llangle>\<lambda>ls. unat i < length ls\<rrangle>\<^sub>1(ls) {
         return \<llangle>focus_nth (unat i) r\<rrangle>;
      };
      \<epsilon>\<open>abort DanglingPointer\<close>
@@ -93,7 +93,7 @@ definition slice_index_vector :: \<open>('a, 'b, ('v, 'l::{len}) vector) Global_
       ('s, ('a, 'b, 'v) Global_Store.ref, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>slice_index_vector r idx \<equiv> FunctionBody \<lbrakk>
      let v = *r;
-     if \<llangle>unat idx\<rrangle> < \<llangle>vector_len v\<rrangle> {
+     if \<llangle>unat idx < vector_len v\<rrangle> {
         return \<llangle>focus_nth_vector (unat idx) r\<rrangle>;
      };
      \<epsilon>\<open>abort DanglingPointer\<close>

@@ -34,18 +34,21 @@ definition bvec_well_formed :: \<open>('a, 'l::len) bounded_vec \<Rightarrow> bo
   \<open>bvec_well_formed v \<equiv> unat (bvec_len v) \<le> LENGTH('l) \<and>
     (\<forall>i < unat (bvec_len v). array_nth (bvec_values v) i \<noteq> None)\<close>
 
-text\<open>The following locale is boilerplate that makes types like \<^typ>\<open>nat\<close> and \<^typ>\<open>bool\<close>
-available as mutable references. You can ignore its details.\<close>
+text\<open>The following locale is boilerplate that makes types like \<^typ>\<open>64 word\<close>, \<^typ>\<open>nat\<close> and
+\<^typ>\<open>bool\<close> available as mutable references. You can ignore its details.\<close>
 locale tutorial_ctx =
     reference reference_types +
+    ref_word64: reference_allocatable reference_types _ _ _ _ _ _ _ word64_prism +
     ref_nat: reference_allocatable reference_types _ _ _ _ _ _ _ nat_prism +
     ref_bool: reference_allocatable reference_types _ _ _ _ _ _ _ bool_prism
   for
   reference_types :: \<open>'s::{sepalg} \<Rightarrow> 'addr \<Rightarrow> 'gv \<Rightarrow> 'abort \<Rightarrow> 'i prompt \<Rightarrow> 'o prompt_output \<Rightarrow> unit\<close>
+  and word64_prism :: \<open>('gv, 64 word) prism\<close>
   and nat_prism :: \<open>('gv, nat) prism\<close>
   and bool_prism :: \<open>('gv, bool) prism\<close>
 begin
 
+adhoc_overloading store_reference_const \<rightleftharpoons> ref_word64.new
 adhoc_overloading store_reference_const \<rightleftharpoons> ref_nat.new
 adhoc_overloading store_reference_const \<rightleftharpoons> ref_bool.new
 adhoc_overloading store_update_const \<rightleftharpoons> update_fun
@@ -56,7 +59,7 @@ section\<open>Exercise 1: Hello Crush (warm-up)\<close>
 text\<open>This function clamps a value \<^term>\<open>x\<close> to the range \<^term>\<open>[lo, hi]\<close>.
 The contract and function are given. Your task: write the proof.\<close>
 
-definition clamp :: \<open>nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> ('s, nat, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+definition clamp :: \<open>64 word \<Rightarrow> 64 word \<Rightarrow> 64 word \<Rightarrow> ('s, 64 word, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>clamp lo hi x \<equiv> FunctionBody \<lbrakk>
     if (x < lo) {
       lo
@@ -85,10 +88,10 @@ lemma clamp_spec:
 
 section\<open>Exercise 2: Write the Contract\<close>
 
-text\<open>This function returns the maximum of two natural numbers.
+text\<open>This function returns the maximum of two unsigned 64-bit integers.
 The function is given. Your task: strengthen the postcondition and prove the spec.\<close>
 
-definition max_of :: \<open>nat \<Rightarrow> nat \<Rightarrow> ('s, nat, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+definition max_of :: \<open>64 word \<Rightarrow> 64 word \<Rightarrow> ('s, 64 word, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>max_of a b \<equiv> FunctionBody \<lbrakk>
     if (b > a) {
       b
@@ -130,7 +133,7 @@ lemma max_of_spec_manual:
 
 section\<open>Exercise 3: Mutable State\<close>
 
-text\<open>This function computes the absolute difference of two natural numbers
+text\<open>This function computes the absolute difference of two unsigned 64-bit integers
 using a local mutable variable. Note the use of \<^verbatim>\<open>let mut\<close> and dereferencing with \<^verbatim>\<open>*\<close>.
 
 Because we allocate a mutable reference, the precondition must include
@@ -138,9 +141,9 @@ Because we allocate a mutable reference, the precondition must include
 should return this capability (we are done with the reference) along with
 a pure fact about the result.\<close>
 
-definition abs_diff :: \<open>nat \<Rightarrow> nat \<Rightarrow> ('s, nat, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+definition abs_diff :: \<open>64 word \<Rightarrow> 64 word \<Rightarrow> ('s, 64 word, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>abs_diff a b \<equiv> FunctionBody \<lbrakk>
-    let mut result = \<llangle>0 :: nat\<rrangle>;
+    let mut result = \<llangle>0 :: 64 word\<rrangle>;
     if (a > b) {
       result = \<llangle>a - b\<rrangle>;
     } else {

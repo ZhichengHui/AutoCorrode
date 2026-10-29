@@ -955,40 +955,87 @@ subsection\<open>Defining triples for numeric and bitwise operators\<close>
 
 lemma striple_word_add_no_wrapI:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>\<Gamma> ; \<langle>unat x + unat y < 2^(LENGTH('l))\<rangle>
             \<turnstile> \<lbrakk> x + y \<rbrakk>
             \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>r. \<langle>r = x + y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-  by (intro stripleI; clarsimp simp add: urust_eval_predicate_add_no_wrap asepconj_simp
+  using assms by (intro stripleI; clarsimp simp add: urust_eval_predicate_add_no_wrap[OF assms] asepconj_simp
     atriple_refl atriple_pre_false)
+
+lemma striple_word_add_no_wrap_signedI:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<Gamma> ; \<langle>- (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x + sint y \<and> sint x + sint y < 2 ^ (LENGTH('l) - Suc 0)\<rangle>
+            \<turnstile> \<lbrakk> x + y \<rbrakk>
+            \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>r. \<langle>r = x + y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  using assms by (intro stripleI; clarsimp simp add: urust_eval_predicate_add_no_wrap_signed[OF assms] asepconj_simp
+    atriple_refl atriple_pre_false cong: conj_cong)
 
 lemma striple_word_mul_no_wrapI:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>\<Gamma> ; \<langle>unat x * unat y < 2^(LENGTH('l))\<rangle>
             \<turnstile> \<lbrakk> x * y \<rbrakk>
             \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>r. \<langle>r = x * y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-  by (intro stripleI; clarsimp simp add: urust_eval_predicate_mul_no_wrap asepconj_simp
+  using assms by (intro stripleI; clarsimp simp add: urust_eval_predicate_mul_no_wrap[OF assms] asepconj_simp
     atriple_refl atriple_pre_false)
+
+lemma striple_word_mul_no_wrap_signedI:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<Gamma> ; \<langle>- (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x * sint y \<and> sint x * sint y < 2 ^ (LENGTH('l) - Suc 0)\<rangle>
+            \<turnstile> \<lbrakk> x * y \<rbrakk>
+            \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>r. \<langle>r = x * y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  using assms by (intro stripleI; clarsimp simp add: urust_eval_predicate_mul_no_wrap_signed[OF assms] asepconj_simp
+    atriple_refl atriple_pre_false cong: conj_cong)
 
 lemma striple_word_sub_no_wrapI:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>\<Gamma> ; \<langle>y \<le> x\<rangle> \<turnstile> \<lbrakk> x - y \<rbrakk>
             \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>r. \<langle>r = x - y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-  by (intro stripleI; clarsimp simp add: urust_eval_predicate_sub_no_wrap asepconj_simp
+  using assms by (intro stripleI; clarsimp simp add: urust_eval_predicate_sub_no_wrap[OF assms] asepconj_simp
     atriple_refl atriple_pre_false word_le_nat_alt)
+
+lemma striple_word_sub_no_wrap_signedI:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<Gamma> ; \<langle>- (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x - sint y \<and> sint x - sint y < 2 ^ (LENGTH('l) - Suc 0)\<rangle> \<turnstile> \<lbrakk> x - y \<rbrakk>
+            \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>r. \<langle>r = x - y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  using assms by (intro stripleI; clarsimp simp add: urust_eval_predicate_sub_no_wrap_signed[OF assms] asepconj_simp
+    atriple_refl atriple_pre_false cong: conj_cong)
 
 lemma striple_word_udivI:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>\<Gamma> ; \<langle>y \<noteq> 0\<rangle> \<turnstile> \<lbrakk> x / y \<rbrakk>
             \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>r. \<langle>r = x div y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-  by (intro stripleI; clarsimp simp add: urust_eval_predicate_div asepconj_simp
+  using assms by (intro stripleI; clarsimp simp add: urust_eval_predicate_div[OF assms] asepconj_simp
     atriple_refl unat_eq_zero atriple_pre_false)
+
+lemma striple_word_udiv_signedI:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<Gamma> ; \<langle>y \<noteq> 0 \<and> (sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<longrightarrow> y \<noteq> -1)\<rangle> \<turnstile> \<lbrakk> x / y \<rbrakk>
+            \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>r. \<langle>r = x sdiv y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  using assms by (intro stripleI; clarsimp simp add: urust_eval_predicate_div_signed[OF assms] asepconj_simp
+    atriple_refl atriple_pre_false cong: conj_cong split: if_splits)
 
 lemma striple_word_umodI:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>\<Gamma> ; \<langle>y \<noteq> 0\<rangle> \<turnstile> \<lbrakk> x % y \<rbrakk>
             \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>r. \<langle>r = x mod y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-by (intro stripleI; clarsimp simp add: urust_eval_predicate_mod asepconj_simp
+using assms by (intro stripleI; clarsimp simp add: urust_eval_predicate_mod[OF assms] asepconj_simp
   atriple_refl unat_eq_zero atriple_pre_false)
+
+lemma striple_word_umod_signedI:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<Gamma> ; \<langle>y \<noteq> 0 \<and> (sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<longrightarrow> y \<noteq> -1)\<rangle> \<turnstile> \<lbrakk> x % y \<rbrakk>
+            \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>r. \<langle>r = x smod y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+using assms by (intro stripleI; clarsimp simp add: urust_eval_predicate_mod_signed[OF assms] asepconj_simp
+  atriple_refl atriple_pre_false cong: conj_cong split: if_splits)
 
 lemma striple_word_shift_leftI:
   fixes x :: \<open>'l0::{len} word\<close>
@@ -1002,10 +1049,21 @@ by (intro stripleI; clarsimp simp add: asepconj_simp urust_eval_predicate_shift_
 lemma striple_word_shift_rightI:
   fixes x :: \<open>'l0::{len} word\<close>
     and y :: \<open>64 word\<close>
+  assumes \<open>\<not> is_signed TYPE('l0)\<close>
   shows \<open>\<Gamma> ; \<langle>unat y < LENGTH('l0)\<rangle>
             \<turnstile> \<lbrakk> x >> y \<rbrakk>
             \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>r. \<langle>r = drop_bit (unat y) x\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-by (intro stripleI; clarsimp simp add: urust_eval_predicate_shift_right asepconj_simp
+using assms by (intro stripleI; clarsimp simp add: urust_eval_predicate_shift_right[OF assms] asepconj_simp
+  atriple_refl atriple_pre_false)
+
+lemma striple_word_shift_right_signedI:
+  fixes x :: \<open>'l0::{len} word\<close>
+    and y :: \<open>64 word\<close>
+  assumes \<open>is_signed TYPE('l0)\<close>
+  shows \<open>\<Gamma> ; \<langle>unat y < LENGTH('l0)\<rangle>
+            \<turnstile> \<lbrakk> x >> y \<rbrakk>
+            \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>r. \<langle>r = signed_drop_bit (unat y) x\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+using assms by (intro stripleI; clarsimp simp add: urust_eval_predicate_shift_right_signed[OF assms] asepconj_simp
   atriple_refl atriple_pre_false)
 
 lemma striple_bitwise_orI:

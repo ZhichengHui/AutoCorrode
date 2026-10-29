@@ -71,6 +71,11 @@ lemma crush_base_order_word_to_nat:
     shows \<open>unat a < unat b\<close>
   using assms by crush_base
 
+lemma crush_base_order_sword_to_int:
+  assumes \<open>(a :: 16 sword) <s b\<close>
+    shows \<open>sint a < sint b\<close>
+  using assms by crush_base
+
 lemma crush_base_order_word_ucast:
   assumes \<open>(a :: 64 word) < 385\<close>
     shows \<open>unat (ucast a :: 16 word) < 385\<close>

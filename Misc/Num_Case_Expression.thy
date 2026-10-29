@@ -50,6 +50,10 @@ syntax
     ("0")
   "_case_num_pattern_one" :: \<open>case_num_pattern\<close>
     ("1")
+  "_case_num_pattern_neg_numeral" :: \<open>num_const \<Rightarrow> case_num_pattern\<close>
+    ("'- _" 100)
+  "_case_num_pattern_neg_one" :: \<open>case_num_pattern\<close>
+    ("'- 1")
   \<comment> \<open>Note: cannot take \<^verbatim>\<open>logic\<close> arguments, because that will conflict with the \<^verbatim>\<open>_\<close> defined above\<close>
   "_case_num_pattern_const" :: \<open>id \<Rightarrow> case_num_pattern\<close>
     ("_" 100)
@@ -90,6 +94,10 @@ translations
     "CONST Pair (CONST Some 1) result"
   "_case_num1 (_case_num_pattern_numeral num) result" \<rightharpoonup>
     "CONST Pair (CONST Some (_Numeral num)) result"
+  "_case_num1 (_case_num_pattern_neg_one) result" \<rightharpoonup>
+    "CONST Pair (CONST Some (- 1)) result"
+  "_case_num1 (_case_num_pattern_neg_numeral num) result" \<rightharpoonup>
+    "CONST Pair (CONST Some (- (_Numeral num))) result"
   "_case_num1 (_case_num_pattern_const c) result" \<rightharpoonup>
     "CONST Pair (CONST Some c) result"
   "_case_num_branch_as_branches branch" \<rightharpoonup>

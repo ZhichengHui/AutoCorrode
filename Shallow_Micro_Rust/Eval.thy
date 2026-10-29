@@ -588,94 +588,104 @@ text\<open>Numeric operators\<close>
 
 lemma urust_eval_action_add_no_wrap [urust_eval_action_simps]:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>((\<Gamma>, \<lbrakk> x + y \<rbrakk>) \<diamondop>\<^sub>a \<sigma>) =
             (if (unat x + unat y < 2 ^ LENGTH('l)) then {} else { (Panic overflow_err_msg, \<sigma>) })\<close>
     and \<open>((\<Gamma>, \<lbrakk> x + y \<rbrakk>) \<diamondop>\<^sub>v \<sigma>) =
             (if (unat x + unat y < 2 ^ LENGTH('l)) then {(x + y, \<sigma>)} else {})\<close>
     and \<open>((\<Gamma>, \<lbrakk> x + y \<rbrakk>) \<diamondop>\<^sub>r \<sigma>) = {}\<close>
-  by (auto simp add: word_add_no_wrap_def urust_eval_action_bind micro_rust_simps
+  using assms by (auto simp add: word_add_no_wrap_def urust_eval_action_bind micro_rust_simps
     urust_eval_action_literal urust_eval_action_abort  word_add_no_wrap_core_def Let_def
     word_add_no_wrap_as_urust_def urust_eval_action_call word_op_no_wrap_pure_def option_unwrap_expr_def)
 
 corollary urust_eval_predicate_add_no_wrap [urust_eval_predicate_simps]:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>\<sigma> \<leadsto>\<^sub>v \<langle>\<Gamma>, \<lbrakk> x + y \<rbrakk>\<rangle> (v, \<sigma>') \<longleftrightarrow> (unat x + unat y < 2^LENGTH('l)) \<and> \<sigma> = \<sigma>' \<and> v = x + y\<close>
     and \<open>\<sigma> \<leadsto>\<^sub>r \<langle>\<Gamma>, \<lbrakk> x + y \<rbrakk>\<rangle> (r, \<sigma>') \<longleftrightarrow> False\<close>
     and \<open>\<sigma> \<leadsto>\<^sub>a \<langle>\<Gamma>, \<lbrakk> x + y \<rbrakk>\<rangle> (a, \<sigma>') \<longleftrightarrow> (unat x + unat y \<ge> 2^LENGTH('l)) \<and> a = Panic overflow_err_msg \<and> \<sigma> = \<sigma>'\<close>
-by (auto simp add: urust_eval_predicate_via_action urust_eval_action_add_no_wrap)
+using assms by (auto simp add: urust_eval_predicate_via_action urust_eval_action_add_no_wrap[OF assms])
 
 lemma urust_eval_action_mul_no_wrap [urust_eval_action_simps]:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>((\<Gamma>, \<lbrakk> x * y \<rbrakk>) \<diamondop>\<^sub>a \<sigma>) =
             (if (unat x * unat y < 2 ^ LENGTH('l)) then {} else { (Panic overflow_err_msg, \<sigma>) })\<close>
     and \<open>((\<Gamma>, \<lbrakk> x * y \<rbrakk>) \<diamondop>\<^sub>v \<sigma>) =
             (if (unat x * unat y < 2 ^ LENGTH('l)) then {(x * y, \<sigma>)} else {})\<close>
     and \<open>((\<Gamma>, \<lbrakk> x * y \<rbrakk>) \<diamondop>\<^sub>r \<sigma>) = {}\<close>
-by (auto simp add: word_mul_no_wrap_def urust_eval_action_bind micro_rust_simps
+using assms by (auto simp add: word_mul_no_wrap_def urust_eval_action_bind micro_rust_simps
   urust_eval_action_literal urust_eval_action_abort word_mul_no_wrap_core_def Let_def
   word_mul_no_wrap_as_urust_def urust_eval_action_call word_op_no_wrap_pure_def option_unwrap_expr_def)
 
 corollary urust_eval_predicate_mul_no_wrap [urust_eval_predicate_simps]:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>\<sigma> \<leadsto>\<^sub>v \<langle>\<Gamma>, \<lbrakk> x * y \<rbrakk>\<rangle> (v, \<sigma>') \<longleftrightarrow> (unat x * unat y < 2^LENGTH('l)) \<and> \<sigma> = \<sigma>' \<and> v = x * y\<close>
     and \<open>\<sigma> \<leadsto>\<^sub>r \<langle>\<Gamma>, \<lbrakk> x * y \<rbrakk>\<rangle> (r, \<sigma>') \<longleftrightarrow> False\<close>
     and \<open>\<sigma> \<leadsto>\<^sub>a \<langle>\<Gamma>, \<lbrakk> x * y \<rbrakk>\<rangle> (a, \<sigma>') \<longleftrightarrow> (unat x * unat y \<ge> 2^LENGTH('l)) \<and> \<sigma> = \<sigma>' \<and> a = Panic overflow_err_msg\<close>
-by (auto simp add: urust_eval_predicate_via_action urust_eval_action_mul_no_wrap)
+using assms by (auto simp add: urust_eval_predicate_via_action urust_eval_action_mul_no_wrap[OF assms])
 
 lemma urust_eval_action_sub_no_wrap [urust_eval_action_simps]:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>((\<Gamma>, \<lbrakk> x - y \<rbrakk>) \<diamondop>\<^sub>a \<sigma>) =
             (if ( unat y \<le> unat x) then {} else { (Panic overflow_err_msg, \<sigma>) })\<close>
     and \<open>((\<Gamma>, \<lbrakk> x - y \<rbrakk>) \<diamondop>\<^sub>v \<sigma>) =
             (if ( unat y \<le> unat x) then {(x - y, \<sigma>)} else {})\<close>
     and \<open>((\<Gamma>, \<lbrakk> x - y \<rbrakk>) \<diamondop>\<^sub>r \<sigma>) = {}\<close>
-by (auto simp flip: word_le_nat_alt simp add: word_minus_no_wrap_def urust_eval_action_bind
+using assms by (auto simp flip: word_le_nat_alt simp add: word_minus_no_wrap_def urust_eval_action_bind
   micro_rust_simps urust_eval_action_literal urust_eval_action_abort word_minus_no_wrap_core_def
   word_minus_no_wrap_as_urust_def urust_eval_action_call word_op_no_wrap_pure_def
   word_minus_no_wrap_pure_def option_unwrap_expr_def Let_def)
 
 corollary urust_eval_predicate_sub_no_wrap [urust_eval_predicate_simps]:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>\<sigma> \<leadsto>\<^sub>v \<langle>\<Gamma>, \<lbrakk> x - y \<rbrakk>\<rangle> (v, \<sigma>') \<longleftrightarrow> (unat y \<le> unat x) \<and> \<sigma> = \<sigma>' \<and> v = x - y\<close>
     and \<open>\<sigma> \<leadsto>\<^sub>r \<langle>\<Gamma>, \<lbrakk> x - y \<rbrakk>\<rangle> (r, \<sigma>') \<longleftrightarrow> False\<close>
     and \<open>\<sigma> \<leadsto>\<^sub>a \<langle>\<Gamma>, \<lbrakk> x - y \<rbrakk>\<rangle> (a, \<sigma>') \<longleftrightarrow> (unat y > unat x) \<and> a = Panic overflow_err_msg \<and> \<sigma> = \<sigma>'\<close>
-by (auto simp add: urust_eval_predicate_via_action urust_eval_action_sub_no_wrap)
+using assms by (auto simp add: urust_eval_predicate_via_action urust_eval_action_sub_no_wrap[OF assms])
 
 lemma urust_eval_action_div [urust_eval_action_simps]:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>((\<Gamma>, \<lbrakk> x / y \<rbrakk>) \<diamondop>\<^sub>a \<sigma>) =
             (if ( unat y \<noteq> 0) then {} else { (Panic (String.implode ''division by zero''), \<sigma>) })\<close>
     and \<open>((\<Gamma>, \<lbrakk> x / y \<rbrakk>) \<diamondop>\<^sub>v \<sigma>) =
             (if ( unat y \<noteq> 0) then {(x div y, \<sigma>)} else {})\<close>
     and \<open>((\<Gamma>, \<lbrakk> x / y \<rbrakk>) \<diamondop>\<^sub>r \<sigma>) = {}\<close>
-by (auto simp add: unat_gt_0 word_div_def urust_eval_action_bind micro_rust_simps
+using assms by (auto simp add: unat_gt_0 word_div_def urust_eval_action_bind micro_rust_simps
   urust_eval_action_literal urust_eval_action_abort word_udiv_core_def word_udiv_def
   urust_eval_action_call)
 
 corollary urust_eval_predicate_div [urust_eval_predicate_simps]:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>\<sigma> \<leadsto>\<^sub>v \<langle>\<Gamma>, \<lbrakk> x / y \<rbrakk>\<rangle> (v, \<sigma>') \<longleftrightarrow> (unat y \<noteq> 0) \<and> \<sigma> = \<sigma>' \<and> v = x div y\<close>
     and \<open>\<sigma> \<leadsto>\<^sub>r \<langle>\<Gamma>, \<lbrakk> x / y \<rbrakk>\<rangle> (r, \<sigma>') \<longleftrightarrow> False\<close>
     and \<open>\<sigma> \<leadsto>\<^sub>a \<langle>\<Gamma>, \<lbrakk> x / y \<rbrakk>\<rangle> (a, \<sigma>') \<longleftrightarrow> (unat y = 0) \<and> \<sigma> = \<sigma>' \<and> a = Panic (String.implode ''division by zero'')\<close>
-by (auto simp add: urust_eval_predicate_via_action urust_eval_action_div)
+using assms by (auto simp add: urust_eval_predicate_via_action urust_eval_action_div[OF assms])
 
 lemma urust_eval_action_mod [urust_eval_action_simps]:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>((\<Gamma>, \<lbrakk> x % y \<rbrakk>) \<diamondop>\<^sub>a \<sigma>) =
             (if ( unat y \<noteq> 0) then {} else { (Panic (String.implode ''division by zero''), \<sigma>) })\<close>
     and \<open>((\<Gamma>, \<lbrakk> x % y \<rbrakk>) \<diamondop>\<^sub>v \<sigma>) =
             (if ( unat y \<noteq> 0) then {(x mod y, \<sigma>)} else {})\<close>
     and \<open>((\<Gamma>, \<lbrakk> x % y \<rbrakk>) \<diamondop>\<^sub>r \<sigma>) = {}\<close>
-by (auto simp add: unat_gt_0 word_mod_def urust_eval_action_bind micro_rust_simps
+using assms by (auto simp add: unat_gt_0 word_mod_def urust_eval_action_bind micro_rust_simps
   urust_eval_action_literal urust_eval_action_abort word_umod_core_def word_umod_def
   urust_eval_action_call)
 
 corollary urust_eval_predicate_mod [urust_eval_predicate_simps]:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>\<sigma> \<leadsto>\<^sub>v \<langle>\<Gamma>, \<lbrakk> x % y \<rbrakk>\<rangle> (v, \<sigma>') \<longleftrightarrow> (unat y \<noteq> 0) \<and> \<sigma> = \<sigma>' \<and> v = x mod y\<close>
     and \<open>\<sigma> \<leadsto>\<^sub>r \<langle>\<Gamma>, \<lbrakk> x % y \<rbrakk>\<rangle> (r, \<sigma>') \<longleftrightarrow> False\<close>
     and \<open>\<sigma> \<leadsto>\<^sub>a \<langle>\<Gamma>, \<lbrakk> x % y \<rbrakk>\<rangle> (a, \<sigma>') \<longleftrightarrow> (unat y = 0) \<and> a = Panic (String.implode ''division by zero'') \<and> \<sigma> = \<sigma>'\<close>
-by (auto simp add: urust_eval_predicate_via_action urust_eval_action_mod)
+using assms by (auto simp add: urust_eval_predicate_via_action urust_eval_action_mod[OF assms])
 
 lemma urust_eval_action_shift_left [urust_eval_action_simps]:
   fixes x :: \<open>'l0::{len} word\<close>
@@ -702,12 +712,13 @@ by (auto simp add: urust_eval_predicate_via_action urust_eval_action_shift_left)
 lemma urust_eval_action_shift_right [urust_eval_action_simps]:
   fixes x :: \<open>'l0::{len} word\<close>
     and y :: \<open>64 word\<close>
+  assumes \<open>\<not> is_signed TYPE('l0)\<close>
   shows \<open>((\<Gamma>, \<lbrakk> x >> y \<rbrakk>) \<diamondop>\<^sub>a \<sigma>) =
             (if unat y < LENGTH('l0) then {} else {(Panic overflow_err_msg, \<sigma>)})\<close>
     and \<open>((\<Gamma>, \<lbrakk> x >> y \<rbrakk>) \<diamondop>\<^sub>v \<sigma>) =
             (if unat y < LENGTH('l0) then {(drop_bit (unat y) x, \<sigma>)} else {})\<close>
     and \<open>((\<Gamma>, \<lbrakk> x >> y \<rbrakk>) \<diamondop>\<^sub>r \<sigma>) = {}\<close>
-by (auto simp flip: word_le_nat_alt simp add: word_shift_right_pure_def urust_eval_action_bind
+using assms by (auto simp flip: word_le_nat_alt simp add: word_shift_right_pure_def urust_eval_action_bind
   micro_rust_simps urust_eval_action_literal urust_eval_action_abort word_shift_right_core_def
   word_shift_right_as_urust_def urust_eval_action_call word_shift_right_def
   word_shift_right_shift64_def option_unwrap_expr_def Let_def)
@@ -715,11 +726,170 @@ by (auto simp flip: word_le_nat_alt simp add: word_shift_right_pure_def urust_ev
 corollary urust_eval_predicate_shift_right [urust_eval_predicate_simps]:
   fixes x :: \<open>'l0::{len} word\<close>
     and y :: \<open>64 word\<close>
+  assumes \<open>\<not> is_signed TYPE('l0)\<close>
   shows \<open>\<sigma> \<leadsto>\<^sub>v \<langle>\<Gamma>, \<lbrakk> x >> y \<rbrakk>\<rangle> (v, \<sigma>') \<longleftrightarrow>
             unat y < LENGTH('l0) \<and> \<sigma> = \<sigma>' \<and> v = drop_bit (unat y) x\<close>
     and \<open>\<sigma> \<leadsto>\<^sub>r \<langle>\<Gamma>, \<lbrakk> x >> y \<rbrakk>\<rangle> (r, \<sigma>') \<longleftrightarrow> False\<close>
     and \<open>\<sigma> \<leadsto>\<^sub>a \<langle>\<Gamma>, \<lbrakk> x >> y \<rbrakk>\<rangle> (a, \<sigma>') \<longleftrightarrow> (unat y \<ge> LENGTH('l0) \<and> \<sigma> = \<sigma>' \<and> a = Panic overflow_err_msg)\<close>
-by (auto simp add: urust_eval_predicate_via_action urust_eval_action_shift_right)
+using assms by (auto simp add: urust_eval_predicate_via_action urust_eval_action_shift_right[OF assms])
+
+text\<open>Numeric operators on signed words\<close>
+
+lemma urust_eval_action_add_no_wrap_signed [urust_eval_action_simps]:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>((\<Gamma>, \<lbrakk> x + y \<rbrakk>) \<diamondop>\<^sub>a \<sigma>) =
+            (if - (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x + sint y \<and> sint x + sint y < 2 ^ (LENGTH('l) - Suc 0) then {} else { (Panic overflow_err_msg, \<sigma>) })\<close>
+    and \<open>((\<Gamma>, \<lbrakk> x + y \<rbrakk>) \<diamondop>\<^sub>v \<sigma>) =
+            (if - (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x + sint y \<and> sint x + sint y < 2 ^ (LENGTH('l) - Suc 0) then {(x + y, \<sigma>)} else {})\<close>
+    and \<open>((\<Gamma>, \<lbrakk> x + y \<rbrakk>) \<diamondop>\<^sub>r \<sigma>) = {}\<close>
+  using assms by (auto simp add: word_add_no_wrap_def word_add_no_wrap_core_def word_add_no_wrap_as_urust_def urust_eval_action_bind micro_rust_simps
+    urust_eval_action_literal urust_eval_action_abort Let_def
+    urust_eval_action_call sword_op_no_wrap_pure_def option_unwrap_expr_def)
+
+corollary urust_eval_predicate_add_no_wrap_signed [urust_eval_predicate_simps]:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<sigma> \<leadsto>\<^sub>v \<langle>\<Gamma>, \<lbrakk> x + y \<rbrakk>\<rangle> (v, \<sigma>') \<longleftrightarrow> (- (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x + sint y \<and> sint x + sint y < 2 ^ (LENGTH('l) - Suc 0)) \<and> \<sigma> = \<sigma>' \<and> v = x + y\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>r \<langle>\<Gamma>, \<lbrakk> x + y \<rbrakk>\<rangle> (r, \<sigma>') \<longleftrightarrow> False\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>a \<langle>\<Gamma>, \<lbrakk> x + y \<rbrakk>\<rangle> (a, \<sigma>') \<longleftrightarrow> \<not> (- (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x + sint y \<and> sint x + sint y < 2 ^ (LENGTH('l) - Suc 0)) \<and> a = Panic overflow_err_msg \<and> \<sigma> = \<sigma>'\<close>
+  using assms by (auto simp add: urust_eval_predicate_via_action urust_eval_action_add_no_wrap_signed[OF assms])
+
+lemma urust_eval_action_mul_no_wrap_signed [urust_eval_action_simps]:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>((\<Gamma>, \<lbrakk> x * y \<rbrakk>) \<diamondop>\<^sub>a \<sigma>) =
+            (if - (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x * sint y \<and> sint x * sint y < 2 ^ (LENGTH('l) - Suc 0) then {} else { (Panic overflow_err_msg, \<sigma>) })\<close>
+    and \<open>((\<Gamma>, \<lbrakk> x * y \<rbrakk>) \<diamondop>\<^sub>v \<sigma>) =
+            (if - (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x * sint y \<and> sint x * sint y < 2 ^ (LENGTH('l) - Suc 0) then {(x * y, \<sigma>)} else {})\<close>
+    and \<open>((\<Gamma>, \<lbrakk> x * y \<rbrakk>) \<diamondop>\<^sub>r \<sigma>) = {}\<close>
+  using assms by (auto simp add: word_mul_no_wrap_def word_mul_no_wrap_core_def word_mul_no_wrap_as_urust_def urust_eval_action_bind micro_rust_simps
+    urust_eval_action_literal urust_eval_action_abort Let_def
+    urust_eval_action_call sword_op_no_wrap_pure_def option_unwrap_expr_def)
+
+corollary urust_eval_predicate_mul_no_wrap_signed [urust_eval_predicate_simps]:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<sigma> \<leadsto>\<^sub>v \<langle>\<Gamma>, \<lbrakk> x * y \<rbrakk>\<rangle> (v, \<sigma>') \<longleftrightarrow> (- (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x * sint y \<and> sint x * sint y < 2 ^ (LENGTH('l) - Suc 0)) \<and> \<sigma> = \<sigma>' \<and> v = x * y\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>r \<langle>\<Gamma>, \<lbrakk> x * y \<rbrakk>\<rangle> (r, \<sigma>') \<longleftrightarrow> False\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>a \<langle>\<Gamma>, \<lbrakk> x * y \<rbrakk>\<rangle> (a, \<sigma>') \<longleftrightarrow> \<not> (- (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x * sint y \<and> sint x * sint y < 2 ^ (LENGTH('l) - Suc 0)) \<and> a = Panic overflow_err_msg \<and> \<sigma> = \<sigma>'\<close>
+  using assms by (auto simp add: urust_eval_predicate_via_action urust_eval_action_mul_no_wrap_signed[OF assms])
+
+lemma urust_eval_action_sub_no_wrap_signed [urust_eval_action_simps]:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>((\<Gamma>, \<lbrakk> x - y \<rbrakk>) \<diamondop>\<^sub>a \<sigma>) =
+            (if - (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x - sint y \<and> sint x - sint y < 2 ^ (LENGTH('l) - Suc 0) then {} else { (Panic overflow_err_msg, \<sigma>) })\<close>
+    and \<open>((\<Gamma>, \<lbrakk> x - y \<rbrakk>) \<diamondop>\<^sub>v \<sigma>) =
+            (if - (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x - sint y \<and> sint x - sint y < 2 ^ (LENGTH('l) - Suc 0) then {(x - y, \<sigma>)} else {})\<close>
+    and \<open>((\<Gamma>, \<lbrakk> x - y \<rbrakk>) \<diamondop>\<^sub>r \<sigma>) = {}\<close>
+  using assms by (auto simp add: word_minus_no_wrap_def word_minus_no_wrap_core_def word_minus_no_wrap_as_urust_def word_minus_no_wrap_pure_def urust_eval_action_bind micro_rust_simps
+    urust_eval_action_literal urust_eval_action_abort Let_def
+    urust_eval_action_call sword_op_no_wrap_pure_def option_unwrap_expr_def)
+
+corollary urust_eval_predicate_sub_no_wrap_signed [urust_eval_predicate_simps]:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<sigma> \<leadsto>\<^sub>v \<langle>\<Gamma>, \<lbrakk> x - y \<rbrakk>\<rangle> (v, \<sigma>') \<longleftrightarrow> (- (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x - sint y \<and> sint x - sint y < 2 ^ (LENGTH('l) - Suc 0)) \<and> \<sigma> = \<sigma>' \<and> v = x - y\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>r \<langle>\<Gamma>, \<lbrakk> x - y \<rbrakk>\<rangle> (r, \<sigma>') \<longleftrightarrow> False\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>a \<langle>\<Gamma>, \<lbrakk> x - y \<rbrakk>\<rangle> (a, \<sigma>') \<longleftrightarrow> \<not> (- (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x - sint y \<and> sint x - sint y < 2 ^ (LENGTH('l) - Suc 0)) \<and> a = Panic overflow_err_msg \<and> \<sigma> = \<sigma>'\<close>
+  using assms by (auto simp add: urust_eval_predicate_via_action urust_eval_action_sub_no_wrap_signed[OF assms])
+
+lemma urust_eval_action_div_signed [urust_eval_action_simps]:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>((\<Gamma>, \<lbrakk> x / y \<rbrakk>) \<diamondop>\<^sub>a \<sigma>) =
+            (if y = 0 then { (Panic (String.implode ''division by zero''), \<sigma>) }
+             else if sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<and> y = -1 then { (Panic overflow_err_msg, \<sigma>) }
+             else {})\<close>
+    and \<open>((\<Gamma>, \<lbrakk> x / y \<rbrakk>) \<diamondop>\<^sub>v \<sigma>) =
+            (if y \<noteq> 0 \<and> (sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<longrightarrow> y \<noteq> -1) then {(x sdiv y, \<sigma>)} else {})\<close>
+    and \<open>((\<Gamma>, \<lbrakk> x / y \<rbrakk>) \<diamondop>\<^sub>r \<sigma>) = {}\<close>
+  using assms by (auto simp add: urust_eval_action_bind micro_rust_simps
+    urust_eval_action_literal urust_eval_action_abort word_udiv_core_def word_udiv_def
+    urust_eval_action_call)
+
+corollary urust_eval_predicate_div_signed [urust_eval_predicate_simps]:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<sigma> \<leadsto>\<^sub>v \<langle>\<Gamma>, \<lbrakk> x / y \<rbrakk>\<rangle> (v, \<sigma>') \<longleftrightarrow> (y \<noteq> 0 \<and> (sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<longrightarrow> y \<noteq> -1)) \<and> \<sigma> = \<sigma>' \<and> v = x sdiv y\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>r \<langle>\<Gamma>, \<lbrakk> x / y \<rbrakk>\<rangle> (r, \<sigma>') \<longleftrightarrow> False\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>a \<langle>\<Gamma>, \<lbrakk> x / y \<rbrakk>\<rangle> (a, \<sigma>') \<longleftrightarrow>
+            \<sigma> = \<sigma>' \<and> (if y = 0 then a = Panic (String.implode ''division by zero'')
+                     else sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<and> y = -1 \<and> a = Panic overflow_err_msg)\<close>
+  using assms by (auto simp add: urust_eval_predicate_via_action urust_eval_action_div_signed[OF assms])
+
+lemma urust_eval_action_mod_signed [urust_eval_action_simps]:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>((\<Gamma>, \<lbrakk> x % y \<rbrakk>) \<diamondop>\<^sub>a \<sigma>) =
+            (if y = 0 then { (Panic (String.implode ''division by zero''), \<sigma>) }
+             else if sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<and> y = -1 then { (Panic overflow_err_msg, \<sigma>) }
+             else {})\<close>
+    and \<open>((\<Gamma>, \<lbrakk> x % y \<rbrakk>) \<diamondop>\<^sub>v \<sigma>) =
+            (if y \<noteq> 0 \<and> (sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<longrightarrow> y \<noteq> -1) then {(x smod y, \<sigma>)} else {})\<close>
+    and \<open>((\<Gamma>, \<lbrakk> x % y \<rbrakk>) \<diamondop>\<^sub>r \<sigma>) = {}\<close>
+  using assms by (auto simp add: urust_eval_action_bind micro_rust_simps
+    urust_eval_action_literal urust_eval_action_abort word_umod_core_def word_umod_def
+    urust_eval_action_call)
+
+corollary urust_eval_predicate_mod_signed [urust_eval_predicate_simps]:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<sigma> \<leadsto>\<^sub>v \<langle>\<Gamma>, \<lbrakk> x % y \<rbrakk>\<rangle> (v, \<sigma>') \<longleftrightarrow> (y \<noteq> 0 \<and> (sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<longrightarrow> y \<noteq> -1)) \<and> \<sigma> = \<sigma>' \<and> v = x smod y\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>r \<langle>\<Gamma>, \<lbrakk> x % y \<rbrakk>\<rangle> (r, \<sigma>') \<longleftrightarrow> False\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>a \<langle>\<Gamma>, \<lbrakk> x % y \<rbrakk>\<rangle> (a, \<sigma>') \<longleftrightarrow>
+            \<sigma> = \<sigma>' \<and> (if y = 0 then a = Panic (String.implode ''division by zero'')
+                     else sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<and> y = -1 \<and> a = Panic overflow_err_msg)\<close>
+  using assms by (auto simp add: urust_eval_predicate_via_action urust_eval_action_mod_signed[OF assms])
+
+lemma urust_eval_action_shift_right_signed [urust_eval_action_simps]:
+  fixes x :: \<open>'l0::{len} word\<close>
+    and y :: \<open>64 word\<close>
+  assumes \<open>is_signed TYPE('l0)\<close>
+  shows \<open>((\<Gamma>, \<lbrakk> x >> y \<rbrakk>) \<diamondop>\<^sub>a \<sigma>) =
+            (if unat y < LENGTH('l0) then {} else {(Panic overflow_err_msg, \<sigma>)})\<close>
+    and \<open>((\<Gamma>, \<lbrakk> x >> y \<rbrakk>) \<diamondop>\<^sub>v \<sigma>) =
+            (if unat y < LENGTH('l0) then {(signed_drop_bit (unat y) x, \<sigma>)} else {})\<close>
+    and \<open>((\<Gamma>, \<lbrakk> x >> y \<rbrakk>) \<diamondop>\<^sub>r \<sigma>) = {}\<close>
+  using assms by (auto simp flip: word_le_nat_alt simp add: word_shift_right_pure_def urust_eval_action_bind
+    micro_rust_simps urust_eval_action_literal urust_eval_action_abort word_shift_right_core_def
+    word_shift_right_as_urust_def urust_eval_action_call word_shift_right_def
+    word_shift_right_shift64_def option_unwrap_expr_def Let_def)
+
+corollary urust_eval_predicate_shift_right_signed [urust_eval_predicate_simps]:
+  fixes x :: \<open>'l0::{len} word\<close>
+    and y :: \<open>64 word\<close>
+  assumes \<open>is_signed TYPE('l0)\<close>
+  shows \<open>\<sigma> \<leadsto>\<^sub>v \<langle>\<Gamma>, \<lbrakk> x >> y \<rbrakk>\<rangle> (v, \<sigma>') \<longleftrightarrow>
+            unat y < LENGTH('l0) \<and> \<sigma> = \<sigma>' \<and> v = signed_drop_bit (unat y) x\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>r \<langle>\<Gamma>, \<lbrakk> x >> y \<rbrakk>\<rangle> (r, \<sigma>') \<longleftrightarrow> False\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>a \<langle>\<Gamma>, \<lbrakk> x >> y \<rbrakk>\<rangle> (a, \<sigma>') \<longleftrightarrow> (unat y \<ge> LENGTH('l0) \<and> \<sigma> = \<sigma>' \<and> a = Panic overflow_err_msg)\<close>
+  using assms by (auto simp add: urust_eval_predicate_via_action urust_eval_action_shift_right_signed[OF assms])
+
+text\<open>Unary negation of a signed word overflows exactly on the minimum value.\<close>
+
+lemma urust_eval_action_uminus_signed [urust_eval_action_simps]:
+  fixes x :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>((\<Gamma>, word_uminus (literal x)) \<diamondop>\<^sub>a \<sigma>) =
+            (if sint x \<noteq> - (2 ^ (LENGTH('l) - Suc 0)) then {} else { (Panic overflow_err_msg, \<sigma>) })\<close>
+    and \<open>((\<Gamma>, word_uminus (literal x)) \<diamondop>\<^sub>v \<sigma>) =
+            (if sint x \<noteq> - (2 ^ (LENGTH('l) - Suc 0)) then {(- x, \<sigma>)} else {})\<close>
+    and \<open>((\<Gamma>, word_uminus (literal x)) \<diamondop>\<^sub>r \<sigma>) = {}\<close>
+  using assms sint_range'[of x]
+  by (auto simp add: word_uminus_def word_minus_no_wrap_def word_minus_no_wrap_core_def
+    word_minus_no_wrap_as_urust_def word_minus_no_wrap_pure_def urust_eval_action_bind micro_rust_simps
+    urust_eval_action_literal urust_eval_action_abort Let_def urust_eval_action_call
+    sword_op_no_wrap_pure_def option_unwrap_expr_def)
+
+corollary urust_eval_predicate_uminus_signed [urust_eval_predicate_simps]:
+  fixes x :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<sigma> \<leadsto>\<^sub>v \<langle>\<Gamma>, word_uminus (literal x)\<rangle> (v, \<sigma>') \<longleftrightarrow> sint x \<noteq> - (2 ^ (LENGTH('l) - Suc 0)) \<and> \<sigma> = \<sigma>' \<and> v = - x\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>r \<langle>\<Gamma>, word_uminus (literal x)\<rangle> (r, \<sigma>') \<longleftrightarrow> False\<close>
+    and \<open>\<sigma> \<leadsto>\<^sub>a \<langle>\<Gamma>, word_uminus (literal x)\<rangle> (a, \<sigma>') \<longleftrightarrow> sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<and> a = Panic overflow_err_msg \<and> \<sigma> = \<sigma>'\<close>
+  using assms by (auto simp add: urust_eval_predicate_via_action urust_eval_action_uminus_signed[OF assms])
 
 lemma urust_eval_action_xor [urust_eval_action_simps]:
   fixes x y :: \<open>'l::{len} word\<close>

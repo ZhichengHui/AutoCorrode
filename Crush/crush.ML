@@ -390,6 +390,8 @@ struct
 
   fun is_order_relation (Const (@{const_name less}, _) $ _ $ _) = true
     | is_order_relation (Const (@{const_name less_eq}, _) $ _ $ _) = true
+    | is_order_relation (Const (@{const_name word_sless}, _) $ _ $ _) = true
+    | is_order_relation (Const (@{const_name word_sle}, _) $ _ $ _) = true
     | is_order_relation _ = false
 
   fun is_order_literal (Const (@{const_name Not}, _) $ t) = is_order_relation t
@@ -411,6 +413,7 @@ struct
     | is_order_concl t = is_order_prem t
 
   fun is_unat (Const (@{const_name unsigned}, _)) = true
+    | is_unat (Const (@{const_name signed}, _)) = true
     | is_unat _ = false
 
   val has_unat = Term.exists_subterm is_unat
@@ -418,16 +421,16 @@ struct
   (* Close order and linear-arithmetic side conditions such as
      `n \<le> 6 \<Longrightarrow> 0 < n \<Longrightarrow> n - Suc 0 < 6`, or refute contradictory
      bounds such as `a < b \<Longrightarrow> b \<le> a \<Longrightarrow> P`. The goal qualifies if its
-     conclusion or some top-level premise is a possibly negated `<` or
-     `\<le>`. The order and arithmetic tactics then see only such
+     conclusion or some top-level premise is a possibly negated `<`,
+     `\<le>`, `<s` or `\<le>s`. The order and arithmetic tactics then see only such
      premises and disequalities `a \<noteq> b`, as needed for
      `a \<noteq> b \<Longrightarrow> \<not> a < b \<Longrightarrow> b < a`. Crush goals carry many
      unrelated premises, and searching all of them made most failed
      attempts expensive. Unlike HOL's simpset solvers, this never
      instantiates schematics by `refl`.
 
-     Natural-number goals containing unat first derive only unat_mono or
-     unat_ucast_lt consequences from the filtered facts. Each consequence is
+     Goals containing unat or sint first derive only unat_mono, unat_ucast_lt
+     or sint_mono consequences from the filtered facts. Each consequence is
      simplified once before matching it against the goal. The enclosing
      SOLVED' guard makes all branches transactional. *)
   val crush_branch_order_tac: Proof.context -> int -> tactic = fn ctxt =>
@@ -442,7 +445,7 @@ struct
 
       fun word_bound_core ctxt' prems =
         let
-          val rules = @{thms unat_mono unat_ucast_lt}
+          val rules = @{thms unat_mono unat_ucast_lt sint_mono}
           val bounds =
             maps (fn prem =>
               map_filter (fn rule => derive_word_bound rule prem) rules) prems
@@ -601,7 +604,7 @@ struct
    end
 
   val crush_branch_misc_tac : Proof.context -> int -> tactic = fn ctxt =>
-             intro_tac @{thms mset_sub_drop_nth word_unat_lt} ctxt
+             intro_tac @{thms mset_sub_drop_nth word_unat_lt sword_sint_lt} ctxt
      ORELSE' (EqSubst.eqsubst_tac ctxt [0] @{thms mset_minus_drop_nth}
               THEN' (simp_tac ctxt |> SOLVED'))
 

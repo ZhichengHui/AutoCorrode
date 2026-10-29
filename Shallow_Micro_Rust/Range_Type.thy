@@ -3,7 +3,7 @@
 
 (*<*)
 theory Range_Type
-  imports Core_Expression Rust_Iterator "HOL-Library.Datatype_Records"
+  imports Core_Expression Rust_Iterator "HOL-Library.Datatype_Records" "Misc.Signedness"
 begin
 (*>*)
 
@@ -18,19 +18,22 @@ text\<open>A range contains all values with \<^term>\<open>start \<le> x \<and> 
 
 subsection\<open>Core material related to the \<^emph>\<open>Range\<close> type\<close>
 
-definition is_empty :: \<open>'a::{ord} range \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close>  where
+text\<open>Ranges of integers compare their bounds as signed words if the length type is signed
+(\<^const>\<open>word_rust_lt\<close>, \<^const>\<open>word_rust_le\<close>).\<close>
+
+definition is_empty :: \<open>'a::len word range \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close>  where
   \<open>is_empty r \<equiv> FunctionBody (literal (
     if end_inclusive r then
-      start r > end r
+      word_rust_lt (end r) (start r)
     else
-      \<not> (start r < end r)))\<close>
+      \<not> word_rust_lt (start r) (end r)))\<close>
 
-definition contains :: \<open>'a::ord range \<Rightarrow> 'a \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+definition contains :: \<open>'a::len word range \<Rightarrow> 'a word \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
   \<open>contains r x \<equiv> FunctionBody (literal (
     if end_inclusive r then
-      start r \<le> x \<and> x \<le> end r
+      word_rust_le (start r) x \<and> word_rust_le x (end r)
     else
-      start r \<le> x \<and> x < end r))\<close>
+      word_rust_le (start r) x \<and> word_rust_lt x (end r)))\<close>
 
 definition range_new :: \<open>'a \<Rightarrow> 'a \<Rightarrow> ('s, 'a range, 'abort, 'i, 'o) function_body\<close> where
   \<open>range_new \<equiv> lift_fun2 (\<lambda>x y. make_range x y False)\<close>
@@ -42,6 +45,12 @@ text\<open>Iterator for a range\<close>
 
 definition range_into_list :: \<open>'a::{len} word range \<Rightarrow> 'a word list\<close> where
   \<open>range_into_list r \<equiv>
+     if is_signed TYPE('a) then
+       (if end_inclusive r then
+          List.map of_int [sint (start r) .. sint (end r)]
+        else
+          List.map of_int [sint (start r) .. sint (end r) - 1])
+     else
      (if end_inclusive r then
         List.map of_nat [unat (start r) ..< Suc (unat (end r))]
       else
@@ -105,6 +114,12 @@ definition array_index_range :: \<open>('a, 'l::{len}) array \<Rightarrow> 'w::{
 definition vector_index_range :: \<open>('a, 'l::{len}) vector \<Rightarrow> 'w::{len} word range \<Rightarrow>
       ('s, 'a list, 'abort, 'i, 'o) function_body\<close> where
   \<open>vector_index_range arr rng \<equiv> list_index_range (vector_to_list arr) rng\<close>
+
+text\<open>The range functions branch on the signedness of the length type and are unfolded into their
+uses at concrete word lengths for code generation (see \<^verbatim>\<open>Signedness\<close>).\<close>
+
+declare is_empty_def[abs_def, code_unfold] contains_def[abs_def, code_unfold] range_into_list_def[abs_def, code_unfold]
+  make_iterator_from_range_def[abs_def, code_unfold] range_into_iter_def[abs_def, code_unfold]
 
 (*<*)
 end

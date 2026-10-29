@@ -894,19 +894,19 @@ text\<open>Range patterns are lowered in the shallow embedding, but concrete par
 coverage for the Rust-style syntax is exercised separately in frontend-focused tests.\<close>
 
 term\<open>\<lbrakk>
-  let y = match Some(\<llangle>7 :: nat\<rrangle>) {
-    Some(5..=7) \<Rightarrow> \<llangle>1 :: nat\<rrangle>,
-    _ \<Rightarrow> \<llangle>0 :: nat\<rrangle>
+  let y = match Some(\<llangle>7 :: 32 word\<rrangle>) {
+    Some(5..=7) \<Rightarrow> \<llangle>1 :: 32 word\<rrangle>,
+    _ \<Rightarrow> \<llangle>0 :: 32 word\<rrangle>
   };
-  assert!(y == \<llangle>1 :: nat\<rrangle>)
+  assert!(y == \<llangle>1 :: 32 word\<rrangle>)
 \<rbrakk>\<close>
 
 term\<open>\<lbrakk>
-  let y = match Some(\<llangle>7 :: nat\<rrangle>) {
-    Some(5..7) \<Rightarrow> \<llangle>1 :: nat\<rrangle>,
-    _ \<Rightarrow> \<llangle>0 :: nat\<rrangle>
+  let y = match Some(\<llangle>7 :: 32 word\<rrangle>) {
+    Some(5..7) \<Rightarrow> \<llangle>1 :: 32 word\<rrangle>,
+    _ \<Rightarrow> \<llangle>0 :: 32 word\<rrangle>
   };
-  assert!(y == \<llangle>0 :: nat\<rrangle>)
+  assert!(y == \<llangle>0 :: 32 word\<rrangle>)
 \<rbrakk>\<close>
 
 term\<open>\<lbrakk>
@@ -955,6 +955,89 @@ term\<open>\<lbrakk>
     _ \<Rightarrow> \<llangle>0 :: 32 word\<rrangle>
   };
   assert!(y == \<llangle>7 :: 32 word\<rrangle>)
+\<rbrakk>\<close>
+
+subsubsection\<open>Numeric Patterns with Guards and Nesting\<close>
+
+term\<open>\<lbrakk>
+  let x = \<llangle>5 :: 32 word\<rrangle>;
+  let y = match x {
+    5 if x > \<llangle>3 :: 32 word\<rrangle> \<Rightarrow> \<llangle>1 :: 32 word\<rrangle>,
+    _ \<Rightarrow> \<llangle>0 :: 32 word\<rrangle>
+  };
+  assert!(y == \<llangle>1 :: 32 word\<rrangle>)
+\<rbrakk>\<close>
+
+term\<open>\<lbrakk>
+  let y = match Some(\<llangle>5 :: 32 word\<rrangle>) {
+    Some(5) \<Rightarrow> \<llangle>1 :: 32 word\<rrangle>,
+    _ \<Rightarrow> \<llangle>0 :: 32 word\<rrangle>
+  };
+  assert!(y == \<llangle>1 :: 32 word\<rrangle>)
+\<rbrakk>\<close>
+
+term\<open>\<lbrakk>
+  let y = match Some(\<llangle>0 :: 32 word\<rrangle>) {
+    Some(0) \<Rightarrow> \<llangle>1 :: 32 word\<rrangle>,
+    _ \<Rightarrow> \<llangle>0 :: 32 word\<rrangle>
+  };
+  assert!(y == \<llangle>1 :: 32 word\<rrangle>)
+\<rbrakk>\<close>
+
+term\<open>\<lbrakk>
+  let y = match (\<llangle>5 :: 32 word\<rrangle>, \<llangle>2 :: 32 word\<rrangle>) {
+    (5, b) \<Rightarrow> b,
+    _ \<Rightarrow> \<llangle>0 :: 32 word\<rrangle>
+  };
+  assert!(y == \<llangle>2 :: 32 word\<rrangle>)
+\<rbrakk>\<close>
+
+term\<open>\<lbrakk>
+  let y = match (-5_i32, 2_i32) {
+    (-5, b) \<Rightarrow> b,
+    (_, b) if b > 0_i32 \<Rightarrow> 1_i32,
+    _ \<Rightarrow> 0_i32
+  };
+  assert!(y == 2_i32)
+\<rbrakk>\<close>
+
+subsubsection\<open>Signed Integers\<close>
+
+text\<open>Negative literals, unary minus, negative patterns and casts on signed integers.\<close>
+
+term\<open>\<lbrakk>
+  let x = -128_i8;
+  let y = -x;
+  let z = (x as i32) + 1_i32;
+  let w = 200_u8 as i32;
+  let v = (-1_i32) as u32;
+  assert!(z < 0_i32)
+\<rbrakk>\<close>
+
+term\<open>\<lbrakk>
+  let x = -5_i32;
+  let y = match x {
+    -5 \<Rightarrow> 1_i32,
+    -1 \<Rightarrow> 2_i32,
+    _ \<Rightarrow> 0_i32
+  };
+  assert!(y == 1_i32)
+\<rbrakk>\<close>
+
+term\<open>\<lbrakk>
+  let y = match Some(-5_i32) {
+    Some(-5) \<Rightarrow> 1_i32,
+    _ \<Rightarrow> 0_i32
+  };
+  assert!(y == 1_i32)
+\<rbrakk>\<close>
+
+term\<open>\<lbrakk>
+  let x = -7_i64;
+  let q = x / 2_i64;
+  let r = x % 2_i64;
+  let s = x >> 1_u64;
+  assert!(q == -3_i64)
 \<rbrakk>\<close>
 
 subsubsection\<open>Nested Patterns\<close>

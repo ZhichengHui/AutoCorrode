@@ -136,6 +136,12 @@ syntax
     ("(_) as/ i32" [100]1000)
   "_urust_primitive_integral_cast_i64" :: "urust \<Rightarrow> urust"
     ("(_) as/ i64" [100]1000)
+  "_urust_primitive_integral_cast_i8" :: "urust \<Rightarrow> urust"
+    ("(_) as/ i8" [100]1000)
+  "_urust_primitive_integral_cast_i16" :: "urust \<Rightarrow> urust"
+    ("(_) as/ i16" [100]1000)
+  "_urust_primitive_integral_cast_isize" :: "urust \<Rightarrow> urust"
+    ("(_) as/ isize" [100]1000)
   \<comment>\<open>Raw pointer casts\<close>
   "_urust_ptr_const_cast_u8" :: "urust \<Rightarrow> urust"
     ("(_) as/ '*const/ u8" [100]1000)
@@ -147,6 +153,16 @@ syntax
     ("(_) as/ '*const/ u64" [100]1000)
   "_urust_ptr_const_cast_usize" :: "urust \<Rightarrow> urust"
     ("(_) as/ '*const/ usize" [100]1000)
+  "_urust_ptr_const_cast_i8" :: "urust \<Rightarrow> urust"
+    ("(_) as/ '*const/ i8" [100]1000)
+  "_urust_ptr_const_cast_i16" :: "urust \<Rightarrow> urust"
+    ("(_) as/ '*const/ i16" [100]1000)
+  "_urust_ptr_const_cast_i32" :: "urust \<Rightarrow> urust"
+    ("(_) as/ '*const/ i32" [100]1000)
+  "_urust_ptr_const_cast_i64" :: "urust \<Rightarrow> urust"
+    ("(_) as/ '*const/ i64" [100]1000)
+  "_urust_ptr_const_cast_isize" :: "urust \<Rightarrow> urust"
+    ("(_) as/ '*const/ isize" [100]1000)
   "_urust_ptr_mut_cast_u8" :: "urust \<Rightarrow> urust"
     ("(_) as/ '*mut/ u8" [100]1000)
   "_urust_ptr_mut_cast_u16" :: "urust \<Rightarrow> urust"
@@ -157,6 +173,16 @@ syntax
     ("(_) as/ '*mut/ u64" [100]1000)
   "_urust_ptr_mut_cast_usize" :: "urust \<Rightarrow> urust"
     ("(_) as/ '*mut/ usize" [100]1000)
+  "_urust_ptr_mut_cast_i8" :: "urust \<Rightarrow> urust"
+    ("(_) as/ '*mut/ i8" [100]1000)
+  "_urust_ptr_mut_cast_i16" :: "urust \<Rightarrow> urust"
+    ("(_) as/ '*mut/ i16" [100]1000)
+  "_urust_ptr_mut_cast_i32" :: "urust \<Rightarrow> urust"
+    ("(_) as/ '*mut/ i32" [100]1000)
+  "_urust_ptr_mut_cast_i64" :: "urust \<Rightarrow> urust"
+    ("(_) as/ '*mut/ i64" [100]1000)
+  "_urust_ptr_mut_cast_isize" :: "urust \<Rightarrow> urust"
+    ("(_) as/ '*mut/ isize" [100]1000)
   \<comment>\<open>Integral literals at a given type\<close>
   "_urust_numeral_ascription_0_u8" :: "urust"
     ("0'_u8")
@@ -188,6 +214,36 @@ syntax
     ("1'_usize")
   "_urust_numeral_ascription_usize" :: "num_const \<Rightarrow> urust"
     ("_'_usize")
+  "_urust_numeral_ascription_0_i8" :: "urust"
+    ("0'_i8")
+  "_urust_numeral_ascription_1_i8" :: "urust"
+    ("1'_i8")
+  "_urust_numeral_ascription_i8" :: "num_const \<Rightarrow> urust"
+    ("_'_i8")
+  "_urust_numeral_ascription_0_i16" :: "urust"
+    ("0'_i16")
+  "_urust_numeral_ascription_1_i16" :: "urust"
+    ("1'_i16")
+  "_urust_numeral_ascription_i16" :: "num_const \<Rightarrow> urust"
+    ("_'_i16")
+  "_urust_numeral_ascription_0_i32" :: "urust"
+    ("0'_i32")
+  "_urust_numeral_ascription_1_i32" :: "urust"
+    ("1'_i32")
+  "_urust_numeral_ascription_i32" :: "num_const \<Rightarrow> urust"
+    ("_'_i32")
+  "_urust_numeral_ascription_0_i64" :: "urust"
+    ("0'_i64")
+  "_urust_numeral_ascription_1_i64" :: "urust"
+    ("1'_i64")
+  "_urust_numeral_ascription_i64" :: "num_const \<Rightarrow> urust"
+    ("_'_i64")
+  "_urust_numeral_ascription_0_isize" :: "urust"
+    ("0'_isize")
+  "_urust_numeral_ascription_1_isize" :: "urust"
+    ("1'_isize")
+  "_urust_numeral_ascription_isize" :: "num_const \<Rightarrow> urust"
+    ("_'_isize")
   \<comment> \<open>Breakpoints\<close>
   "_urust_pause" :: "urust"
     ("\<y>\<i>\<e>\<l>\<d>")
@@ -464,6 +520,10 @@ syntax
     ("0" 1000)
   "_urust_match_pattern_one" :: \<open>urust_pattern\<close>
     ("1" 1000)
+  "_urust_match_pattern_neg_num_const" :: \<open>num_const \<Rightarrow> urust_pattern\<close>
+    ("'- _" [1000]1000)
+  "_urust_match_pattern_neg_one" :: \<open>urust_pattern\<close>
+    ("'- 1" 1000)
   "_urust_match_pattern_true" :: \<open>urust_pattern\<close>
     ("true" 1000)
   "_urust_match_pattern_false" :: \<open>urust_pattern\<close>
@@ -545,6 +605,8 @@ syntax
 
   "_urust_negation" :: \<open>urust \<Rightarrow> urust\<close>
     ("'! _" [300]300)
+  "_urust_uminus" :: \<open>urust \<Rightarrow> urust\<close>
+    ("'- _" [300]300)
   "_urust_double_negation" :: \<open>urust \<Rightarrow> urust\<close>
     ("'!'! _" [300]300)
   "_urust_borrow" :: \<open>urust \<Rightarrow> urust\<close>
@@ -645,6 +707,11 @@ translations
   "_urust_ptr_mut_cast_u32 e" => "_urust_ptr_const_cast_u32 e"
   "_urust_ptr_mut_cast_u64 e" => "_urust_ptr_const_cast_u64 e"
   "_urust_ptr_mut_cast_usize e" => "_urust_ptr_const_cast_usize e"
+  "_urust_ptr_mut_cast_i8 e" => "_urust_ptr_const_cast_i8 e"
+  "_urust_ptr_mut_cast_i16 e" => "_urust_ptr_const_cast_i16 e"
+  "_urust_ptr_mut_cast_i32 e" => "_urust_ptr_const_cast_i32 e"
+  "_urust_ptr_mut_cast_i64 e" => "_urust_ptr_const_cast_i64 e"
+  "_urust_ptr_mut_cast_isize e" => "_urust_ptr_const_cast_isize e"
   "_urust_lhs_as_urust (_urust_lhs_identifier id)" => "_urust_identifier id"
   "_urust_lhs_as_urust (_urust_lhs_parens lhs)" => "_urust_parens (_urust_lhs_as_urust lhs)"
   "_urust_lhs_as_urust (_urust_lhs_deref ex)" => "ex" (* Deref is basically a no-op on a LHS *)
@@ -1234,7 +1301,9 @@ parse_ast_translation\<open>
     fun pat_is_match_case pat =
       pat <> \<^syntax_const>\<open>_urust_match_pattern_num_const\<close> andalso
       pat <> \<^syntax_const>\<open>_urust_match_pattern_zero\<close> andalso
-      pat <> \<^syntax_const>\<open>_urust_match_pattern_one\<close>
+      pat <> \<^syntax_const>\<open>_urust_match_pattern_one\<close> andalso
+      pat <> \<^syntax_const>\<open>_urust_match_pattern_neg_num_const\<close> andalso
+      pat <> \<^syntax_const>\<open>_urust_match_pattern_neg_one\<close>
 
     \<comment> \<open>Is this pattern valid in a \<^verbatim>\<open>match_switch\<close>?\<close>
     fun pat_is_match_switch pat =
@@ -1243,6 +1312,8 @@ parse_ast_translation\<open>
       orelse (pat = \<^syntax_const>\<open>_urust_match_pattern_other\<close>)
       orelse (pat = \<^syntax_const>\<open>_urust_match_pattern_zero\<close>)
       orelse (pat = \<^syntax_const>\<open>_urust_match_pattern_one\<close>)
+      orelse (pat = \<^syntax_const>\<open>_urust_match_pattern_neg_num_const\<close>)
+      orelse (pat = \<^syntax_const>\<open>_urust_match_pattern_neg_one\<close>)
 
     \<comment> \<open>Determine whether a temporary match should become \<^verbatim>\<open>match_case\<close> or \<^verbatim>\<open>match_switch\<close>.\<close>
     fun match_selector_hd branches =
