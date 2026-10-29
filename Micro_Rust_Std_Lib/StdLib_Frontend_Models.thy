@@ -19,6 +19,16 @@ text\<open>\<^verbatim>\<open>alloc::vec::from_elem(elem, n)\<close> (the expans
 definition vec_from_elem :: \<open>'v \<Rightarrow> 64 word \<Rightarrow> ('s, 'v list, 'abort, 'i, 'o) function_body\<close> where
   \<open>vec_from_elem x n \<equiv> FunctionBody (literal (replicate (unat n) x))\<close>
 
+definition vec_from_elem_contract :: \<open>'v \<Rightarrow> 64 word \<Rightarrow> ('s::sepalg, 'v list, 'abort) function_contract\<close> where
+  [crush_contracts]: \<open>vec_from_elem_contract x n \<equiv>
+     let pre = emp in
+     let post = \<lambda>r. \<langle>r = replicate (unat n) x\<rangle> in
+       make_function_contract pre post\<close>
+
+lemma vec_from_elem_spec [crush_specs]:
+  shows \<open>\<Gamma> ; vec_from_elem x n \<Turnstile>\<^sub>F vec_from_elem_contract x n\<close>
+  by (crush_boot f: vec_from_elem_def contract: vec_from_elem_contract_def) crush_base
+
 context reference
 begin
 

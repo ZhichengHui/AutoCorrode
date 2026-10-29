@@ -453,7 +453,7 @@ section\<open>Contracts\<close>
 
 method contract uses f contract =
   (ucincl_discharge \<open>intro satisfies_function_contractI\<close>,
-     unfold f,
+     (unfold f)?,
      subst wp_sstriple_iff,
    ( simp (no_asm) only: contract )? )
 

@@ -134,6 +134,12 @@ lemma nth_focus_components[focus_components]:
     over_nth_list_update)
   done
 
+text\<open>The third component again, for a modifier that is passed on as a function (for example to
+a record update function) before the list it modifies is visible:\<close>
+lemma nth_focus_modify_unapplied [focus_simps]:
+  shows \<open>focus_modify (nth_focus n) f = (\<lambda>xs. xs[n := f (xs ! n)])\<close>
+by (rule ext) (simp add: nth_focus_components)
+
 lemma nth_focus_view[focus_intros]:
   assumes \<open>n < length ls\<close>
       and \<open>x = ls ! n\<close>
