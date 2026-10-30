@@ -22,6 +22,8 @@ session Micro_Rust_Examples = HOL +
     Reference_Examples
     Showcase
     Loop_Control_Examples
+    Loop_Control_Semantics
+    Loop_Control_Automation
     MLKEM_Parameters
     MLKEM_Specification
     MLKEM_Zq

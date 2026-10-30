@@ -14,6 +14,8 @@ theory Micro_Rust_Examples
     Reference_Examples
     Showcase
     Loop_Control_Examples
+    Loop_Control_Semantics
+    Loop_Control_Automation
     Tutorial
     Micro_Rust_Runtime.Hybrid_References
 begin
