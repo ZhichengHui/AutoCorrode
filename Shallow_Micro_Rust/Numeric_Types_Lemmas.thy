@@ -68,6 +68,30 @@ lemma evaluate_word_shift_right_literal [micro_rust_simps]:
     word_shift_right_pure_def word_shift_right_core_def word_shift_right_as_urust_def 
     option_unwrap_expr_def split!: option.splits)
 
+text\<open>Without an assumption on the signedness, a comparison evaluates to the signedness-aware
+comparison of words. This rule lets Crush evaluate comparisons in definitions that are generic in
+the length.\<close>
+
+lemma evaluate_lt_literal_word [micro_rust_simps]:
+  fixes c d :: \<open>'l::len word\<close>
+  shows \<open>\<lbrakk> c < d \<rbrakk> = \<lbrakk> \<llangle>word_rust_lt c d\<rrangle> \<rbrakk>\<close>
+  by (clarsimp simp add: micro_rust_simps comp_lt_def)
+
+lemma evaluate_gt_literal_word [micro_rust_simps]:
+  fixes c d :: \<open>'l::len word\<close>
+  shows \<open>\<lbrakk> c > d \<rbrakk> = \<lbrakk> \<llangle>word_rust_lt d c\<rrangle> \<rbrakk>\<close>
+  by (clarsimp simp add: micro_rust_simps comp_gt_def)
+
+lemma evaluate_ge_literal_word [micro_rust_simps]:
+  fixes c d :: \<open>'l::len word\<close>
+  shows \<open>\<lbrakk> c >= d \<rbrakk> = \<lbrakk> \<llangle>word_rust_le d c\<rrangle> \<rbrakk>\<close>
+  by (clarsimp simp add: micro_rust_simps comp_ge_def)
+
+lemma evaluate_le_literal_word [micro_rust_simps]:
+  fixes c d :: \<open>'l::len word\<close>
+  shows \<open>\<lbrakk> c <= d \<rbrakk> = \<lbrakk> \<llangle>word_rust_le c d\<rrangle> \<rbrakk>\<close>
+  by (clarsimp simp add: micro_rust_simps comp_le_def)
+
 lemma evaluate_lt_literal_signed [micro_rust_simps]:
   fixes c d :: \<open>'l::len word\<close>
   assumes \<open>is_signed TYPE('l)\<close>

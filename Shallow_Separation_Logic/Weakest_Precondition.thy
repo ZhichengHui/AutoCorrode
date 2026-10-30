@@ -1082,7 +1082,15 @@ lemma wp_word_shift_rightI [micro_rust_wp_intros]:
     shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x >> y \<rbrakk> \<psi> \<rho> \<theta>\<close>
 using assms by - (rule aentails_trans', rule wp_word_shift_right, auto)
 
+\<comment>\<open>Exact-accounting automation splits precise pure conclusions without assigning them
+resource.\<close>
+declare aexists_entailsL aexists_entailsR aforall_entailsL aforall_entailsR
+  apure_precise_entailsR [micro_rust_wp_intros]
 
+subsection\<open>Loops\<close>
+
+text\<open>Note that this is not added to \<^verbatim>\<open>micro_rust_wp_intros\<close>. The invariant pretty much always needs
+to be provided, so there is not much point.\<close>
 lemma wp_raw_for_loopI:
     notes aentails_intro [intro]
       and aentails_simp [simp]

@@ -437,6 +437,10 @@ evaluating a premise like \<^term>\<open>\<not> is_signed TYPE(64)\<close> are a
 declare not_False_eq_True[micro_rust_simps] not_True_eq_False[micro_rust_simps]
   if_True[micro_rust_simps] if_False[micro_rust_simps]
 
+text\<open>Unary negation is evaluated as subtraction from zero.\<close>
+
+declare word_uminus_def[micro_rust_simps]
+
 declare is_signed_simps[micro_rust_simps]
   word_rust_lt_unsigned[micro_rust_simps] word_rust_lt_signed[micro_rust_simps]
   word_rust_le_unsigned[micro_rust_simps] word_rust_le_signed[micro_rust_simps]

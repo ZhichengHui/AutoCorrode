@@ -121,7 +121,6 @@ val enabled = Attrib.setup_config_bool \<^binding>\<open>urust_signed_order_chec
 val unsigned_consts =
   [\<^const_name>\<open>less\<close>, \<^const_name>\<open>less_eq\<close>, \<^const_name>\<open>divide\<close>, \<^const_name>\<open>modulo\<close>,
    \<^const_name>\<open>min\<close>, \<^const_name>\<open>max\<close>, \<^const_name>\<open>Max\<close>, \<^const_name>\<open>Min\<close>,
-   \<^const_name>\<open>sorted_wrt\<close>,
    \<^const_name>\<open>atLeast\<close>, \<^const_name>\<open>atMost\<close>, \<^const_name>\<open>greaterThan\<close>, \<^const_name>\<open>lessThan\<close>,
    \<^const_name>\<open>atLeastAtMost\<close>, \<^const_name>\<open>atLeastLessThan\<close>,
    \<^const_name>\<open>greaterThanAtMost\<close>, \<^const_name>\<open>greaterThanLessThan\<close>];
