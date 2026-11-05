@@ -55,7 +55,7 @@ proof (crush_boot f: count_skip_def contract: count_skip_wrong_contract_def, goa
           \<theta>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
         in wp_bounded_while_framedI
       \<close>)
-      by crush_base  (* EXPECTED FAILURE *)
+      by crush_base  (* EXPECTED FAILURE: Failed to finish proof *)
     done
 qed
 

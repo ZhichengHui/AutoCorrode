@@ -983,13 +983,13 @@ qed
 text\<open>The following is a framed version of \<^text>\<open>wp_raw_for_loopI\<close>. The assertion
 \<^term>\<open>BRK\<close> holds after a \<^verbatim>\<open>break\<close> caught by the loop.\<close>
 lemma wp_raw_for_loop_framedI:
-  assumes \<open>\<phi> \<longlongrightarrow> INV [] xs \<star> ((INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>p. \<Sqinter>t. BRK p t \<Zsurj> \<psi> ())
+  assumes \<open>\<phi> \<longlongrightarrow> INV [] xs \<star> ((INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>k. BRK k \<Zsurj> \<psi> ())
                 \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>r. \<theta> r \<Zsurj> \<chi> r))\<close>
       and \<open>\<And>past cur todo. INV past (cur#todo) \<longlongrightarrow> \<W>\<P> \<Gamma> (f cur) (\<lambda>_. INV (past@[cur]) todo) \<tau>
-             (loop_abort lbl (BRK past (cur#todo)) (INV (past@[cur]) todo) \<theta>)\<close>
+             (loop_abort lbl (BRK (past, cur#todo)) (INV (past@[cur]) todo) \<theta>)\<close>
     shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> (raw_for_loop lbl xs f) \<psi> \<rho> \<chi>\<close>
 proof -
-  let ?pc = \<open>(INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>p. \<Sqinter>t. BRK p t \<Zsurj> \<psi> ())
+  let ?pc = \<open>(INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>k. BRK k \<Zsurj> \<psi> ())
                 \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>r. \<theta> r \<Zsurj> \<chi> r)\<close>
   from assms have \<open>\<Gamma> ; INV [] xs \<star> ?pc \<turnstile> raw_for_loop lbl xs f \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
     by (intro sstriple_raw_for_loop_framed) (auto simp add: wp_to_sstriple)

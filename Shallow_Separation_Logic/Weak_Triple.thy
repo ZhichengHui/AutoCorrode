@@ -1057,6 +1057,27 @@ lemma asepconj_awand_frameI:
     shows \<open>\<phi> \<star> \<pi> \<longlongrightarrow> \<psi>\<close>
   using assms by (simp add: awand_adjoint asepconj_comm)
 
+text\<open>The frame of the framed loop rules turns the invariant at the end of the loop, the assertions
+after a caught \<^verbatim>\<open>break\<close>, and the postconditions of the body for returns and aborts into
+the postconditions of the loop:\<close>
+
+lemma loop_frame_aentails:
+  shows \<open>I \<star> ((I \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>k. B k \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a))
+           \<longlongrightarrow> \<psi> ()\<close>
+    and \<open>B k \<star> ((I \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>k. B k \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a))
+           \<longlongrightarrow> \<psi> ()\<close>
+    and \<open>\<tau> r \<star> ((I \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>k. B k \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a))
+           \<longlongrightarrow> \<rho> r\<close>
+    and \<open>\<theta> a \<star> ((I \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>k. B k \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a))
+           \<longlongrightarrow> \<chi> a\<close>
+     apply (intro asepconj_awand_frameI aentails_inter_weaken2 aentails_refl)
+    apply (rule asepconj_awand_frameI, rule aentails_inter_weaken2, rule aentails_inter_weaken2,
+      rule aentails_inter_weaken, rule aforall_entailsL, rule aentails_refl)
+   apply (rule asepconj_awand_frameI, rule aentails_inter_weaken2, rule aentails_inter_weaken,
+      rule aforall_entailsL, rule aentails_refl)
+  apply (rule asepconj_awand_frameI, rule aentails_inter_weaken, rule aforall_entailsL, rule aentails_refl)
+  done
+
 text\<open>One iteration of a loop with label \<^term>\<open>lbl\<close>: the aborts of \<^verbatim>\<open>break\<close> and
 \<^verbatim>\<open>continue\<close> caught by the loop become the values \<^term>\<open>False\<close> and \<^term>\<open>True\<close>.\<close>
 
@@ -1145,31 +1166,27 @@ qed
 
 lemma striple_raw_for_loop_framed:
     notes aentails_intro [intro]
-    fixes INV BRK :: \<open>'t list \<Rightarrow> 't list \<Rightarrow> 'a assert\<close>
+    fixes INV :: \<open>'t list \<Rightarrow> 't list \<Rightarrow> 'a assert\<close>
+      and BRK :: \<open>'t list \<times> 't list \<Rightarrow> 'a assert\<close>
   assumes \<open>\<And>past cur todo. \<Gamma> ;  INV past (cur # todo) \<turnstile> f cur \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. INV (past @ [cur]) todo)
-             \<bowtie> \<tau> \<bowtie> loop_abort lbl (BRK past (cur # todo)) (INV (past @ [cur]) todo) \<theta>\<close>
-    shows \<open>\<Gamma> ; INV [] xs \<star> ((INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>p. \<Sqinter>t. BRK p t \<Zsurj> \<psi> ())
+             \<bowtie> \<tau> \<bowtie> loop_abort lbl (BRK (past, cur # todo)) (INV (past @ [cur]) todo) \<theta>\<close>
+    shows \<open>\<Gamma> ; INV [] xs \<star> ((INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>k. BRK k \<Zsurj> \<psi> ())
                 \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a))
                \<turnstile> raw_for_loop lbl xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
 proof -
-  let ?pc = \<open>(INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>p. \<Sqinter>t. BRK p t \<Zsurj> \<psi> ())
+  let ?pc = \<open>(INV xs [] \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>k. BRK k \<Zsurj> \<psi> ())
                 \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a)\<close>
   have inv: \<open>INV xs [] \<star> ?pc \<longlongrightarrow> \<psi> ()\<close>
-    by (intro asepconj_awand_frameI aentails_inter_weaken2 aentails_refl)
-  have brk: \<open>BRK p t \<star> ?pc \<longlongrightarrow> \<psi> ()\<close> for p t
-    by (rule asepconj_awand_frameI, rule aentails_inter_weaken2, rule aentails_inter_weaken2,
-      rule aentails_inter_weaken, rule aforall_entailsL, rule aforall_entailsL, rule aentails_refl)
-  have ret: \<open>\<tau> r \<star> ?pc \<longlongrightarrow> \<rho> r\<close> for r
-    by (rule asepconj_awand_frameI, rule aentails_inter_weaken2, rule aentails_inter_weaken,
-      rule aforall_entailsL, rule aentails_refl)
-  have abt: \<open>\<theta> a \<star> ?pc \<longlongrightarrow> \<chi> a\<close> for a
-    by (rule asepconj_awand_frameI, rule aentails_inter_weaken, rule aforall_entailsL, rule aentails_refl)
+    and brk: \<open>BRK k \<star> ?pc \<longlongrightarrow> \<psi> ()\<close>
+    and ret: \<open>\<tau> r \<star> ?pc \<longlongrightarrow> \<rho> r\<close>
+    and abt: \<open>\<theta> a \<star> ?pc \<longlongrightarrow> \<chi> a\<close> for k r a
+    by (rule loop_frame_aentails[where B=BRK])+
   have \<open>\<Gamma> ; INV [] xs \<star> ?pc \<turnstile> raw_for_loop lbl xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
   proof (rule striple_raw_for_loop[where I=\<open>\<lambda>p t. INV p t \<star> ?pc\<close>])
     fix past cur todo
     have \<open>\<Gamma> ; INV past (cur # todo) \<star> ?pc \<turnstile> f cur \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k
         (\<lambda>_. INV (past @ [cur]) todo \<star> ?pc) \<bowtie> (\<lambda>r. \<tau> r \<star> ?pc)
-        \<bowtie> (\<lambda>a. loop_abort lbl (BRK past (cur # todo)) (INV (past @ [cur]) todo) \<theta> a \<star> ?pc)\<close>
+        \<bowtie> (\<lambda>a. loop_abort lbl (BRK (past, cur # todo)) (INV (past @ [cur]) todo) \<theta> a \<star> ?pc)\<close>
       by (rule striple_frame_rule, rule assms)
     then show \<open>\<Gamma> ; INV past (cur # todo) \<star> ?pc \<turnstile> f cur \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k (\<lambda>_. INV (past @ [cur]) todo \<star> ?pc)
         \<bowtie> \<rho> \<bowtie> loop_abort lbl (\<psi> ()) (INV (past @ [cur]) todo \<star> ?pc) \<chi>\<close>
@@ -1236,15 +1253,10 @@ proof -
   let ?pc = \<open>(INV xs (length xs) \<Zsurj> \<psi> ()) \<sqinter> (\<Sqinter>i. BRK xs i \<Zsurj> \<psi> ())
                 \<sqinter> (\<Sqinter>r. \<tau> r \<Zsurj> \<rho> r) \<sqinter> (\<Sqinter>a. \<theta> a \<Zsurj> \<chi> a)\<close>
   have inv: \<open>INV xs (length xs) \<star> ?pc \<longlongrightarrow> \<psi> ()\<close>
-    by (intro asepconj_awand_frameI aentails_inter_weaken2 aentails_refl)
-  have brk: \<open>BRK xs i \<star> ?pc \<longlongrightarrow> \<psi> ()\<close> for i
-    by (rule asepconj_awand_frameI, rule aentails_inter_weaken2, rule aentails_inter_weaken2,
-      rule aentails_inter_weaken, rule aforall_entailsL, rule aentails_refl)
-  have ret: \<open>\<tau> r \<star> ?pc \<longlongrightarrow> \<rho> r\<close> for r
-    by (rule asepconj_awand_frameI, rule aentails_inter_weaken2, rule aentails_inter_weaken,
-      rule aforall_entailsL, rule aentails_refl)
-  have abt: \<open>\<theta> a \<star> ?pc \<longlongrightarrow> \<chi> a\<close> for a
-    by (rule asepconj_awand_frameI, rule aentails_inter_weaken, rule aforall_entailsL, rule aentails_refl)
+    and brk: \<open>BRK xs i \<star> ?pc \<longlongrightarrow> \<psi> ()\<close>
+    and ret: \<open>\<tau> r \<star> ?pc \<longlongrightarrow> \<rho> r\<close>
+    and abt: \<open>\<theta> a \<star> ?pc \<longlongrightarrow> \<chi> a\<close> for i r a
+    by (rule loop_frame_aentails[where B=\<open>BRK xs\<close>])+
   have \<open>\<Gamma> ; INV xs 0 \<star> ?pc \<turnstile> raw_for_loop lbl xs f \<stileturn>\<^sub>w\<^sub>e\<^sub>a\<^sub>k \<psi> \<bowtie> \<rho> \<bowtie> \<chi>\<close>
   proof (rule striple_raw_for_loop'[where I=\<open>\<lambda>xs' i. INV xs' i \<star> ?pc\<close>])
     fix i

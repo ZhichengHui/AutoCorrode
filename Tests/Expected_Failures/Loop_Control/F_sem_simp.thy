@@ -13,5 +13,5 @@ lemma \<open>run (\<lbrakk>
     }
     \<epsilon>\<open>tick 99\<close>
   \<rbrakk> :: (unit, unit) prog) = OSuccess () [1, 5, 99]\<close>
-  by (simp add: run_simps)  (* EXPECTED FAILURE *)
+  by (simp add: run_simps)  (* EXPECTED FAILURE: Failed to finish proof *)
 end

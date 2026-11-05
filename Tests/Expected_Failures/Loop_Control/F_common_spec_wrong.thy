@@ -41,7 +41,7 @@ proof (crush_boot f: common_def contract: common_wrong_contract_def, goal_cases)
         in wp_raw_for_loop_framedI'
       \<close>)
       subgoal
-        by (crush_base simp add: More_Word.unat_of_nat_eq)  (* EXPECTED FAILURE *)
+        by (crush_base simp add: More_Word.unat_of_nat_eq)  (* EXPECTED FAILURE: Failed to finish proof *)
       subgoal for i
         apply (crush_base simp add: More_Word.unat_of_nat_eq)
         apply (ucincl_discharge\<open>

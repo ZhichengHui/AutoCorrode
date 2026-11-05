@@ -48,7 +48,7 @@ and that the loop invariant after all iterations entails our postcondition.
 after n iterations holds. Moreover, the loop invariant after (n+1) iterations holds after execution
 of the loop body has finished.
 In this case, the automation requires one extra simplification rule to be able to finish the proof\<close>
-      by (crush_base simp add: More_Word.unat_of_nat_eq)  (* EXPECTED FAILURE *)
+      by (crush_base simp add: More_Word.unat_of_nat_eq)  (* EXPECTED FAILURE: Failed to finish proof *)
   done
 qed
 

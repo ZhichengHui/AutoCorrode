@@ -649,58 +649,10 @@ lemma loop_catches_simps [simp]:
     and \<open>loop_catches lbl (Some l) \<longleftrightarrow> lbl = Some l\<close>
   by (auto simp add: loop_catches_def)
 
-text \<open>One iteration of a loop with label \<^term>\<open>lbl\<close>. The iteration \<^term>\<open>e\<close> computes whether the
-loop goes on. A \<^verbatim>\<open>continue\<close> caught by the loop goes on with the next iteration, and a
-\<^verbatim>\<open>break\<close> caught by the loop stops it.\<close>
-
-function loop_step :: \<open>String.literal option \<Rightarrow> ('s, bool, 'r, 'abort, 'i, 'o) expression \<Rightarrow>
-    ('s, bool, 'r, 'abort, 'i, 'o) expression\<close> where
-  \<open>loop_step lbl e =
-    Expression (\<lambda>\<sigma>.
-          (case evaluate e \<sigma> of
-             Success c \<sigma>' \<Rightarrow> Success c \<sigma>'
-           | Return r \<sigma>'  \<Rightarrow> Return r \<sigma>'
-           | Yield \<pi> \<sigma>' e' \<Rightarrow> Yield \<pi> \<sigma>' (\<lambda>\<omega>. loop_step lbl (e' \<omega>))
-           | Abort a \<sigma>'  \<Rightarrow>
-               (case a of
-                  LoopBreak l \<Rightarrow> if loop_catches lbl l then Success False \<sigma>' else Abort a \<sigma>'
-                | LoopContinue l \<Rightarrow> if loop_catches lbl l then Success True \<sigma>' else Abort a \<sigma>'
-                | _ \<Rightarrow> Abort a \<sigma>')))\<close>
-by pat_completeness auto
-
-termination
-  loop_step
-proof(relation \<open>inv_image expression_wf snd\<close>)
-  show \<open>wf (inv_image expression_wf snd)\<close>
-    by force
-next
-     fix lbl :: \<open>String.literal option\<close>
-     and e :: \<open>('a, bool, 'b, 'c, 'd, 'e) expression\<close>
-     and x x1 x2 x3 a
-  assume \<open>evaluate e x = Yield x1 x2 x3\<close>
-  from this show \<open>((lbl, x3 a), lbl, e) \<in> inv_image expression_wf snd\<close>
-    by (force simp add: expression_wf_def expression_wf_base_def)
-qed
-
-lemma evaluate_loop_step:
-  \<open>evaluate (loop_step lbl e) \<sigma> =
-          (case evaluate e \<sigma> of
-             Success c \<sigma>' \<Rightarrow> Success c \<sigma>'
-           | Return r \<sigma>'  \<Rightarrow> Return r \<sigma>'
-           | Yield \<pi> \<sigma>' e' \<Rightarrow> Yield \<pi> \<sigma>' (\<lambda>\<omega>. loop_step lbl (e' \<omega>))
-           | Abort a \<sigma>'  \<Rightarrow>
-               (case a of
-                  LoopBreak l \<Rightarrow> if loop_catches lbl l then Success False \<sigma>' else Abort a \<sigma>'
-                | LoopContinue l \<Rightarrow> if loop_catches lbl l then Success True \<sigma>' else Abort a \<sigma>'
-                | _ \<Rightarrow> Abort a \<sigma>'))\<close>
-  by (simp add: evaluate_def)
-
-declare Core_Expression.loop_step.simps[simp del]
-
-text \<open>The postcondition for the aborts of an iteration of a loop with label \<^term>\<open>lbl\<close>: a
-\<^verbatim>\<open>break\<close> caught by the loop establishes \<^term>\<open>\<beta>\<close>, a \<^verbatim>\<open>continue\<close> caught by the loop
-establishes \<^term>\<open>\<kappa>\<close>, and every other abort establishes the postcondition \<^term>\<open>\<theta>\<close> for the
-aborts of the loop.\<close>
+text \<open>Case distinction on the abort \<^term>\<open>a\<close> of an iteration of a loop with label \<^term>\<open>lbl\<close>:
+a \<^verbatim>\<open>break\<close> caught by the loop gives \<^term>\<open>\<beta>\<close>, a \<^verbatim>\<open>continue\<close> caught by the loop gives
+\<^term>\<open>\<kappa>\<close>, and every other abort gives \<^term>\<open>\<theta> a\<close>. It describes both the result of an
+iteration and the postcondition for the aborts of the loop body.\<close>
 
 definition loop_abort :: \<open>String.literal option \<Rightarrow> 'x \<Rightarrow> 'x \<Rightarrow> ('abort abort \<Rightarrow> 'x) \<Rightarrow> 'abort abort \<Rightarrow> 'x\<close> where
   \<open>loop_abort lbl \<beta> \<kappa> \<theta> a \<equiv>
@@ -731,6 +683,46 @@ lemma loop_passes_loop_abort:
   assumes \<open>loop_passes lbl a\<close>
     shows \<open>loop_abort lbl \<beta> \<kappa> \<theta> a = \<theta> a\<close>
   using assms by (auto simp add: loop_passes_def loop_abort_def split: abort.splits if_splits)
+
+text \<open>One iteration of a loop with label \<^term>\<open>lbl\<close>. The iteration \<^term>\<open>e\<close> computes whether the
+loop goes on. A \<^verbatim>\<open>continue\<close> caught by the loop goes on with the next iteration, and a
+\<^verbatim>\<open>break\<close> caught by the loop stops it.\<close>
+
+function loop_step :: \<open>String.literal option \<Rightarrow> ('s, bool, 'r, 'abort, 'i, 'o) expression \<Rightarrow>
+    ('s, bool, 'r, 'abort, 'i, 'o) expression\<close> where
+  \<open>loop_step lbl e =
+    Expression (\<lambda>\<sigma>.
+          (case evaluate e \<sigma> of
+             Success c \<sigma>' \<Rightarrow> Success c \<sigma>'
+           | Return r \<sigma>'  \<Rightarrow> Return r \<sigma>'
+           | Yield \<pi> \<sigma>' e' \<Rightarrow> Yield \<pi> \<sigma>' (\<lambda>\<omega>. loop_step lbl (e' \<omega>))
+           | Abort a \<sigma>'  \<Rightarrow> loop_abort lbl (Success False \<sigma>') (Success True \<sigma>') (\<lambda>a. Abort a \<sigma>') a))\<close>
+by pat_completeness auto
+
+termination
+  loop_step
+proof(relation \<open>inv_image expression_wf snd\<close>)
+  show \<open>wf (inv_image expression_wf snd)\<close>
+    by force
+next
+     fix lbl :: \<open>String.literal option\<close>
+     and e :: \<open>('a, bool, 'b, 'c, 'd, 'e) expression\<close>
+     and x x1 x2 x3 a
+  assume \<open>evaluate e x = Yield x1 x2 x3\<close>
+  from this show \<open>((lbl, x3 a), lbl, e) \<in> inv_image expression_wf snd\<close>
+    by (force simp add: expression_wf_def expression_wf_base_def)
+qed
+
+lemma evaluate_loop_step:
+  \<open>evaluate (loop_step lbl e) \<sigma> =
+          (case evaluate e \<sigma> of
+             Success c \<sigma>' \<Rightarrow> Success c \<sigma>'
+           | Return r \<sigma>'  \<Rightarrow> Return r \<sigma>'
+           | Yield \<pi> \<sigma>' e' \<Rightarrow> Yield \<pi> \<sigma>' (\<lambda>\<omega>. loop_step lbl (e' \<omega>))
+           | Abort a \<sigma>'  \<Rightarrow> loop_abort lbl (Success False \<sigma>') (Success True \<sigma>') (\<lambda>a. Abort a \<sigma>') a)\<close>
+  by (simp add: evaluate_def)
+
+declare Core_Expression.loop_step.simps[simp del]
 
 subsection\<open>Binary operations\<close>
 

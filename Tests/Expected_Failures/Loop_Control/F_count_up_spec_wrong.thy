@@ -28,7 +28,7 @@ proof (crush_boot f: count_up_def contract: count_up_wrong_contract_def, goal_ca
           \<theta>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
         in wp_bounded_while_framedI
       \<close>)
-      by crush_base  (* EXPECTED FAILURE *)
+      by crush_base  (* EXPECTED FAILURE: Failed to finish proof *)
     done
 qed
 

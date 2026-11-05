@@ -98,7 +98,6 @@ register-fine-grained-timing-panel-component:
 build: register-components
 	$(ISABELLE_HOME)/isabelle build $(ISABELLE_FLAGS) -d . \
 	  AutoCorrode AutoLocality_Tests Tests
-	./Tests/Expected_Failures/check.sh $(ISABELLE_HOME)/isabelle $(ISABELLE_FLAGS)
 
 expected-failures: register-components
 	./Tests/Expected_Failures/check.sh $(ISABELLE_HOME)/isabelle $(ISABELLE_FLAGS)

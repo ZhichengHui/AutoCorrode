@@ -95,7 +95,7 @@ lemma poly_add_spec [crush_specs]:
         rule_tac
           INV=\<open>\<lambda>_ i. \<Squnion> g.
             result_ref \<mapsto>\<langle>\<top>\<rangle> g\<down>(array_splice i (MLKEM_Specification.poly_add a b) a)\<close>
-          and \<tau>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
+          and BRK=\<open>\<lambda>_ _. \<langle>False\<rangle>\<close> and \<tau>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
           and \<theta>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
         in wp_raw_for_loop_framedI'\<close>)
     using poly_add_splice_step poly_add_splice_full MLKEM_Specification.poly_add_wf
@@ -147,7 +147,7 @@ lemma poly_sub_spec [crush_specs]:
         rule_tac
           INV=\<open>\<lambda>_ i. \<Squnion> g.
             result_ref \<mapsto>\<langle>\<top>\<rangle> g\<down>(array_splice i (MLKEM_Specification.poly_sub a b) a)\<close>
-          and \<tau>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
+          and BRK=\<open>\<lambda>_ _. \<langle>False\<rangle>\<close> and \<tau>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
           and \<theta>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
         in wp_raw_for_loop_framedI'\<close>)
     using poly_sub_splice_step poly_sub_splice_full MLKEM_Specification.poly_sub_wf

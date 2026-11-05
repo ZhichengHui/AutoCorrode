@@ -1661,7 +1661,7 @@ let
 
   fun label_of (Ast.Variable l) = l
     | label_of (Ast.Appl [Ast.Constant \<^syntax_const>\<open>_ofsort\<close>, Ast.Variable l, _]) = l
-    | label_of ast = raise Ast.AST ("label_of", [ast])
+    | label_of ast = error ("uRust: malformed loop label " ^ Pretty.string_of (Ast.pretty_ast ast))
 
   fun label_name ast = unprefix "'" (label_of ast)
   fun label_ast ast = mk \<^syntax_const>\<open>_urust_label\<close> [Ast.Variable (label_name ast)]

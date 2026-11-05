@@ -31,7 +31,7 @@ proof (crush_boot f: sum_except_def contract: sum_except_false_contract_def, goa
           \<theta>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
         in wp_raw_for_loop_framedI'
       \<close>)
-      by (crush_base simp add: More_Word.unat_of_nat_eq)  (* EXPECTED FAILURE *)
+      by (crush_base simp add: More_Word.unat_of_nat_eq)  (* EXPECTED FAILURE: Failed to finish proof *)
   done
 qed
 

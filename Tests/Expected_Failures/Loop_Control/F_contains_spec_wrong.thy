@@ -32,7 +32,7 @@ proof (crush_boot f: contains_def contract: contains_wrong_contract_def, goal_ca
           \<theta>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
         in wp_raw_for_loop_framedI'
       \<close>)
-      by (crush_base simp add: More_Word.unat_of_nat_eq)  (* EXPECTED FAILURE *)
+      by (crush_base simp add: More_Word.unat_of_nat_eq)  (* EXPECTED FAILURE: Failed to finish proof *)
   done
 qed
 

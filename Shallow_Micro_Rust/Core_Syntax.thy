@@ -254,9 +254,11 @@ syntax
   "_urust_shallow_labeled_for_loop"
     :: \<open>String.literal \<Rightarrow> 'a \<Rightarrow> ('s, 'b, 'r, 'abort, 'i, 'o) expression \<Rightarrow>
         ('s, unit, 'r, 'abort, 'i, 'o) expression \<Rightarrow> ('s, unit, 'r, 'abort, 'i, 'o) expression\<close>
+    ("#'[(_)'] for (_) in (_) \<lbrace> (_) \<rbrace>" [0,20,100,0]11)
   "_urust_shallow_labeled_while_loop"
     :: \<open>String.literal \<Rightarrow> nat \<Rightarrow> ('s, bool, 'r, 'abort, 'i, 'o) expression \<Rightarrow>
         ('s, unit, 'r, 'abort, 'i, 'o) expression \<Rightarrow> ('s, unit, 'r, 'abort, 'i, 'o) expression\<close>
+    ("#'[(_)'] #'[fuel'(_') '] while (_) \<lbrace> (_) \<rbrace>" [0,0,20,0]11)
   "_urust_shallow_labeled_loop"
     :: \<open>String.literal \<Rightarrow> nat \<Rightarrow> ('s, unit, 'r, 'abort, 'i, 'o) expression \<Rightarrow>
         ('s, unit, 'r, 'abort, 'i, 'o) expression\<close>
@@ -425,9 +427,9 @@ translations
 
   \<comment>\<open>Labeled loops\<close>
   "_urust_shallow_labeled_for_loop l i xs body"
-    \<rightharpoonup> "CONST for_loop (CONST Some l) (CONST funcall1 (CONST into_iter) xs) (\<lambda>i. body)"
+    \<rightleftharpoons> "CONST for_loop (CONST Some l) (CONST funcall1 (CONST into_iter) xs) (\<lambda>i. body)"
   "_urust_shallow_labeled_while_loop l n cond body"
-    \<rightharpoonup> "CONST bounded_while (CONST Some l) n cond body"
+    \<rightleftharpoons> "CONST bounded_while (CONST Some l) n cond body"
   "_urust_shallow_labeled_loop l n body"
     \<rightharpoonup> "CONST bounded_while (CONST Some l) n (CONST Core_Expression.literal (CONST HOL.True)) body"
   "_urust_shallow_labeled_while_let l n ptrn expr body"

@@ -67,7 +67,7 @@ proof (crush_boot f: sum_until_def contract: sum_until_wrong_contract_def, goal_
           \<theta>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
         in wp_raw_for_loop_framedI'
       \<close>)
-      by (crush_base simp add: More_Word.unat_of_nat_eq)  (* EXPECTED FAILURE *)
+      by (crush_base simp add: More_Word.unat_of_nat_eq)  (* EXPECTED FAILURE: Failed to finish proof *)
   done
 qed
 

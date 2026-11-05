@@ -11,5 +11,5 @@ lemma \<open>run (\<lbrakk>
     }
     \<epsilon>\<open>tick 99\<close>
   \<rbrakk> :: (unit, unit) prog) = OSuccess () [1, 3, 1, 1, 3, 99]\<close>
-  by eval  (* EXPECTED FAILURE *)
+  by eval  (* EXPECTED FAILURE: Failed to apply initial proof method *)
 end

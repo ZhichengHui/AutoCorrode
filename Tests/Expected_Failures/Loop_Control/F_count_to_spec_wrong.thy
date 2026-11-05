@@ -50,7 +50,7 @@ proof (crush_boot f: count_to_def contract: count_to_wrong_contract_def, goal_ca
       \<comment>\<open>The automation does not relate \<^term>\<open>ra \<noteq> k\<close> to \<^term>\<open>unat ra \<noteq> unat k\<close>\<close>
       subgoal for _ _ ra
         using word_unat_eq_iff[of ra k] by auto
-      done  (* EXPECTED FAILURE *)
+      done  (* EXPECTED FAILURE: Failed to finish proof *)
     done
 qed
 
