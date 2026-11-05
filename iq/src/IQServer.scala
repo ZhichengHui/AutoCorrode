@@ -2326,19 +2326,21 @@ class IQServer(
 
       Output.writeln(s"I/Q Server: calculateTimingInfo - timingThreshold=$timingThresholdMs ms")
 
-      val commandTimingEntries = commands_above_threshold.toList.map {
-        case (cmd, timings) =>
-          val commandStart = node.command_start(cmd).getOrElse(0)
-          val start_line = offsetToLine(commandStart)
-          val timingSeconds = formatDecimal(timings.sum(Date.now()).seconds)
-          (
-            timingSeconds,
-            Map[String, Any](
-              "line" -> start_line,
-              "source_preview" -> cmd.source.take(50),
-              "timing_seconds" -> timingSeconds
+      val commandTimingEntries = commands_above_threshold.toList.flatMap {
+        case (cmdId, timings) =>
+          snapshot.get_command(cmdId).map { cmd =>
+            val commandStart = node.command_start(cmd).getOrElse(0)
+            val start_line = offsetToLine(commandStart)
+            val timingSeconds = formatDecimal(timings.sum(Date.now()).seconds)
+            (
+              timingSeconds,
+              Map[String, Any](
+                "line" -> start_line,
+                "source_preview" -> cmd.source.take(50),
+                "timing_seconds" -> timingSeconds
+              )
             )
-          )
+          }
       }
 
       baseTimingInfo ++ Map(
@@ -2393,10 +2395,10 @@ class IQServer(
       val rendering = model match {
         case buffer_model: Buffer_Model =>
           // For Buffer_Model, use JEdit_Rendering
-          JEdit_Rendering(snapshot, buffer_model, PIDE.options.value)
+          JEdit_Rendering(snapshot, buffer_model, PIDE.options)
         case _ =>
           // For File_Model, use standard Rendering with session
-          new Rendering(snapshot, PIDE.options.value, PIDE.session)
+          new Rendering(snapshot, PIDE.options, PIDE.session)
       }
 
       val text_range = Text.Range(0, snapshot.node.source.length)
@@ -3603,7 +3605,7 @@ end"""
         )
       } else {
         val startOffset = node.command_start(command).getOrElse(0)
-        val output = PIDE.editor.output(snapshot, startOffset)
+        val output = JEdit_Editor.output(snapshot, startOffset)
         val fallbackFreeVars = extractCommandFreeVars(snapshot, command, startOffset)
         analyzeGoalMessages(output.messages, fallbackFreeVars)
       }
