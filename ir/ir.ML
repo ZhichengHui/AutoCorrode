@@ -783,18 +783,18 @@ fun theories () =
 fun is_interactive_session () =
   Interactive.enabled ();
 
-(* Load a theory (and its transitive dependencies) by fully qualified name,
-   e.g. "HOL-Library.Multiset".  After loading, the theory is available
-   for Ir.init and appears in Ir.theories.
-   Not available in interactive PIDE sessions (jEdit); use init_from_document instead. *)
+(* Load a theory by fully qualified name, e.g. "HOL-Library.Multiset".
+   Not supported in Isabelle2026: Thy_Info.use_theories was removed, and theories
+   are loaded only by a PIDE session (isabelle build, process_theories). Always
+   raises an error; in interactive PIDE sessions (jEdit) use init_from_document. *)
 fun load_theory name =
   if is_interactive_session () then
     error "load_theory is not available in interactive PIDE sessions. \
           \Open theories in Isabelle/jEdit and use init_from_document instead."
   else
-  let val opts = Options.update "record_theories" "true" (Options.default ())
-      val _ = Thy_Info.use_theories opts "" [(name, Position.none)]
-  in out ("Loaded theory " ^ quote name) end;
+    error ("load_theory " ^ quote name ^ ": not supported in Isabelle2026, \
+           \which removed Thy_Info.use_theories. Build a heap that contains the theory \
+           \and start the REPL on it.");
 
 (* Sledgehammer via compiler bridge *)
 
@@ -878,7 +878,7 @@ fun help () = out
   \  claims ()              compact list of currently-claimed REPLs\n\
   \  repls ()               list all REPLs\n\
   \  theories ()            list loaded theories\n\
-  \  load_theory s          load theory by name\n\
+  \  load_theory s          (not supported in Isabelle2026)\n\
   \  source thy s e         list command spans\n\
   \  source_map thy s e     segment-to-position map\n\
   \  config f               update config\n\

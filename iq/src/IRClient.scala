@@ -143,7 +143,7 @@ class IRClient(host: String = "127.0.0.1", port: Int = 9147, token: String = "")
   /** List all theories loaded in the session. */
   def theories(): String = send("Ir.theories ()")
 
-  /** Load a theory by name. */
+  /** Load a theory by name. Not supported in Isabelle2026: always returns an error. */
   def loadTheory(name: String): String = send(s"Ir.load_theory ${q(name)}")
 
   /** List theory commands (start/stop are 0-based, ~N from end). */
@@ -204,7 +204,7 @@ class IRClient(host: String = "127.0.0.1", port: Int = 9147, token: String = "")
       |
       |Theories:
       |  theories()                         List loaded theories
-      |  loadTheory("HOL-Library.Multiset") Load theory by name
+      |  loadTheory("HOL-Library.Multiset") Not supported in Isabelle2026
       |  source("thy", start, stop)         List theory commands
       |
       |Proof tools:
