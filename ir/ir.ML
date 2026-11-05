@@ -53,7 +53,7 @@ sig
   val help : unit -> unit
 end;
 
-(* Segment access via Thy_Info.get_theory_segments (requires record_theories=true) *)
+(* Segment access via Build.get_theory_segments (requires record_theories=true) *)
 
 structure Ir : IR =
 struct
@@ -120,14 +120,14 @@ fun out s = writeln s;
 (** Segments **)
 
 fun find_source thy_name =
-  Thy_Info.get_theory_segments thy_name
+  Build.get_theory_segments thy_name
   handle ERROR msg =>
     error ("No recorded segments for " ^ quote thy_name ^
            ". Rebuild the session heap with: isabelle build -o record_theories=true -b <SESSION>");
 
 fun source thy_name start stop =
   let val segs = find_source thy_name
-      val thy = Thy_Info.get_theory thy_name
+      val thy = Build.get_theory thy_name
       val kws = Thy_Header.get_keywords thy
       val len = length segs
       val start' = if start < 0 then Int.max (0, len + start) else start
@@ -136,7 +136,7 @@ fun source thy_name start stop =
       val prefix = if show_theory_in_source then thy_name ^ ":" else ""
       fun pr _ [] = ()
         | pr i (({span, prev_state, ...} : Document_Output.segment) :: rest) =
-            let val indent = StringCvt.padLeft #" " (2 * Toplevel.level prev_state) ""
+            let val indent = StringCvt.padLeft #" " (2 * Toplevel.proof_level prev_state) ""
             in (if i >= start' andalso i <= stop' then
                if is_ignored span then
                  (if incl then out (prefix ^ StringCvt.padLeft #" " 4 (string_of_int i) ^
@@ -334,13 +334,11 @@ fun timeout id secs =
 (* Execute Isar text against a state *)
 fun exec_text timeout_secs text st =
   let val thy = Toplevel.theory_of st
-      val transitions = Outer_Syntax.parse_text thy (fn () => thy) Position.none text
+      val transitions = Outer_Syntax.parse_text thy (fn () => {skip_theory = false, theory = thy}) Position.none text
       fun run (tr, s) =
-        let val old = !Multithreading.parallel_proofs
-            val _ = Multithreading.parallel_proofs := Int.min (2, old)
-            val s' = Toplevel.command_exception false tr s
-            val _ = Multithreading.parallel_proofs := old
-        in s' end
+        Interactive.setmp false
+          (Interactive.setmp_parallel_proofs (Int.min (2, Interactive.parallel_proofs ()))
+            (Toplevel.command_exception tr)) s
       fun go () = List.foldl (fn (tr, s) => run (tr, s)) st transitions
   in if timeout_secs > 0
      then Timeout.apply (Time.fromSeconds (Int.toLarge timeout_secs)) go ()
@@ -376,7 +374,7 @@ fun string_to_spec s =
 
 (* Resolve a spec to a theory.  For PinnedRepl, the version in the argument
    is ignored; the current pinned version is looked up and returned. *)
-fun resolve_spec tab (LoadedTheory s) = (Thy_Info.get_theory s, LoadedTheory s)
+fun resolve_spec tab (LoadedTheory s) = (Build.get_theory s, LoadedTheory s)
   | resolve_spec tab (PinnedRepl (name, _)) =
       case Symtab.lookup tab name of
         SOME (Repl r) =>
@@ -405,7 +403,7 @@ fun init id specs =
                 val thys = map #1 resolved
                 val spec_list = map #2 resolved
                 val thy = Theory.begin_theory (id, Position.none) thys
-            in (From_Theory spec_list, Toplevel.make_state (SOME thy)) end
+            in (From_Theory spec_list, Toplevel.make_state (SOME (Context.Theory thy))) end
       val parsed = map parse_spec specs
       val (origin, st) =
         case parsed of
@@ -547,12 +545,12 @@ fun show id =
       val _ = out ("REPL " ^ quote id ^
                    " (" ^ string_of_int n ^ " steps, from " ^ orig ^
                    ", timeout=" ^ tmo ^ pin_str (#pin r) ^ ")")
-      val _ = out ("  base  level=" ^ string_of_int (Toplevel.level (#base_state r)))
+      val _ = out ("  base  level=" ^ string_of_int (Toplevel.proof_level (#base_state r)))
       val thy = Toplevel.theory_of (#base_state r)
       fun pr _ [] = ()
         | pr i (({text, stale, pre_state, ...} : repl_step) :: rest) =
             let val stale_mark = if stale then " [stale]" else ""
-                val lvl = Toplevel.level pre_state
+                val lvl = Toplevel.proof_level pre_state
                 val indent = StringCvt.padLeft #" " (2 * lvl) ""
             in out ("  " ^ StringCvt.padLeft #" " 3 (string_of_int i) ^ "  " ^
                     indent ^ render_isar_text thy text ^ stale_mark);
@@ -603,7 +601,7 @@ fun rebase id =
            then (r, out ("REPL " ^ quote id ^ " is already up to date"))
            else
              let val new_thy = Theory.begin_theory (id, Position.none) (map #1 resolved)
-                 val new_base = Toplevel.make_state (SOME new_thy)
+                 val new_base = Toplevel.make_state (SOME (Context.Theory new_thy))
                  val n = length (#steps r)
                  val r' = {origin = From_Theory new_specs, base_state = new_base,
                            steps = mark_all_stale (#steps r),
@@ -780,23 +778,23 @@ fun repls () =
 
 (* Lists theories in the initial heap plus those loaded via load_theory. *)
 fun theories () =
-  List.app (fn s => out ("  " ^ s)) (Thy_Info.get_names ());
+  List.app (fn s => out ("  " ^ s)) (Build.all_theories ());
 
 fun is_interactive_session () =
-  ! Printer.show_markup_default;
+  Interactive.enabled ();
 
-(* Load a theory (and its transitive dependencies) by fully qualified name,
-   e.g. "HOL-Library.Multiset".  After loading, the theory is available
-   for Ir.init and appears in Ir.theories.
-   Not available in interactive PIDE sessions (jEdit); use init_from_document instead. *)
+(* Load a theory by fully qualified name, e.g. "HOL-Library.Multiset".
+   Not supported in Isabelle2026: Thy_Info.use_theories was removed, and theories
+   are loaded only by a PIDE session (isabelle build, process_theories). Always
+   raises an error; in interactive PIDE sessions (jEdit) use init_from_document. *)
 fun load_theory name =
   if is_interactive_session () then
     error "load_theory is not available in interactive PIDE sessions. \
           \Open theories in Isabelle/jEdit and use init_from_document instead."
   else
-  let val opts = Options.update "record_theories" "true" (Options.default ())
-      val _ = Thy_Info.use_theories opts "" [(name, Position.none)]
-  in out ("Loaded theory " ^ quote name) end;
+    error ("load_theory " ^ quote name ^ ": not supported in Isabelle2026, \
+           \which removed Thy_Info.use_theories. Build a heap that contains the theory \
+           \and start the REPL on it.");
 
 (* Sledgehammer via compiler bridge *)
 
@@ -880,7 +878,7 @@ fun help () = out
   \  claims ()              compact list of currently-claimed REPLs\n\
   \  repls ()               list all REPLs\n\
   \  theories ()            list loaded theories\n\
-  \  load_theory s          load theory by name\n\
+  \  load_theory s          (not supported in Isabelle2026)\n\
   \  source thy s e         list command spans\n\
   \  source_map thy s e     segment-to-position map\n\
   \  config f               update config\n\
@@ -925,10 +923,10 @@ fun help () = out
 end;
 
 val _ =
-  let val names = Thy_Info.get_names ()
+  let val names = Build.all_theories ()
       val n = length names
       val has_segments = exists (fn n =>
-        (ignore (Thy_Info.get_theory_segments n); true)
+        (ignore (Build.get_theory_segments n); true)
         handle ERROR _ => false) (List.take (names, Int.min (1, n)))
   in if has_segments
      then writeln ("Ir: source commands available (" ^

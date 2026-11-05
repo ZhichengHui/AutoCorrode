@@ -8,7 +8,6 @@ import org.gjt.sp.jedit.View
 import org.gjt.sp.jedit.buffer.JEditBuffer
 import java.util.regex.Pattern
 import scala.util.Try
-import scala.jdk.CollectionConverters._
 
 /**
  * Parses target specifications for commands like `:explain` and `:suggest`.

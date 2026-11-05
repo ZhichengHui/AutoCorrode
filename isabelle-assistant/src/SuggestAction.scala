@@ -60,11 +60,7 @@ object SuggestAction {
           goalState match {
             case None =>
               GUI_Thread.later {
-                GUI.warning_dialog(
-                  view,
-                  "Isabelle Assistant",
-                  AssistantConstants.UIText.NO_GOAL_AT_CURSOR
-                )
+                GUI.warning_dialog(title = "Isabelle Assistant", message = Seq(AssistantConstants.UIText.NO_GOAL_AT_CURSOR), parent = Some(view))
               }
             case Some(goal) =>
               // Command text is optional context - best effort
@@ -116,14 +112,14 @@ object SuggestAction {
                 .recover { case ex =>
                   GUI_Thread.later {
                     AssistantDockable.setStatus("Error: " + ex.getMessage)
-                    GUI.error_dialog(view, "Suggest Error", ex.getMessage)
+                    GUI.error_dialog(title = "Suggest Error", message = Seq(ex.getMessage), parent = Some(view))
                   }
                 }
           }
         }
         .recover { case ex =>
           GUI_Thread.later {
-            GUI.error_dialog(view, "Suggest Error", ex.getMessage)
+            GUI.error_dialog(title = "Suggest Error", message = Seq(ex.getMessage), parent = Some(view))
           }
         }
     }

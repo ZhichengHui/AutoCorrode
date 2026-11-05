@@ -5,6 +5,7 @@ package isabelle.assistant
 
 import isabelle._
 import java.time.Duration
+import scala.annotation.unused
 
 /**
  * Context summarization orchestrator.
@@ -51,7 +52,7 @@ object ContextSummarizer {
    * 
    * @param modelId Model ID for the main conversation (used for context calculation)
    */
-  def performSummarization(modelId: String): Unit = {
+  def performSummarization(@unused modelId: String): Unit = {
     ErrorHandler.logOperation("performSummarization") {
       val history = ChatAction.getHistory
       Output.writeln(s"[Assistant] Context summarization triggered - ${history.length} messages")

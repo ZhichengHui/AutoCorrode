@@ -35,7 +35,7 @@ class ProxyProtocolHandler extends Session.Protocol_Handler {
     if (session != null) {
       val props = space_explode(',', msg.text).flatMap(Properties.Eq.unapply)
       if (props.nonEmpty) {
-        val props1 = session.cache.props(props ::: Java_Statistics.jvm_statistics())
+        val props1 = session.cache.props(props ::: ML_Statistics.jvm_statistics())
         session.runtime_statistics.post(Session.Runtime_Statistics(props1))
       }
     }

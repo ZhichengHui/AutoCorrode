@@ -161,7 +161,7 @@ proof -
    apply (rule_tac INV=\<open>\<lambda>ls i.
       \<star>\<star>{# points_to_tagged_phys_byte (?base + (word_of_nat idx)) \<top> tag (g!idx) \<Colon> idx \<leftarrow> [0..<i] #} \<star>
       \<star>\<star>{# points_to_tagged_phys_byte (?base + (word_of_nat idx)) \<top> tag (g0!idx) \<Colon> idx \<leftarrow> [i..<?n] #}
-  \<close> and \<tau>=\<open>\<lambda>_. {}\<close> in wp_raw_for_loop_framedI')
+  \<close> and BRK=\<open>\<lambda>_ _. {}\<close> and \<tau>=\<open>\<lambda>_. {}\<close> in wp_raw_for_loop_framedI')
   apply (crush_base simp add: gref_can_store_def points_to_tagged_phys_bytes_def
     specs add: store_physical_address_spec
     contracts add: store_tagged_physical_address_contract_def)

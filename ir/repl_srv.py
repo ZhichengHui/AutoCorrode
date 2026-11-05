@@ -113,7 +113,7 @@ IR_CMDS = {
     'Ir.interrupt':      'id  — cooperatively interrupt a busy REPL (raises Interrupt in its worker thread)',
     'Ir.repls':          '()  — list all REPLs with step counts and origins',
     'Ir.theories':       '()  — list all theories loaded in the session',
-    'Ir.load_theory':    'name  — load theory by name, e.g. "HOL-Library.Multiset"',
+    'Ir.load_theory':    'name  — not supported in Isabelle2026 (always an error)',
     'Ir.source':         'thy start stop  — list theory commands (start/stop 0-based, ~N from end)',
     'Ir.source_map':     'thy start stop  — segment-to-position map (start/stop 0-based, ~N from end)',
     'Ir.sledgehammer':   'id secs  — run sledgehammer on proof state with timeout',
@@ -155,7 +155,7 @@ IR_SIGS = {
     'Ir.interrupt':     (['id'], 'cooperatively interrupt a busy REPL'),
     'Ir.repls':         ([], 'list all REPLs with step counts and origins'),
     'Ir.theories':      ([], 'list all theories loaded in the session'),
-    'Ir.load_theory':   (['name'], 'load theory by name, e.g. "HOL-Library.Multiset"'),
+    'Ir.load_theory':   (['name'], 'not supported in Isabelle2026 (always an error)'),
     'Ir.source':        (['thy', 'start', 'stop'], 'list theory commands (start/stop 0-based, ~N from end)'),
     'Ir.source_map':    (['thy', 'start', 'stop'], 'segment-to-position map (start/stop 0-based, ~N from end)'),
     'Ir.sledgehammer':  (['id', 'secs'], 'run sledgehammer on proof state with timeout'),
@@ -2297,13 +2297,13 @@ def find_isabelle_installation(isabelle_arg):
         if sys.platform == "darwin":
             # macOS: try /Applications and user directory
             candidates.extend([
-                "/Applications/Isabelle2025-2.app/bin/isabelle",
-                os.path.expanduser("~/Isabelle2025-2.app/bin/isabelle"),
+                "/Applications/Isabelle2026.app/bin/isabelle",
+                os.path.expanduser("~/Isabelle2026.app/bin/isabelle"),
             ])
         else:
             # Linux: try home directory
             candidates.extend([
-                os.path.expanduser("~/Isabelle2025-2/bin/isabelle"),
+                os.path.expanduser("~/Isabelle2026/bin/isabelle"),
             ])
 
     for candidate in candidates:

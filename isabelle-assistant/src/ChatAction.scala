@@ -484,7 +484,7 @@ object ChatAction {
     prev(n)
   }
 
-  private def showHelp(target: String = ""): Unit = {
+  private def showHelp(target: String): Unit = {
     if (target.nonEmpty) {
       showHelpForCommand(target.stripPrefix(":").toLowerCase)
       return

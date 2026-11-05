@@ -41,7 +41,7 @@ An HTML rendering of the AutoCorrode source code is available [here](https://aws
 
 ## Setup
 
-AutoCorrode requires Isabelle2025-2, which can be downloaded [here](https://isabelle.in.tum.de/website-Isabelle2025-2/). Set `ISABELLE_HOME` to the directory containing the `isabelle` binary.
+AutoCorrode requires Isabelle2026, which can be downloaded [here](https://isabelle.in.tum.de/website-Isabelle2026/). Set `ISABELLE_HOME` to the directory containing the `isabelle` binary.
 
 AutoCorrode also requires the [WordLib](https://www.isa-afp.org/entries/Word_Lib.html) AFP entry. Set `AFP_COMPONENT_BASE` to the directory contaning the `Word_Lib` directory. By default, AutoCorrode expects it to be located in [dependencies/afp](dependencies/afp).
 
@@ -50,6 +50,14 @@ AutoCorrode also requires the [WordLib](https://www.isa-afp.org/entries/Word_Lib
 You can interactively explore AutoCorrode using `make jedit`, which opens the AutoCorrode source in the Isabelle/jEdit GUI.
 
 To non-interactively check all material in AutoCorrode, run `make build`, which starts a batch-build in Isabelle.
+
+## Tests
+
+Tests are in [Tests](Tests), in the session `Tests` with parent session `AutoCorrode`. Each subdirectory holds the tests of one feature; `Tests/ROOT` lists the subdirectory under `directories` and its theories under `theories`.
+
+- [Tests/Loop_Control](Tests/Loop_Control) tests `break`, `continue` and labeled loops: parsing and rejected programs (`Loop_Control_Syntax`), the behaviour of small programs (`Loop_Control_Semantics`), and proofs with the loop rules (`Loop_Control_Examples`, `Loop_Control_Automation`).
+
+[Tests/Expected_Failures](Tests/Expected_Failures) holds negative controls: theories with proofs or checks that must fail. Each theory marks the command that must fail with the comment `(* EXPECTED FAILURE: TEXT *)`, where `TEXT` is the start of the expected error message, for example `Failed to finish proof`. These theories form the session `Expected_Failures` with parent session `Tests`, which is not listed in `ROOTS`. The script `Tests/Expected_Failures/check.sh ISABELLE [BUILD OPTIONS]` builds this session and succeeds only if the build fails, every error belongs to a marked command and starts with its `TEXT`, and every marked command fails. `make expected-failures` runs this check; `make build` does not.
 
 ## Citing AutoCorrode
 

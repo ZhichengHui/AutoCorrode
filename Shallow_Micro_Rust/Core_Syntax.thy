@@ -257,6 +257,24 @@ syntax
               ('s, unit, 'r, 'abort, 'i, 'o) expression\<close>
     ("#'[fuel'(_') '] while let _ = (_) \<lbrace> (_) \<rbrace>" [0,100,20,0]11)
 
+  \<comment>\<open>Labeled loops. Their first argument is the label.\<close>
+  "_urust_shallow_labeled_for_loop"
+    :: \<open>String.literal \<Rightarrow> 'a \<Rightarrow> ('s, 'b, 'r, 'abort, 'i, 'o) expression \<Rightarrow>
+        ('s, unit, 'r, 'abort, 'i, 'o) expression \<Rightarrow> ('s, unit, 'r, 'abort, 'i, 'o) expression\<close>
+    ("#'[(_)'] for (_) in (_) \<lbrace> (_) \<rbrace>" [0,20,100,0]11)
+  "_urust_shallow_labeled_while_loop"
+    :: \<open>String.literal \<Rightarrow> nat \<Rightarrow> ('s, bool, 'r, 'abort, 'i, 'o) expression \<Rightarrow>
+        ('s, unit, 'r, 'abort, 'i, 'o) expression \<Rightarrow> ('s, unit, 'r, 'abort, 'i, 'o) expression\<close>
+    ("#'[(_)'] #'[fuel'(_') '] while (_) \<lbrace> (_) \<rbrace>" [0,0,20,0]11)
+  "_urust_shallow_labeled_loop"
+    :: \<open>String.literal \<Rightarrow> nat \<Rightarrow> ('s, unit, 'r, 'abort, 'i, 'o) expression \<Rightarrow>
+        ('s, unit, 'r, 'abort, 'i, 'o) expression\<close>
+  "_urust_shallow_labeled_while_let"
+    :: \<open>String.literal \<Rightarrow> nat \<Rightarrow> urust_shallow_match_pattern \<Rightarrow>
+              ('s, 'w, 'r, 'abort, 'i, 'o) expression \<Rightarrow>
+              ('s, 'b, 'r, 'abort, 'i, 'o) expression \<Rightarrow>
+              ('s, unit, 'r, 'abort, 'i, 'o) expression\<close>
+
 subsection \<open>Error propagation\<close>
 syntax
   "_urust_shallow_propagate"
@@ -354,7 +372,6 @@ consts
   index_const :: \<open>'a \<Rightarrow> 'idx \<Rightarrow> ('s,'b, 'abort, 'i, 'o) function_body\<close>
   negation_const :: \<open>('s,'v,'c, 'abort, 'i, 'o) expression \<Rightarrow> ('s,'v,'c, 'abort, 'i, 'o) expression\<close>
   propagate_const :: \<open>('s,'v,'c, 'abort, 'i, 'o) expression \<Rightarrow> ('s,'w,'c, 'abort, 'i, 'o) expression\<close>
-  assign_add_const :: \<open>('a, 'b, 'v) Global_Store.ref \<Rightarrow> 'w \<Rightarrow> ('s,unit, 'abort, 'i, 'o) function_body\<close>
 
 syntax
   "_urust_shallow_match_convert_branches" :: \<open>urust_shallow_match_branches \<Rightarrow> case_basic_branches\<close>
@@ -396,17 +413,34 @@ translations
 
   \<comment>\<open>Loops\<close>
   "_urust_shallow_for_loop i xs body"
-    \<rightleftharpoons> "CONST for_loop (CONST funcall1 (CONST into_iter) xs) (\<lambda>i. body)"
+    \<rightleftharpoons> "CONST for_loop CONST None (CONST funcall1 (CONST into_iter) xs) (\<lambda>i. body)"
 
   \<comment>\<open>While loops\<close>
   "_urust_shallow_while_loop n cond body"
-    \<rightleftharpoons> "CONST bounded_while n cond body"
+    \<rightleftharpoons> "CONST bounded_while CONST None n cond body"
   "_urust_shallow_loop n body"
-    \<rightharpoonup> "CONST bounded_while n (CONST Core_Expression.literal (CONST HOL.True)) body"
+    \<rightharpoonup> "CONST bounded_while CONST None n (CONST Core_Expression.literal (CONST HOL.True)) body"
 
   \<comment>\<open>While let\<close>
   "_urust_shallow_while_let n ptrn expr body"
-    \<rightharpoonup> "CONST bounded_while n
+    \<rightharpoonup> "CONST bounded_while CONST None n
+          (_urust_shallow_match expr
+            (_urust_shallow_match2
+              (_urust_shallow_match1 ptrn
+                (CONST Core_Expression.sequence body (CONST Core_Expression.literal (CONST HOL.True))))
+              (_urust_shallow_match1 _urust_shallow_match_pattern_other
+                (CONST Core_Expression.literal (CONST HOL.False)))))
+          (CONST skip)"
+
+  \<comment>\<open>Labeled loops\<close>
+  "_urust_shallow_labeled_for_loop l i xs body"
+    \<rightleftharpoons> "CONST for_loop (CONST Some l) (CONST funcall1 (CONST into_iter) xs) (\<lambda>i. body)"
+  "_urust_shallow_labeled_while_loop l n cond body"
+    \<rightleftharpoons> "CONST bounded_while (CONST Some l) n cond body"
+  "_urust_shallow_labeled_loop l n body"
+    \<rightharpoonup> "CONST bounded_while (CONST Some l) n (CONST Core_Expression.literal (CONST HOL.True)) body"
+  "_urust_shallow_labeled_while_let l n ptrn expr body"
+    \<rightharpoonup> "CONST bounded_while (CONST Some l) n
           (_urust_shallow_match expr
             (_urust_shallow_match2
               (_urust_shallow_match1 ptrn
@@ -498,7 +532,7 @@ translations
   "_urust_shallow_word_assign_and ptr assign"
     \<rightharpoonup> "_urust_shallow_store_update ptr (_urust_shallow_word_bitwise_and (_urust_shallow_store_dereference ptr) assign)"
   "_urust_shallow_assign_add ptr assign"
-    \<rightharpoonup> "CONST funcall2 (CONST assign_add_const) ptr assign"
+    \<rightharpoonup> "_urust_shallow_store_update ptr (_urust_shallow_add (_urust_shallow_store_dereference ptr) assign)"
   "_urust_shallow_assign_minus ptr assign"
     \<rightharpoonup> "_urust_shallow_store_update ptr (_urust_shallow_minus (_urust_shallow_store_dereference ptr) assign)"
   "_urust_shallow_assign_mul ptr assign"

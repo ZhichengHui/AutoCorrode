@@ -43,7 +43,7 @@ object SuggestStrategyAction {
       }
     }(response => {
       if (response.isEmpty)
-        GUI.warning_dialog(view, "Isabelle Assistant", "No goal at cursor")
+        GUI.warning_dialog(title = "Isabelle Assistant", message = Seq("No goal at cursor"), parent = Some(view))
       else {
         ChatAction.addMessage(ChatAction.Assistant, response)
         AssistantDockable.showConversation(ChatAction.getHistory)

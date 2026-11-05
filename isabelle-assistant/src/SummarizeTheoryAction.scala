@@ -49,7 +49,7 @@ object SummarizeTheoryAction {
       Some(PromptLoader.load("summarize_theory.md", Map("theory_name" -> theoryName, "source" -> source)))
     } catch {
       case ex: Exception =>
-        GUI.error_dialog(view, "Isabelle Assistant", "Failed to load prompt: " + ex.getMessage)
+        GUI.error_dialog(title = "Isabelle Assistant", message = Seq("Failed to load prompt: " + ex.getMessage), parent = Some(view))
         None
     }
 

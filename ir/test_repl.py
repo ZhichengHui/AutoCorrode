@@ -35,13 +35,13 @@ def find_isabelle(isabelle_arg=None):
     else:
         if sys.platform == "darwin":
             candidates.extend([
-                "/Applications/Isabelle2025-2.app/bin/isabelle",
-                os.path.expanduser("~/Isabelle2025-2.app/bin/isabelle"),
-                os.path.expanduser("~/Isabelle2025-2-experimental.app/bin/isabelle"),
+                "/Applications/Isabelle2026.app/bin/isabelle",
+                os.path.expanduser("~/Isabelle2026.app/bin/isabelle"),
+                os.path.expanduser("~/Isabelle2026-experimental.app/bin/isabelle"),
             ])
         else:
             candidates.extend([
-                os.path.expanduser("~/Isabelle2025-2/bin/isabelle"),
+                os.path.expanduser("~/Isabelle2026/bin/isabelle"),
             ])
     for c in candidates:
         if os.path.isfile(c) and os.access(c, os.X_OK):
@@ -793,31 +793,12 @@ def main():
                 send_recv(sock, 'Ir.source "Main" 0 3 handle ERROR _ => ();')
         run_test("source", test_source)
 
-        def test_load_theory():
-            out = send_recv(sock, 'Ir.load_theory "HOL-Library.Multiset";', timeout=300)
-            assert "Loaded theory" in out, f"Expected loaded confirmation, got:\n{out}"
-            out = send_recv(sock, 'Ir.theories ();')
-            assert "Multiset" in out, f"Expected Multiset in theories, got:\n{out}"
-            send_recv(sock, 'Ir.init "lt1" ["HOL-Library.Multiset"];')
-            out = send_recv(sock, 'Ir.step "lt1" "term \\"{#} :: nat multiset\\"";')
-            assert "multiset" in out, f"Expected multiset type, got:\n{out}"
-            send_recv(sock, 'Ir.remove "lt1";')
-        run_test("load_theory", test_load_theory)
-
-        def test_load_theory_source():
-            send_recv(sock, 'Ir.load_theory "HOL-Library.Multiset";', timeout=300)
-            out = send_recv(sock, 'Ir.source "HOL-Library.Multiset" 0 5;')
-            assert "Multiset" in out, f"Expected Multiset in source, got:\n{out}"
-            send_recv(sock, 'Ir.init "lts1" ["HOL-Library.Multiset:4"];')
-            out = send_recv(sock, 'Ir.show "lts1";')
-            assert "Multiset:4" in out, f"Expected origin Multiset:4, got:\n{out}"
-            send_recv(sock, 'Ir.remove "lts1";')
-        run_test("load_theory_source", test_load_theory_source)
-
-        def test_load_theory_already_loaded():
-            out = send_recv(sock, 'Ir.load_theory "Main";', timeout=20)
-            assert "Loaded theory" in out, f"Expected loaded confirmation, got:\n{out}"
-        run_test("load_theory_already_loaded", test_load_theory_already_loaded)
+        def test_load_theory_unsupported():
+            out = send_recv(sock, 'Ir.load_theory "HOL-Library.Multiset" '
+                            'handle ERROR msg => writeln ("ERR: " ^ msg);', timeout=20)
+            assert "ERR:" in out and "not supported in Isabelle2026" in out, \
+                f"Expected the unsupported error, got:\n{out}"
+        run_test("load_theory_unsupported", test_load_theory_unsupported)
 
         # -- `repl.py cli` one-shot client (subprocess against this server) --
 

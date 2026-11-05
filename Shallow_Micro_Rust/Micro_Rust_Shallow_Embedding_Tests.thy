@@ -327,7 +327,7 @@ end
 subsubsection\<open>Add-Assign\<close>
 
 context
-  fixes a b :: \<open>'s\<close>
+  fixes a b :: \<open>32 word\<close>
 begin
 term \<open>\<lbrakk>
   let mut x = a;

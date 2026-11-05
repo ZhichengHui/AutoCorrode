@@ -33,7 +33,7 @@ import isabelle.{
   Synchronized,
   Text
 }
-import isabelle.jedit.PIDE
+import isabelle.jedit.{JEdit_Editor, PIDE}
 
 import org.gjt.sp.jedit.jEdit
 import org.gjt.sp.jedit.View
@@ -137,18 +137,18 @@ extends JPanel(new BorderLayout) with DefaultFocusComponent {
       extends NavigationTarget {
     override def follow(snapshot: Document.Snapshot): Unit = {
       val _ = snapshot
-      PIDE.editor.goto_file(view, name.node, line = 0, focus = true)
+      JEdit_Editor.goto_file(JEdit_Editor.Context(view), name.node, line = 0, focus = true)
     }
   }
 
   private final case class CommandNavigation(command: Command)
       extends NavigationTarget {
     override def follow(snapshot: Document.Snapshot): Unit =
-      PIDE.editor.hyperlink_command(
+      JEdit_Editor.hyperlink_command(
         snapshot,
         command.id,
         focus = true
-      ).foreach(_.follow(view))
+      ).foreach(_.follow(JEdit_Editor.Context(view)))
   }
 
   private sealed trait TimingRow {
@@ -334,10 +334,10 @@ extends JPanel(new BorderLayout) with DefaultFocusComponent {
         displayOptions
       )
     } else {
-      PIDE.editor.current_node_snapshot(view) match {
+      JEdit_Editor.current_node_snapshot(JEdit_Editor.Context(view)) match {
         case Some(snapshot) if !snapshot.is_outdated =>
           val currentCommandId =
-            PIDE.editor.current_command(view, snapshot).map(_.id)
+            JEdit_Editor.current_command(JEdit_Editor.Context(view), snapshot).map(_.id)
           startLocalRefresh(
             snapshot,
             currentCommandId,

@@ -25,7 +25,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: makarius/isabelle:Isabelle2025-2
+      image: makarius/isabelle:Isabelle2026
       options: --user root
 
     steps:
@@ -47,7 +47,7 @@ jobs:
     container:
       # _X11_Latex variant ships TeX Live, which is needed because the
       # tutorial session builds a Beamer PDF.
-      image: makarius/isabelle:Isabelle2025-2_X11_Latex
+      image: makarius/isabelle:Isabelle2026_X11_Latex
       options: --user root
 
     steps:
@@ -81,7 +81,7 @@ jobs:
   iq-build:
     runs-on: ubuntu-latest
     container:
-      image: makarius/isabelle:Isabelle2025-2
+      image: makarius/isabelle:Isabelle2026
       options: --user root
 
     steps:
@@ -95,8 +95,9 @@ jobs:
         run: |
           apt install -y make
           echo "ISABELLE_HOME=/home/isabelle/Isabelle" >> $GITHUB_ENV
-          echo "JAVA_HOME=/home/isabelle/Isabelle/contrib/jdk-21.0.9/x86_64-linux/" >> $GITHUB_ENV
-          echo "PATH=/home/isabelle/Isabelle/contrib/jdk-21.0.9/x86_64-linux/bin:$PATH" >> $GITHUB_ENV
+          JDK=$(/home/isabelle/Isabelle/bin/isabelle getenv -b JAVA_HOME)
+          echo "JAVA_HOME=$JDK" >> $GITHUB_ENV
+          echo "PATH=$JDK/bin:$PATH" >> $GITHUB_ENV
 
       - name: Build I/Q plugin
         run: |
@@ -119,7 +120,7 @@ jobs:
   ip-build:
     runs-on: ubuntu-latest
     container:
-      image: makarius/isabelle:Isabelle2025-2
+      image: makarius/isabelle:Isabelle2026
       options: --user root
 
     steps:
@@ -133,8 +134,9 @@ jobs:
         run: |
           apt install -y make
           echo "ISABELLE_HOME=/home/isabelle/Isabelle" >> $GITHUB_ENV
-          echo "JAVA_HOME=/home/isabelle/Isabelle/contrib/jdk-21.0.9/x86_64-linux/" >> $GITHUB_ENV
-          echo "PATH=/home/isabelle/Isabelle/contrib/jdk-21.0.9/x86_64-linux/bin:$PATH" >> $GITHUB_ENV
+          JDK=$(/home/isabelle/Isabelle/bin/isabelle getenv -b JAVA_HOME)
+          echo "JAVA_HOME=$JDK" >> $GITHUB_ENV
+          echo "PATH=$JDK/bin:$PATH" >> $GITHUB_ENV
 
       - name: Build I/P plugin
         run: |
@@ -153,7 +155,7 @@ jobs:
     if: false
     runs-on: ubuntu-latest
     container:
-      image: makarius/isabelle:Isabelle2025-2
+      image: makarius/isabelle:Isabelle2026
       options: --user root
 
     steps:
@@ -182,9 +184,9 @@ jobs:
       uses: actions/cache@v4
       with:
         path: |
-          /tmp/Isabelle2025-2_linux.tar.gz
-          /tmp/Isabelle2025-2_linux_arm.tar.gz
-        key: isabelle-tarball-2025-2
+          /tmp/Isabelle2026_linux.tar.gz
+          /tmp/Isabelle2026_linux_arm.tar.gz
+        key: isabelle-tarball-2026
 
     - name: Configure I/P remote (localhost, fresh install + push heaps)
       run: |
@@ -218,7 +220,7 @@ jobs:
   isabelle-assistant:
     runs-on: ubuntu-latest
     container:
-      image: makarius/isabelle:Isabelle2025-2
+      image: makarius/isabelle:Isabelle2026
       options: --user root
 
     steps:

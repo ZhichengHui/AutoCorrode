@@ -871,6 +871,8 @@ private definition shout_use :: \<open>('s, nat, 'abort, 'i, 'o) function_body\<
 
 end
 
+end
+
 
 subsection\<open>Registered-but-no-type-match is a hard error\<close>
 
@@ -925,7 +927,5 @@ end
 
 end
 
-
-end
 
 end

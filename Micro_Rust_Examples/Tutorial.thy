@@ -315,7 +315,7 @@ proof (crush_boot f: bvec_contains_def contract: bvec_contains_contract_def, goa
       apply (ucincl_discharge\<open>
         rule_tac
           INV=\<open>\<lambda>_ i. undefined\<close> and
-          \<tau>=\<open>\<lambda>_. \<bottom>\<close> and
+          BRK=\<open>\<lambda>_ _. \<bottom>\<close> and \<tau>=\<open>\<lambda>_. \<bottom>\<close> and
           \<theta>=\<open>\<lambda>_. \<bottom>\<close>
         in wp_raw_for_loop_framedI'
       \<close>)
@@ -516,7 +516,7 @@ proof (crush_boot f: bvec_contains_def contract: bvec_contains_contract_def, goa
       apply (ucincl_discharge\<open>
         rule_tac
           INV=\<open>\<lambda>_ i. \<Squnion> g. found_ref \<mapsto>\<langle>\<top>\<rangle> g\<down>(needle \<in> set (List.map_filter (array_nth (bvec_values v)) [0..<i]))\<close> and
-          \<tau>=\<open>\<lambda>_. \<bottom>\<close> and
+          BRK=\<open>\<lambda>_ _. \<bottom>\<close> and \<tau>=\<open>\<lambda>_. \<bottom>\<close> and
           \<theta>=\<open>\<lambda>_. \<bottom>\<close>
         in wp_raw_for_loop_framedI'
       \<close>)

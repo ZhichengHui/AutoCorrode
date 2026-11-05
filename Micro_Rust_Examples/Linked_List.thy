@@ -126,7 +126,7 @@ lemma reverse_unlink_spec [crush_specs]:
            tmp0\<mapsto>\<langle>\<top>\<rangle> g_cur\<down>v_cur \<star>
            ll_points_to (rev (take i ts)) v_last None \<star>
            ll_points_to (drop i ts) v_cur rem
-    )\<close> and \<tau>=\<open>\<lambda>_.\<langle>False\<rangle>\<close>
+    )\<close> and BRK=\<open>\<lambda>_ _. \<langle>False\<rangle>\<close> and \<tau>=\<open>\<lambda>_.\<langle>False\<rangle>\<close>
     in wp_raw_for_loop_framedI'\<close>)
   apply (fastcrush_base simp add: Many_More.drop_Suc_nth) 
   apply (fastcrush_base split!: option.splits simp add: take_suc_rev')

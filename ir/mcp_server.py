@@ -161,7 +161,7 @@ def _load_mcp_symbols():
     """Load symbol table for MCP server."""
     import os, subprocess
     isabelle = os.environ.get("ISABELLE",
-        os.path.expanduser("~/Isabelle2025-2-experimental.app/bin/isabelle"))
+        os.path.expanduser("~/Isabelle2026-experimental.app/bin/isabelle"))
     try:
         isabelle_home = subprocess.check_output(
             [isabelle, "getenv", "-b", "ISABELLE_HOME"],
@@ -289,7 +289,7 @@ async def server_info(ctx: Context = None) -> str:
     "Create a new REPL session that imports the given Isabelle theories. "
     "This is equivalent to writing `theory T imports A B C begin ...` in a .thy file. "
     "This is the ONLY way to make a theory's definitions, lemmas, and notations available. "
-    "Theories not in the initial heap must be loaded first with `load_theory`.\n\n"
+    "Only theories in the initial heap are available; start the server on a heap that contains the theories you need.\n\n"
     "`theories` is a list of theory specs. Examples:\n"
     "- [\"Main\"] — start from the standard HOL library\n"
     "- [\"HOL-Library.Multiset\"] — import the Multiset theory\n"
@@ -422,16 +422,15 @@ async def rebase(repl: str, ctx: Context = None) -> str:
 async def repls(ctx: Context = None) -> str:
     return await _send(ctx, "Ir.repls ();")
 
-@mcp.tool(description="List all loaded Isabelle theories. This includes theories from the initial heap plus any loaded via load_theory.")
+@mcp.tool(description="List all loaded Isabelle theories, i.e. the theories of the initial heap.")
 async def theories(ctx: Context = None) -> str:
     return await _send(ctx, "Ir.theories ();")
 
 @mcp.tool(description=(
-    "Load a theory (and its transitive dependencies) by fully qualified name into the Isabelle session. "
-    "After loading, the theory becomes available for `init` and appears in `theories`. "
-    "Example: load_theory(\"HOL-Library.Multiset\") loads the Multiset theory from HOL-Library. "
-    "NOTE: Not available when I/R is running inside Isabelle/jEdit (PIDE mode). "
-    "In PIDE mode, open theories in jEdit instead and use init_from_document."
+    "Not supported in Isabelle2026: always returns an error, because Isabelle2026 removed "
+    "loading theories from ML (Thy_Info.use_theories). Start the server on a heap that "
+    "contains the theory instead. In PIDE mode (Isabelle/jEdit), open the theory in jEdit "
+    "and use init_from_document."
 ))
 async def load_theory(theory_name: str, verbose: bool = False, ctx: Context = None) -> str:
     result = await _send(ctx, f"Ir.load_theory {ml_str(theory_name)};")

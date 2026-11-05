@@ -5,7 +5,7 @@ ifndef V
 endif
 
 PLUGIN_DIR := $(shell pwd)
-ISABELLE_HOME ?= /Applications/Isabelle2025-2.app
+ISABELLE_HOME ?= /Applications/Isabelle2026.app
 ifneq ($(wildcard $(ISABELLE_HOME)/bin/isabelle),)
 ISABELLE_INSTALLATION_HOME := $(abspath $(ISABELLE_HOME))
 else ifneq ($(wildcard $(ISABELLE_HOME)/isabelle),)
@@ -16,14 +16,14 @@ ISABELLE_INSTALLATION_HOME := $(abspath $(ISABELLE_HOME))
 endif
 JEDIT_DIR := $(shell ls -d $(ISABELLE_INSTALLATION_HOME)/contrib/jedit-* 2>/dev/null | head -1)
 JEDIT_JAR ?= $(JEDIT_DIR)/jedit5.7.0-patched/jedit.jar
-SCALA_HOME ?= $(ISABELLE_INSTALLATION_HOME)/contrib/scala-3.3.4
+SCALA_HOME ?= $(shell $(ISABELLE_INSTALLATION_HOME)/bin/isabelle getenv -b SCALA_HOME 2>/dev/null)
 SCALAC ?= $(SCALA_HOME)/bin/scalac
 ISABELLE_JAR ?= $(ISABELLE_INSTALLATION_HOME)/lib/classes/isabelle.jar
 
 BUILD_DIR ?= $(PLUGIN_DIR)/build
 CLASSES_DIR ?= $(BUILD_DIR)/classes
 JAR_FILE ?= $(BUILD_DIR)/ip_plugin.jar
-INSTALL_DIR ?= $(HOME)/.isabelle/Isabelle2025-2/jedit/jars
+INSTALL_DIR ?= $(HOME)/.isabelle/Isabelle2026/jedit/jars
 
 SCALA_SOURCES := $(wildcard src/*.scala)
 RESOURCE_FILES := $(wildcard resources/*)

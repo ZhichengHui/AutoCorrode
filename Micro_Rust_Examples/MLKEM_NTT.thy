@@ -453,7 +453,7 @@ proof (crush_boot f: ntt_def contract: ntt_contract_def, goal_cases)
              = MLKEM_Specification.ntt_outer_loop 1 7 p\<rangle>
           \<star> \<langle>poly_wf p_cur\<rangle>
           \<star> \<langle>k_val \<le> 2 ^ layer\<rangle>\<close>
-        and \<tau>=\<open>\<lambda>_. \<langle>False\<rangle>\<close> and \<theta>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
+        and BRK=\<open>\<lambda>_ _. \<langle>False\<rangle>\<close> and \<tau>=\<open>\<lambda>_. \<langle>False\<rangle>\<close> and \<theta>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
       in wp_raw_for_loop_framedI'\<close>)
        subgoal \<comment> \<open>Init/frame: establish INV[0] and frame INV[7] to postcondition\<close>
          apply (crush_base simp add: MLKEM_Specification.ntt_def)
@@ -475,6 +475,7 @@ proof (crush_boot f: ntt_def contract: ntt_contract_def, goal_cases)
                     (2 ^ (7 - layer)) (2 ^ layer) (2 ^ layer) p_cur\<rangle>
                \<star> \<langle>poly_wf p_mid\<rangle>
                \<star> \<langle>k_val + 2 ^ layer \<le> 128\<rangle>\<close>
+             and BRK=\<open>\<lambda>_ _. \<langle>False\<rangle>\<close>
              and \<tau>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
              and \<theta>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
            in wp_raw_for_loop_framedI'\<close>)
@@ -515,6 +516,7 @@ proof (crush_boot f: ntt_def contract: ntt_contract_def, goal_cases)
                     (2 ^ (7 - layer))
                     j_off
                     p_mid)\<rangle>\<close>
+                and BRK=\<open>\<lambda>_ _. \<langle>False\<rangle>\<close>
                 and \<tau>=\<open>\<lambda>_. \<langle>False\<rangle>\<close> and \<theta>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
               in wp_raw_for_loop_framedI'\<close>)
               subgoal \<comment> \<open>inner init/frame\<close>

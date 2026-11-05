@@ -22,7 +22,7 @@ object IQAvailable {
   @volatile private var scheduler: java.util.concurrent.ScheduledExecutorService = null
   @volatile private var heartbeatFuture: java.util.concurrent.ScheduledFuture[_] = null
 
-  private def probe(timeoutMs: Long = HeartbeatProbeTimeoutMs): Boolean = {
+  private def probe(timeoutMs: Long): Boolean = {
     // Use lightweight ping instead of list_files
     IQMcpClient.ping(timeoutMs)
   }

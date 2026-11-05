@@ -61,6 +61,12 @@ lemma is_local_disj:
     shows \<open>is_local (\<lambda>a b. R a b \<or> S a b) \<phi>\<close>
 using assms by (elim is_localE, intro is_localI) metis+
 
+text\<open>Relabeling the results of a local relation keeps it local:\<close>
+lemma is_local_relabel:
+  assumes \<open>is_local R \<phi>\<close>
+    shows \<open>is_local (\<lambda>\<sigma> (w, \<sigma>'). \<exists>v. R \<sigma> (v, \<sigma>') \<and> P v w) \<phi>\<close>
+  using assms unfolding is_local_def by blast
+
 lemma is_local_Union:
   assumes \<open>\<And>x. is_local R (\<phi> x)\<close>
     shows \<open>is_local R (\<Union>x. \<phi> x)\<close>

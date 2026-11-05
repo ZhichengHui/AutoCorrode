@@ -1,5 +1,5 @@
 session Micro_Rust_Examples = HOL +
-  options [document = false]
+  options [document_output = "output"]
   sessions
     "HOL-Library"
     Separation_Lenses
@@ -27,7 +27,7 @@ session Micro_Rust_Examples = HOL +
     MLKEM_Zq
     MLKEM_Polynomial
     MLKEM_NTT
-  theories [document=false]
+  theories
     Micro_Rust_Examples
   document_files
     "root.tex"

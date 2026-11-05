@@ -31,6 +31,16 @@ lemma list_index_spec [crush_specs]:
   apply (crush_base simp add: nth_opt_spec)
   done
 
+definition len_contract :: \<open>'a list \<Rightarrow> ('s::sepalg, 64 word, 'abort) function_contract\<close> where
+  [crush_contracts]: \<open>len_contract lst \<equiv>
+     let pre = emp in
+     let post = \<lambda>r. \<langle>r = of_nat (length lst)\<rangle> in
+       make_function_contract pre post\<close>
+
+lemma len_spec [crush_specs]:
+  shows \<open>\<Gamma> ; Range_Type.len lst \<Turnstile>\<^sub>F len_contract lst\<close>
+  by (crush_boot f: len_def contract: len_contract_def) crush_base
+
 definition array_index_contract where [crush_contracts]:
   \<open>array_index_contract (lst :: ('a, 'l::len) array) idx \<equiv>
      let pre = \<langle>unat idx < LENGTH('l)\<rangle> in

@@ -1,0 +1,8 @@
+session Tests = AutoCorrode +
+  options [document = false]
+  directories "Loop_Control"
+  theories
+    "Loop_Control/Loop_Control_Syntax"
+    "Loop_Control/Loop_Control_Semantics"
+    "Loop_Control/Loop_Control_Examples"
+    "Loop_Control/Loop_Control_Automation"
