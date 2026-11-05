@@ -721,7 +721,7 @@ lemma wp_word_add_no_wrap_unsigned:
       and asepconj_simp [simp]
     fixes x y :: \<open>'l::{len} word\<close>
   assumes \<open>\<not> is_signed TYPE('l)\<close>
-    shows \<open>\<langle>unat x + unat y < 2^LENGTH('l)\<rangle> \<star> \<psi> (x + y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x + y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
+    shows \<open>\<langle>unat_range TYPE('l) (unat x + unat y)\<rangle> \<star> \<psi> (x + y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x + y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
 proof -
   have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x + y \<rbrakk>
       \<stileturn> (\<lambda>r. \<langle>r = x + y\<rangle> \<star> \<psi> (x+y)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
@@ -739,7 +739,7 @@ lemma wp_word_add_no_wrap_signed:
       and asepconj_simp [simp]
     fixes x y :: \<open>'l::{len} word\<close>
   assumes \<open>is_signed TYPE('l)\<close>
-    shows \<open>\<langle>- (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x + sint y \<and> sint x + sint y < 2 ^ (LENGTH('l) - Suc 0)\<rangle> \<star> \<psi> (x + y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x + y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
+    shows \<open>\<langle>sint_range TYPE('l) (sint x + sint y)\<rangle> \<star> \<psi> (x + y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x + y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
 proof -
   have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x + y \<rbrakk>
       \<stileturn> (\<lambda>r. \<langle>r = x + y\<rangle> \<star> \<psi> (x+y)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
@@ -755,12 +755,12 @@ text\<open>The precondition and the result follow the signedness of the length t
 
 lemma wp_word_add_no_wrap [micro_rust_wp_intros]:
     fixes x y :: \<open>'l::{len} word\<close>
-  shows \<open>\<langle>if is_signed TYPE('l) then - (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x + sint y \<and> sint x + sint y < 2 ^ (LENGTH('l) - Suc 0) else unat x + unat y < 2^LENGTH('l)\<rangle> \<star> \<psi> (x + y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x + y \<rbrakk> \<psi> \<rho> \<theta>\<close>
+  shows \<open>\<langle>if is_signed TYPE('l) then sint_range TYPE('l) (sint x + sint y) else unat_range TYPE('l) (unat x + unat y)\<rangle> \<star> \<psi> (x + y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x + y \<rbrakk> \<psi> \<rho> \<theta>\<close>
   by (cases \<open>is_signed TYPE('l)\<close>) (simp_all add: wp_word_add_no_wrap_unsigned wp_word_add_no_wrap_signed)
 
 lemma wp_word_add_no_wrapI [micro_rust_wp_intros]:
     fixes x y :: \<open>'l::{len} word\<close>
-  assumes \<open>\<phi> \<longlongrightarrow> \<langle>if is_signed TYPE('l) then - (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x + sint y \<and> sint x + sint y < 2 ^ (LENGTH('l) - Suc 0) else unat x + unat y < 2^LENGTH('l)\<rangle> \<star> \<psi> (x + y)\<close>
+  assumes \<open>\<phi> \<longlongrightarrow> \<langle>if is_signed TYPE('l) then sint_range TYPE('l) (sint x + sint y) else unat_range TYPE('l) (unat x + unat y)\<rangle> \<star> \<psi> (x + y)\<close>
     shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x + y \<rbrakk> \<psi> \<rho> \<theta>\<close>
 using assms by - (rule aentails_trans', rule wp_word_add_no_wrap, auto)
 
@@ -771,7 +771,7 @@ lemma wp_word_mul_no_wrap_unsigned:
       and asepconj_simp [simp]
     fixes x y :: \<open>'l::{len} word\<close>
   assumes \<open>\<not> is_signed TYPE('l)\<close>
-    shows \<open>\<langle>unat x * unat y < 2^LENGTH('l)\<rangle> \<star> \<psi> (x * y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x * y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
+    shows \<open>\<langle>unat_range TYPE('l) (unat x * unat y)\<rangle> \<star> \<psi> (x * y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x * y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
 proof -
   have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x * y \<rbrakk>
       \<stileturn> (\<lambda>r. \<langle>r = x * y\<rangle> \<star> \<psi> (x*y)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
@@ -789,7 +789,7 @@ lemma wp_word_mul_no_wrap_signed:
       and asepconj_simp [simp]
     fixes x y :: \<open>'l::{len} word\<close>
   assumes \<open>is_signed TYPE('l)\<close>
-    shows \<open>\<langle>- (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x * sint y \<and> sint x * sint y < 2 ^ (LENGTH('l) - Suc 0)\<rangle> \<star> \<psi> (x * y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x * y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
+    shows \<open>\<langle>sint_range TYPE('l) (sint x * sint y)\<rangle> \<star> \<psi> (x * y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x * y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
 proof -
   have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x * y \<rbrakk>
       \<stileturn> (\<lambda>r. \<langle>r = x * y\<rangle> \<star> \<psi> (x*y)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
@@ -805,12 +805,12 @@ text\<open>The precondition and the result follow the signedness of the length t
 
 lemma wp_word_mul_no_wrap [micro_rust_wp_intros]:
     fixes x y :: \<open>'l::{len} word\<close>
-  shows \<open>\<langle>if is_signed TYPE('l) then - (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x * sint y \<and> sint x * sint y < 2 ^ (LENGTH('l) - Suc 0) else unat x * unat y < 2^LENGTH('l)\<rangle> \<star> \<psi> (x * y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x * y \<rbrakk> \<psi> \<rho> \<theta>\<close>
+  shows \<open>\<langle>if is_signed TYPE('l) then sint_range TYPE('l) (sint x * sint y) else unat_range TYPE('l) (unat x * unat y)\<rangle> \<star> \<psi> (x * y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x * y \<rbrakk> \<psi> \<rho> \<theta>\<close>
   by (cases \<open>is_signed TYPE('l)\<close>) (simp_all add: wp_word_mul_no_wrap_unsigned wp_word_mul_no_wrap_signed)
 
 lemma wp_word_mul_no_wrapI [micro_rust_wp_intros]:
     fixes x y :: \<open>'l::{len} word\<close>
-  assumes \<open>\<phi> \<longlongrightarrow> \<langle>if is_signed TYPE('l) then - (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x * sint y \<and> sint x * sint y < 2 ^ (LENGTH('l) - Suc 0) else unat x * unat y < 2^LENGTH('l)\<rangle> \<star> \<psi> (x * y)\<close>
+  assumes \<open>\<phi> \<longlongrightarrow> \<langle>if is_signed TYPE('l) then sint_range TYPE('l) (sint x * sint y) else unat_range TYPE('l) (unat x * unat y)\<rangle> \<star> \<psi> (x * y)\<close>
     shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x * y \<rbrakk> \<psi> \<rho> \<theta>\<close>
 using assms by - (rule aentails_trans', rule wp_word_mul_no_wrap, auto)
 
@@ -839,7 +839,7 @@ lemma wp_word_sub_no_wrap_signed:
       and asepconj_simp [simp]
     fixes x y :: \<open>'l::{len} word\<close>
   assumes \<open>is_signed TYPE('l)\<close>
-    shows \<open>\<langle>- (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x - sint y \<and> sint x - sint y < 2 ^ (LENGTH('l) - Suc 0)\<rangle> \<star> \<psi> (x - y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x - y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
+    shows \<open>\<langle>sint_range TYPE('l) (sint x - sint y)\<rangle> \<star> \<psi> (x - y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x - y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
 proof -
   have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x - y \<rbrakk>
       \<stileturn> (\<lambda>r. \<langle>r = x - y\<rangle> \<star> \<psi> (x - y)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
@@ -855,12 +855,12 @@ text\<open>The precondition and the result follow the signedness of the length t
 
 lemma wp_word_sub_no_wrap:
     fixes x y :: \<open>'l::{len} word\<close>
-  shows \<open>\<langle>if is_signed TYPE('l) then - (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x - sint y \<and> sint x - sint y < 2 ^ (LENGTH('l) - Suc 0) else y \<le> x\<rangle> \<star> \<psi> (x - y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x - y \<rbrakk> \<psi> \<rho> \<theta>\<close>
+  shows \<open>\<langle>if is_signed TYPE('l) then sint_range TYPE('l) (sint x - sint y) else y \<le> x\<rangle> \<star> \<psi> (x - y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x - y \<rbrakk> \<psi> \<rho> \<theta>\<close>
   by (cases \<open>is_signed TYPE('l)\<close>) (simp_all add: wp_word_sub_no_wrap_unsigned wp_word_sub_no_wrap_signed)
 
 lemma wp_word_sub_no_wrapI [micro_rust_wp_intros]:
     fixes x y :: \<open>'l::{len} word\<close>
-  assumes \<open>\<phi> \<longlongrightarrow> \<langle>if is_signed TYPE('l) then - (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x - sint y \<and> sint x - sint y < 2 ^ (LENGTH('l) - Suc 0) else y \<le> x\<rangle> \<star> \<psi> (x - y)\<close>
+  assumes \<open>\<phi> \<longlongrightarrow> \<langle>if is_signed TYPE('l) then sint_range TYPE('l) (sint x - sint y) else y \<le> x\<rangle> \<star> \<psi> (x - y)\<close>
     shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x - y \<rbrakk> \<psi> \<rho> \<theta>\<close>
 using assms by - (rule aentails_trans', rule wp_word_sub_no_wrap, auto)
 

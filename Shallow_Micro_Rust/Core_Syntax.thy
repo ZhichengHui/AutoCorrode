@@ -988,7 +988,7 @@ let
               (case body_type T of
                 Type (tn, _) =>
                   (case Ctr_Sugar.ctr_sugar_of ctxt tn of
-                    SOME {ctrs = [_], ...} => true
+                    SOME {ctrs = [Const (ctr, _)], ...} => ctr = n
                   | _ => false)
               | _ => false)
           | NONE => false))

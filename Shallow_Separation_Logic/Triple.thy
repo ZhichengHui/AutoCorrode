@@ -448,28 +448,28 @@ subsection\<open>Defining triples for numeric and bitwise operators\<close>
 lemma sstriple_word_add_no_wrapI:
   fixes x y :: \<open>'l::{len} word\<close>
   assumes \<open>\<not> is_signed TYPE('l)\<close>
-  shows \<open>\<Gamma> ; \<langle>unat x + unat y < 2^(LENGTH('l))\<rangle> \<turnstile> \<lbrakk> x + y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x + y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  shows \<open>\<Gamma> ; \<langle>unat_range TYPE('l) (unat x + unat y)\<rangle> \<turnstile> \<lbrakk> x + y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x + y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
 using assms by (auto intro!: sstriple_from_stripleI striple_word_add_no_wrapI[OF assms] simp add: eval_value_def
   eval_return_def urust_eval_predicate_simps is_local_def eval_abort_def)
 
 lemma sstriple_word_add_no_wrap_signedI:
   fixes x y :: \<open>'l::{len} word\<close>
   assumes \<open>is_signed TYPE('l)\<close>
-  shows \<open>\<Gamma> ; \<langle>- (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x + sint y \<and> sint x + sint y < 2 ^ (LENGTH('l) - Suc 0)\<rangle> \<turnstile> \<lbrakk> x + y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x + y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  shows \<open>\<Gamma> ; \<langle>sint_range TYPE('l) (sint x + sint y)\<rangle> \<turnstile> \<lbrakk> x + y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x + y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
 using assms by (auto intro!: sstriple_from_stripleI striple_word_add_no_wrap_signedI[OF assms] simp add: eval_value_def
   eval_return_def urust_eval_predicate_simps is_local_def eval_abort_def)
 
 lemma sstriple_word_mul_no_wrapI:
   fixes x y :: \<open>'l::{len} word\<close>
   assumes \<open>\<not> is_signed TYPE('l)\<close>
-  shows \<open>\<Gamma> ; \<langle>unat x * unat y < 2^(LENGTH('l))\<rangle> \<turnstile> \<lbrakk> x * y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x * y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  shows \<open>\<Gamma> ; \<langle>unat_range TYPE('l) (unat x * unat y)\<rangle> \<turnstile> \<lbrakk> x * y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x * y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
 using assms by (auto intro!: sstriple_from_stripleI striple_word_mul_no_wrapI[OF assms] simp add: eval_value_def
   eval_return_def urust_eval_predicate_simps is_local_def eval_abort_def)
 
 lemma sstriple_word_mul_no_wrap_signedI:
   fixes x y :: \<open>'l::{len} word\<close>
   assumes \<open>is_signed TYPE('l)\<close>
-  shows \<open>\<Gamma> ; \<langle>- (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x * sint y \<and> sint x * sint y < 2 ^ (LENGTH('l) - Suc 0)\<rangle> \<turnstile> \<lbrakk> x * y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x * y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  shows \<open>\<Gamma> ; \<langle>sint_range TYPE('l) (sint x * sint y)\<rangle> \<turnstile> \<lbrakk> x * y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x * y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
 using assms by (auto intro!: sstriple_from_stripleI striple_word_mul_no_wrap_signedI[OF assms] simp add: eval_value_def
   eval_return_def urust_eval_predicate_simps is_local_def eval_abort_def)
 
@@ -483,7 +483,7 @@ lemma sstriple_word_sub_no_wrapI:
 lemma sstriple_word_sub_no_wrap_signedI:
   fixes x y :: \<open>'l::{len} word\<close>
   assumes \<open>is_signed TYPE('l)\<close>
-  shows \<open>\<Gamma> ; \<langle>- (2 ^ (LENGTH('l) - Suc 0)) \<le> sint x - sint y \<and> sint x - sint y < 2 ^ (LENGTH('l) - Suc 0)\<rangle> \<turnstile> \<lbrakk> x - y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x - y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  shows \<open>\<Gamma> ; \<langle>sint_range TYPE('l) (sint x - sint y)\<rangle> \<turnstile> \<lbrakk> x - y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x - y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
   using assms by (auto intro!: sstriple_from_stripleI striple_word_sub_no_wrap_signedI[OF assms] simp add: eval_value_def
     eval_return_def urust_eval_predicate_simps is_local_def eval_abort_def)
 

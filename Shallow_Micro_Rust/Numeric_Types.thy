@@ -72,7 +72,7 @@ text\<open>Here, we implement non-overflowing word arithmetic. First, the pure d
 definition word_op_no_wrap_pure :: \<open>(nat \<Rightarrow> nat \<Rightarrow> nat) \<Rightarrow> 'l::{len} word \<Rightarrow> 'l word \<Rightarrow> 'l word option\<close> where
   \<open>word_op_no_wrap_pure op a b \<equiv>
      let op_nat = op (unat a) (unat b) in
-       if op_nat < 2^LENGTH('l) then
+       if unat_range TYPE('l) op_nat then
          Some (word_of_nat op_nat)
        else
          None\<close>
@@ -83,7 +83,7 @@ signed range of the type.\<close>
 definition sword_op_no_wrap_pure :: \<open>(int \<Rightarrow> int \<Rightarrow> int) \<Rightarrow> 'l::{len} word \<Rightarrow> 'l word \<Rightarrow> 'l word option\<close> where
   \<open>sword_op_no_wrap_pure op a b \<equiv>
      let op_int = op (sint a) (sint b) in
-       if - (2 ^ (LENGTH('l) - Suc 0)) \<le> op_int \<and> op_int < 2 ^ (LENGTH('l) - Suc 0) then
+       if sint_range TYPE('l) op_int then
          Some (word_of_int op_int)
        else
          None\<close>
@@ -290,7 +290,7 @@ definition word_try_from_pure :: \<open>'l0::{len} word \<Rightarrow> 'l1::{len}
      if is_signed TYPE('l0) \<or> is_signed TYPE('l1) then
        (let v = if is_signed TYPE('l0) then sint a else uint a in
         if (if is_signed TYPE('l1) then
-              - (2 ^ (LENGTH('l1) - Suc 0)) \<le> v \<and> v < 2 ^ (LENGTH('l1) - Suc 0)
+              sint_range TYPE('l1) v
             else 0 \<le> v \<and> v < 2 ^ LENGTH('l1)) then
           Some (word_of_int v)
         else

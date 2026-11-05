@@ -51,13 +51,13 @@ definition saturating_sub :: \<open>'l::{len} word \<Rightarrow> 'l word \<Right
 definition checked_mul_core :: \<open>'a::{len} word \<Rightarrow> 'a word \<Rightarrow> 'a word option\<close> where
   \<open>checked_mul_core w v \<equiv>
      if is_signed TYPE('a) then
-       (if - (2 ^ (LENGTH('a) - Suc 0)) \<le> sint w * sint v \<and> sint w * sint v < 2 ^ (LENGTH('a) - Suc 0) then Some (w * v) else None)
+       (if sint_range TYPE('a) (sint w * sint v) then Some (w * v) else None)
      else if unat w * unat v \<ge> 2^LENGTH('a) then None else Some (w * v)\<close>
 
 definition checked_add_core :: \<open>'a::{len} word \<Rightarrow> 'a word \<Rightarrow> 'a word option\<close> where
   \<open>checked_add_core w v \<equiv>
      if is_signed TYPE('a) then
-       (if - (2 ^ (LENGTH('a) - Suc 0)) \<le> sint w + sint v \<and> sint w + sint v < 2 ^ (LENGTH('a) - Suc 0) then Some (w + v) else None)
+       (if sint_range TYPE('a) (sint w + sint v) then Some (w + v) else None)
      else if unat w + unat v \<ge> 2^LENGTH('a) then None else Some (w + v)\<close>
 
 definition checked_mul :: \<open>'a::{len} word \<Rightarrow> 'a word \<Rightarrow> ('s, 'a word option, 'abort, 'i, 'o) function_body\<close> where

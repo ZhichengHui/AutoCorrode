@@ -539,7 +539,10 @@ text\<open>Negative cases: HOL's unsigned readings on signed words are rejected 
 ML\<open>
 local
   val ctxt = \<^context>;
-  fun rejected s = not (can (Syntax.read_term ctxt) s);
+  fun rejected s =
+    (case Exn.capture (Syntax.read_term ctxt) s of
+      Exn.Exn e => String.isSubstring "Unsigned reading of a signed word" (Runtime.exn_message e)
+    | Exn.Res _ => false);
   fun accepted s = can (Syntax.read_term ctxt) s;
 in
   val _ = \<^assert> (rejected "(a :: 32 sword) < b");
@@ -560,10 +563,12 @@ in
   val _ = \<^assert> (rejected "{(a :: 32 sword)..}");
   val _ = \<^assert> (rejected "{(a :: 32 sword)<..}");
   val _ = \<^assert> (rejected "sorted (xs :: 32 sword list)");
-  val _ = \<^assert> (rejected "(xs :: 32 sword list) < ys");
-  val _ = \<^assert> (rejected "(x :: 32 sword option) \<le> y");
   (* Positive cases. *)
   val _ = \<^assert> (accepted "(a :: 32 sword) <s b");
+  val _ = \<^assert> (accepted "(A :: 32 sword set) \<subseteq> B");
+  val _ = \<^assert> (accepted "(A :: 32 sword set) \<subset> B");
+  \<comment>\<open>Derived orders are not checked (only direct uses at a signed word are).\<close>
+  val _ = \<^assert> (accepted "(f :: nat \<Rightarrow> 32 sword) \<le> g");
   val _ = \<^assert> (accepted "(a :: 32 sword) \<le>s b");
   val _ = \<^assert> (accepted "sint (a :: 32 sword) < sint b");
   val _ = \<^assert> (accepted "sint (a :: 32 sword) \<le> 5");

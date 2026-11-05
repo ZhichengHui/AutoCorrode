@@ -48,6 +48,18 @@ lemma is_signed_simps [simp]:
     and \<open>is_signed TYPE('a signed)\<close>
   by (simp_all add: is_signed_num1_def is_signed_bit0_def is_signed_bit1_def is_signed_signed_def)
 
+section\<open>Ranges of integer types\<close>
+
+text\<open>The values representable at a length: \<^verbatim>\<open>sint_range TYPE('l) v\<close> for the signed
+interpretation and \<^verbatim>\<open>unat_range TYPE('l) n\<close> for the unsigned one. They are input
+abbreviations: they only shorten the source, terms and goals contain the unfolded condition.\<close>
+
+abbreviation (input) sint_range :: \<open>'l::len itself \<Rightarrow> int \<Rightarrow> bool\<close> where
+  \<open>sint_range t v \<equiv> - (2 ^ (LENGTH('l) - Suc 0)) \<le> v \<and> v < 2 ^ (LENGTH('l) - Suc 0)\<close>
+
+abbreviation (input) unat_range :: \<open>'l::len itself \<Rightarrow> nat \<Rightarrow> bool\<close> where
+  \<open>unat_range t n \<equiv> n < 2 ^ LENGTH('l)\<close>
+
 section\<open>Comparisons and casts following the signedness\<close>
 
 text\<open>Rust compares signed integers as signed and unsigned integers as unsigned.\<close>
@@ -128,12 +140,19 @@ val unsigned_consts =
 fun is_signed_word (Type (\<^type_name>\<open>word\<close>, [Type (\<^type_name>\<open>signed\<close>, _)])) = true
   | is_signed_word _ = false;
 
+\<comment>\<open>The type that is ordered or divided: the elements for \<^const>\<open>Max\<close> and \<^const>\<open>Min\<close>, the
+   first argument otherwise. Only direct uses at a signed word are checked; orders of other types
+   that are derived from an order on signed words (e.g. pointwise on functions) are not.\<close>
+fun operand_type c T =
+  if member (op =) [\<^const_name>\<open>Max\<close>, \<^const_name>\<open>Min\<close>] c then body_type T
+  else domain_type T;
+
 fun check ctxt t =
   if not (Config.get ctxt enabled) then ()
   else
     Term.fold_aterms
       (fn Const (c, T) => (fn () =>
-            if member (op =) unsigned_consts c andalso Term.exists_subtype is_signed_word T
+            if member (op =) unsigned_consts c andalso is_signed_word (operand_type c T)
             then error (Pretty.string_of (Pretty.block
               [Pretty.str "Unsigned reading of a signed word: ",
                Syntax.pretty_term ctxt (Const (c, T)), Pretty.brk 1,
