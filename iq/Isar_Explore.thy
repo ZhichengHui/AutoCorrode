@@ -85,10 +85,11 @@ fun isar_explore exec_id instance text state =
             off threads for `by ...` statements which we have trouble capturing
             the output of (they capture their own exceptions and convert them
             directly into error_messages to Isabelle's output channel. *)
-         val old_parallel_proofs = ! Multithreading.parallel_proofs
-         val _ = Multithreading.parallel_proofs := Int.min(2, old_parallel_proofs)
-         val st' = Toplevel.command_exception false tr st
-         val _ = Multithreading.parallel_proofs := old_parallel_proofs
+         val parallel_proofs = Int.min(2, Interactive.parallel_proofs ())
+         val st' =
+           Interactive.setmp false
+             (Interactive.setmp_parallel_proofs parallel_proofs
+               (Toplevel.command_exception tr)) st
       in st' end
   in
     List.foldl (fn (tr, st) => run_transition (tr, st)) state transitions
