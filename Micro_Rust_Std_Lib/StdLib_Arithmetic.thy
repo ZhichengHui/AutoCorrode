@@ -175,7 +175,7 @@ lift_definition (code_dt) nonzerou64_new_core :: \<open>64 word \<Rightarrow> no
   \<open>\<lambda>(n::64 word). if n = 0 then None else Some n\<close> by simp
 
 definition nonzerou64_new :: \<open>64 word \<Rightarrow> ('machine, nonzero_u64 option, 'abort, 'i, 'o) function_body\<close> where
-  \<open>nonzerou64_new n \<equiv> FunctionBody (if n = 0 then literal None else literal (Some (nonzero_u64_inject n)))\<close>
+  \<open>nonzerou64_new n \<equiv> FunctionBody (literal (nonzerou64_new_core n))\<close>
 micro_rust_notation (call) nonzerou64_new ("NonZeroU64::new")
 
 definition nonzerou64_new_contract :: \<open>64 word \<Rightarrow>
@@ -219,7 +219,7 @@ lift_definition (code_dt) nonzeroi64_new_core :: \<open>64 sword \<Rightarrow> n
   \<open>\<lambda>(n::64 sword). if n = 0 then None else Some n\<close> by simp
 
 definition nonzeroi64_new :: \<open>64 sword \<Rightarrow> ('machine, nonzero_i64 option, 'abort, 'i, 'o) function_body\<close> where
-  \<open>nonzeroi64_new n \<equiv> FunctionBody (if n = 0 then literal None else literal (Some (nonzero_i64_inject n)))\<close>
+  \<open>nonzeroi64_new n \<equiv> FunctionBody (literal (nonzeroi64_new_core n))\<close>
 micro_rust_notation (call) nonzeroi64_new ("NonZeroI64::new")
 
 definition nonzeroi64_new_contract :: \<open>64 sword \<Rightarrow>

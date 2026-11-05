@@ -22,6 +22,11 @@ text\<open>And now falsity:\<close>
 definition false :: \<open>('s, bool, 'r, 'abort, 'i, 'o) expression\<close> where
   \<open>false \<equiv> literal False\<close>
 
+text\<open>In generated code, \<^const>\<open>true\<close> and \<^const>\<open>false\<close> would be polymorphic values, which
+SML's value restriction rejects; they are therefore unfolded into their uses.\<close>
+
+declare true_def[code_unfold] false_def[code_unfold]
+
 subsection\<open>Conditionals\<close>
 
 text\<open>The two-armed conditional is the standard \<^verbatim>\<open>if-then-else\<close> construct from programming languages.

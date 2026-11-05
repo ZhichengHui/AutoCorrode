@@ -123,66 +123,66 @@ syntax
     ("\<llangle>_\<rrangle>\<^sub>1\<^sub>4" [0]1000)
   \<comment>\<open>Primitive casts\<close>
   "_urust_primitive_integral_cast_u8" :: "urust \<Rightarrow> urust"
-    ("(_) as/ u8" [100]1000)
+    ("(_) as/ u8" [100]299)
   "_urust_primitive_integral_cast_u16" :: "urust \<Rightarrow> urust"
-    ("(_) as/ u16" [100]1000)
+    ("(_) as/ u16" [100]299)
   "_urust_primitive_integral_cast_u32" :: "urust \<Rightarrow> urust"
-    ("(_) as/ u32" [100]1000)
+    ("(_) as/ u32" [100]299)
   "_urust_primitive_integral_cast_u64" :: "urust \<Rightarrow> urust"
-    ("(_) as/ u64" [100]1000)
+    ("(_) as/ u64" [100]299)
   "_urust_primitive_integral_cast_usize" :: "urust \<Rightarrow> urust"
-    ("(_) as/ usize" [100]1000)
+    ("(_) as/ usize" [100]299)
   "_urust_primitive_integral_cast_i32" :: "urust \<Rightarrow> urust"
-    ("(_) as/ i32" [100]1000)
+    ("(_) as/ i32" [100]299)
   "_urust_primitive_integral_cast_i64" :: "urust \<Rightarrow> urust"
-    ("(_) as/ i64" [100]1000)
+    ("(_) as/ i64" [100]299)
   "_urust_primitive_integral_cast_i8" :: "urust \<Rightarrow> urust"
-    ("(_) as/ i8" [100]1000)
+    ("(_) as/ i8" [100]299)
   "_urust_primitive_integral_cast_i16" :: "urust \<Rightarrow> urust"
-    ("(_) as/ i16" [100]1000)
+    ("(_) as/ i16" [100]299)
   "_urust_primitive_integral_cast_isize" :: "urust \<Rightarrow> urust"
-    ("(_) as/ isize" [100]1000)
+    ("(_) as/ isize" [100]299)
   \<comment>\<open>Raw pointer casts\<close>
   "_urust_ptr_const_cast_u8" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*const/ u8" [100]1000)
+    ("(_) as/ '*const/ u8" [100]299)
   "_urust_ptr_const_cast_u16" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*const/ u16" [100]1000)
+    ("(_) as/ '*const/ u16" [100]299)
   "_urust_ptr_const_cast_u32" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*const/ u32" [100]1000)
+    ("(_) as/ '*const/ u32" [100]299)
   "_urust_ptr_const_cast_u64" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*const/ u64" [100]1000)
+    ("(_) as/ '*const/ u64" [100]299)
   "_urust_ptr_const_cast_usize" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*const/ usize" [100]1000)
+    ("(_) as/ '*const/ usize" [100]299)
   "_urust_ptr_const_cast_i8" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*const/ i8" [100]1000)
+    ("(_) as/ '*const/ i8" [100]299)
   "_urust_ptr_const_cast_i16" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*const/ i16" [100]1000)
+    ("(_) as/ '*const/ i16" [100]299)
   "_urust_ptr_const_cast_i32" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*const/ i32" [100]1000)
+    ("(_) as/ '*const/ i32" [100]299)
   "_urust_ptr_const_cast_i64" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*const/ i64" [100]1000)
+    ("(_) as/ '*const/ i64" [100]299)
   "_urust_ptr_const_cast_isize" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*const/ isize" [100]1000)
+    ("(_) as/ '*const/ isize" [100]299)
   "_urust_ptr_mut_cast_u8" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*mut/ u8" [100]1000)
+    ("(_) as/ '*mut/ u8" [100]299)
   "_urust_ptr_mut_cast_u16" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*mut/ u16" [100]1000)
+    ("(_) as/ '*mut/ u16" [100]299)
   "_urust_ptr_mut_cast_u32" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*mut/ u32" [100]1000)
+    ("(_) as/ '*mut/ u32" [100]299)
   "_urust_ptr_mut_cast_u64" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*mut/ u64" [100]1000)
+    ("(_) as/ '*mut/ u64" [100]299)
   "_urust_ptr_mut_cast_usize" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*mut/ usize" [100]1000)
+    ("(_) as/ '*mut/ usize" [100]299)
   "_urust_ptr_mut_cast_i8" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*mut/ i8" [100]1000)
+    ("(_) as/ '*mut/ i8" [100]299)
   "_urust_ptr_mut_cast_i16" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*mut/ i16" [100]1000)
+    ("(_) as/ '*mut/ i16" [100]299)
   "_urust_ptr_mut_cast_i32" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*mut/ i32" [100]1000)
+    ("(_) as/ '*mut/ i32" [100]299)
   "_urust_ptr_mut_cast_i64" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*mut/ i64" [100]1000)
+    ("(_) as/ '*mut/ i64" [100]299)
   "_urust_ptr_mut_cast_isize" :: "urust \<Rightarrow> urust"
-    ("(_) as/ '*mut/ isize" [100]1000)
+    ("(_) as/ '*mut/ isize" [100]299)
   \<comment>\<open>Integral literals at a given type\<close>
   "_urust_numeral_ascription_0_u8" :: "urust"
     ("0'_u8")
@@ -588,9 +588,9 @@ syntax
     ("& mut _" [1000]1000)
   \<comment>\<open>Range patterns (currently lowered to guarded matches in the shallow embedding).\<close>
   "_urust_match_pattern_range" :: \<open>urust_pattern \<Rightarrow> urust_pattern \<Rightarrow> urust_pattern\<close>
-    (infix \<open>..\<close> 41)
+    ("_ ../ _" [1000, 1000] 100)
   "_urust_match_pattern_range_eq" :: \<open>urust_pattern \<Rightarrow> urust_pattern \<Rightarrow> urust_pattern\<close>
-    (infix \<open>..=\<close> 41)
+    ("_ ..=/ _" [1000, 1000] 100)
 
   \<comment>\<open>The \<^verbatim>\<open>matches!\<close> macro: \<^verbatim>\<open>matches!(expr, pattern)\<close>. The second argument is parsed in
       \<^verbatim>\<open>urust_pattern\<close> position so that constructor patterns and disjunctions are handled correctly.\<close>

@@ -1436,6 +1436,12 @@ ML\<open>
             mk_literal_expr (num_const_to_hol n)
         | Const (\<^syntax_const>\<open>_urust_match_pattern_neg_num_const\<close>, _) $ n =>
             mk_literal_expr (mk \<^const_syntax>\<open>uminus\<close> $ num_const_to_hol n)
+        | Const (\<^syntax_const>\<open>_urust_match_pattern_zero\<close>, _) =>
+            mk_literal_expr (Numeral.mk_number_syntax 0)
+        | Const (\<^syntax_const>\<open>_urust_match_pattern_one\<close>, _) =>
+            mk_literal_expr (Numeral.mk_number_syntax 1)
+        | Const (\<^syntax_const>\<open>_urust_match_pattern_neg_one\<close>, _) =>
+            mk_literal_expr (mk \<^const_syntax>\<open>uminus\<close> $ Numeral.mk_number_syntax 1)
         | _ => mk_shallow t)
 
       fun tuple_args_destruct (Const (\<^syntax_const>\<open>_urust_let_pattern_tuple_base_pair\<close>, _) $ a $ b) = [a, b]

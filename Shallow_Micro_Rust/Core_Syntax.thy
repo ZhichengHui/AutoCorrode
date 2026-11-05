@@ -1092,7 +1092,15 @@ let
         in Syntax.const \<^const_syntax>\<open>bind\<close> $ exp $ mk_case_abs case_expr
         end
       else
-        mk_match_term ctxt exp (map (fn (pat, _, rhs) => (pat, rhs)) normalized)
+        let
+          \<comment>\<open>Arms after an irrefutable arm are unreachable (Rust warns about them); HOL's case
+             syntax rejects them as redundant, so they are dropped.\<close>
+          fun upto_irrefutable [] = []
+            | upto_irrefutable ((b as (pat, _, _)) :: rest) =
+                if irrefutable_pat ctxt pat then [b] else b :: upto_irrefutable rest
+        in
+          mk_match_term ctxt exp (map (fn (pat, _, rhs) => (pat, rhs)) (upto_irrefutable normalized))
+        end
     end
 
   and mk_nested_match_guard ctxt expr pat =
