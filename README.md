@@ -51,6 +51,14 @@ You can interactively explore AutoCorrode using `make jedit`, which opens the Au
 
 To non-interactively check all material in AutoCorrode, run `make build`, which starts a batch-build in Isabelle.
 
+## Tests
+
+Tests are in [Tests](Tests), in the session `Tests` with parent session `AutoCorrode`. Each subdirectory holds the tests of one feature; `Tests/ROOT` lists the subdirectory under `directories` and its theories under `theories`.
+
+- [Tests/Loop_Control](Tests/Loop_Control) tests `break`, `continue` and labeled loops: parsing and rejected programs (`Loop_Control_Syntax`), the behaviour of small programs (`Loop_Control_Semantics`), and proofs with the loop rules (`Loop_Control_Examples`, `Loop_Control_Automation`).
+
+[Tests/Expected_Failures](Tests/Expected_Failures) holds negative controls: theories with proofs that must fail. Each theory marks the command that must fail with the comment `(* EXPECTED FAILURE *)`. These theories form the session `Expected_Failures` with parent session `Tests`, which is not listed in `ROOTS`. The script `Tests/Expected_Failures/check.sh ISABELLE [BUILD OPTIONS]` builds this session and succeeds only if the build fails, every error lies on a marked command, and every marked command has an error. `make expected-failures` runs this check, and `make build` runs it after building `AutoCorrode`, `AutoLocality_Tests` and `Tests`.
+
 ## Citing AutoCorrode
 
 If you want to cite AutoCorrode, consider using the following BibTeX entry:
