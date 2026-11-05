@@ -1,4 +1,0 @@
-[submodule "urust-frontend"]
-	path = urust-frontend
-	url = https://github.com/ZhichengHui/AutoCorrodeRustFrontEnd.git
-	branch = master
