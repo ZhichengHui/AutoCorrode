@@ -4,7 +4,6 @@
 theory Signed_Tests_Language
   imports
     Micro_Rust_Std_Lib.StdLib_All
-    Micro_Rust_Std_Lib.StdLib_Ordering
 begin
 
 section\<open>Harness\<close>
@@ -1127,7 +1126,7 @@ definition i8_casts :: \<open>8 sword \<Rightarrow> 8 word \<Rightarrow> (unit, 
   \<rbrakk>\<close>
 
 text\<open>Regression: code generation of \<^verbatim>\<open>NonZeroI64::new\<close>.\<close>
-export_code i8_arith i64_stdlib i8_casts run outcome in SML
+export_code i8_arith i64_stdlib i8_casts run outcome checking SML
 export_code i8_arith i64_stdlib i8_casts run in SML
 text\<open>Constants that branch on \<^const>\<open>is_signed\<close> have code only at concrete lengths, through
 \<^verbatim>\<open>code_unfold\<close>; they are exported through monomorphic definitions.\<close>
