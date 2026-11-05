@@ -431,14 +431,7 @@ proof -
     using zeta_wf bound2 len_pos by (rule ntt_inner_loop_wf)
 qed
 
-text\<open>The proof below does the word arithmetic of its loop indices by hand, so it does not use the
-default rules of \<^verbatim>\<open>StdLib_Slice\<close> that turn word comparisons and
-increments into natural-number arithmetic.\<close>
-
 lemma ntt_spec:
-  notes word_less_of_nat_iff [crush_late_simps del]
-    and unat_of_nat_eq [crush_late_simps del]
-    and unat_plus_one_of_less [crush_late_simps del]
   shows \<open>\<Gamma>; ntt f_ref \<Turnstile>\<^sub>F ntt_contract f_ref g p\<close>
 proof (crush_boot f: ntt_def contract: ntt_contract_def, goal_cases)
   case 1
