@@ -21,21 +21,13 @@ object AnalyzePatternsAction {
     val maybePath = MenuContext.bufferPath(buffer)
 
     if (!IQAvailable.isAvailable) {
-      GUI.warning_dialog(
-        view,
-        "Isabelle Assistant",
-        "I/Q is required for pattern analysis."
-      )
+      GUI.warning_dialog(title = "Isabelle Assistant", message = Seq("I/Q is required for pattern analysis."), parent = Some(view))
       return
     }
 
     maybePath match {
       case None =>
-        GUI.warning_dialog(
-          view,
-          "Isabelle Assistant",
-          "Current buffer has no file path. Save the theory and retry pattern analysis."
-        )
+        GUI.warning_dialog(title = "Isabelle Assistant", message = Seq("Current buffer has no file path. Save the theory and retry pattern analysis."), parent = Some(view))
       case Some(path) =>
         // fetchProofBlocks goes to I/Q MCP and must not run on the EDT.
         ActionHelper.runAsync(
@@ -56,18 +48,10 @@ object AnalyzePatternsAction {
         }(response => {
           if (response.startsWith("ERROR:")) {
             AssistantDockable.setStatus(AssistantConstants.STATUS_READY)
-            GUI.warning_dialog(
-              view,
-              "Isabelle Assistant",
-              s"Failed to extract proof blocks: ${response.stripPrefix("ERROR:")}"
-            )
+            GUI.warning_dialog(title = "Isabelle Assistant", message = Seq(s"Failed to extract proof blocks: ${response.stripPrefix("ERROR:")}"), parent = Some(view))
           } else if (response == "EMPTY") {
             AssistantDockable.setStatus(AssistantConstants.STATUS_READY)
-            GUI.warning_dialog(
-              view,
-              "Isabelle Assistant",
-              "No proof blocks found in theory."
-            )
+            GUI.warning_dialog(title = "Isabelle Assistant", message = Seq("No proof blocks found in theory."), parent = Some(view))
           } else {
             ChatAction.addMessage(ChatAction.Assistant, response)
             AssistantDockable.showConversation(ChatAction.getHistory)

@@ -64,11 +64,7 @@ object ExtractLemmaAction {
           case None =>
             GUI_Thread.later {
               AssistantDockable.setStatus(AssistantConstants.STATUS_READY)
-              GUI.warning_dialog(
-                view,
-                "Isabelle Assistant",
-                "Could not determine proof context"
-              )
+              GUI.warning_dialog(title = "Isabelle Assistant", message = Seq("Could not determine proof context"), parent = Some(view))
             }
           case Some(ctx) =>
             val hasCommand =
@@ -124,7 +120,7 @@ object ExtractLemmaAction {
         case ex: Exception =>
           GUI_Thread.later {
             AssistantDockable.setStatus("Error: " + ex.getMessage)
-            GUI.error_dialog(view, "Extract Lemma Error", ex.getMessage)
+            GUI.error_dialog(title = "Extract Lemma Error", message = Seq(ex.getMessage), parent = Some(view))
           }
       }
     }
