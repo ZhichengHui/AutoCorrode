@@ -136,7 +136,7 @@ fun source thy_name start stop =
       val prefix = if show_theory_in_source then thy_name ^ ":" else ""
       fun pr _ [] = ()
         | pr i (({span, prev_state, ...} : Document_Output.segment) :: rest) =
-            let val indent = StringCvt.padLeft #" " (2 * Toplevel.level prev_state) ""
+            let val indent = StringCvt.padLeft #" " (2 * Toplevel.proof_level prev_state) ""
             in (if i >= start' andalso i <= stop' then
                if is_ignored span then
                  (if incl then out (prefix ^ StringCvt.padLeft #" " 4 (string_of_int i) ^
@@ -403,7 +403,7 @@ fun init id specs =
                 val thys = map #1 resolved
                 val spec_list = map #2 resolved
                 val thy = Theory.begin_theory (id, Position.none) thys
-            in (From_Theory spec_list, Toplevel.make_state (SOME thy)) end
+            in (From_Theory spec_list, Toplevel.make_state (SOME (Context.Theory thy))) end
       val parsed = map parse_spec specs
       val (origin, st) =
         case parsed of
@@ -545,12 +545,12 @@ fun show id =
       val _ = out ("REPL " ^ quote id ^
                    " (" ^ string_of_int n ^ " steps, from " ^ orig ^
                    ", timeout=" ^ tmo ^ pin_str (#pin r) ^ ")")
-      val _ = out ("  base  level=" ^ string_of_int (Toplevel.level (#base_state r)))
+      val _ = out ("  base  level=" ^ string_of_int (Toplevel.proof_level (#base_state r)))
       val thy = Toplevel.theory_of (#base_state r)
       fun pr _ [] = ()
         | pr i (({text, stale, pre_state, ...} : repl_step) :: rest) =
             let val stale_mark = if stale then " [stale]" else ""
-                val lvl = Toplevel.level pre_state
+                val lvl = Toplevel.proof_level pre_state
                 val indent = StringCvt.padLeft #" " (2 * lvl) ""
             in out ("  " ^ StringCvt.padLeft #" " 3 (string_of_int i) ^ "  " ^
                     indent ^ render_isar_text thy text ^ stale_mark);
@@ -601,7 +601,7 @@ fun rebase id =
            then (r, out ("REPL " ^ quote id ^ " is already up to date"))
            else
              let val new_thy = Theory.begin_theory (id, Position.none) (map #1 resolved)
-                 val new_base = Toplevel.make_state (SOME new_thy)
+                 val new_base = Toplevel.make_state (SOME (Context.Theory new_thy))
                  val n = length (#steps r)
                  val r' = {origin = From_Theory new_specs, base_state = new_base,
                            steps = mark_all_stale (#steps r),
