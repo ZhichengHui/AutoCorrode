@@ -64,12 +64,13 @@ jobs:
           # builder for Beamer documents.
           apt-get install -y -qq --no-install-recommends make texlive-luatex > /dev/null
 
-      # `make build` builds the AutoCorrode parent heap (which the tutorial
-      # session inherits); `make tutorial` then builds the slide-deck PDF.
+      # `make build` builds the AutoCorrode parent heap (which the Tests and
+      # tutorial sessions inherit); `make tests` then checks the Tests session
+      # and `make tutorial` builds the slide-deck PDF.
       # The Makefile expects ISABELLE_HOME to point at the bin directory.
-      - name: Build AutoCorrode and tutorial
+      - name: Build AutoCorrode, tests and tutorial
         run: |
-          make ISABELLE_HOME=$ISABELLE_HOME/bin AFP_COMPONENT_BASE=$AFP_COMPONENT_BASE build tutorial
+          make ISABELLE_HOME=$ISABELLE_HOME/bin AFP_COMPONENT_BASE=$AFP_COMPONENT_BASE build tests tutorial
 
       - name: Upload tutorial PDF
         uses: actions/upload-artifact@v4

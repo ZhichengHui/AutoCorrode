@@ -53,7 +53,7 @@ To non-interactively check all material in AutoCorrode, run `make build`, which 
 
 ## Tests
 
-Tests are in [Tests](Tests), in the session `Tests` with parent session `AutoCorrode`. Each subdirectory holds the tests of one feature; `Tests/ROOT` lists the subdirectory under `directories` and its theories under `theories`.
+Tests are in [Tests](Tests), in the session `Tests` with parent session `AutoCorrode`. Run them with `make tests`; `make build` does not build them. Each subdirectory holds the tests of one feature; `Tests/ROOT` lists the subdirectory under `directories` and its theories under `theories`.
 
 - [Tests/Loop_Control](Tests/Loop_Control) tests `break`, `continue` and labeled loops: parsing and rejected programs (`Loop_Control_Syntax`), the behaviour of small programs (`Loop_Control_Semantics`), and proofs with the loop rules (`Loop_Control_Examples`, `Loop_Control_Automation`).
 

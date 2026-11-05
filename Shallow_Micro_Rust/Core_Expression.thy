@@ -684,6 +684,18 @@ lemma loop_passes_loop_abort:
     shows \<open>loop_abort lbl \<beta> \<kappa> \<theta> a = \<theta> a\<close>
   using assms by (auto simp add: loop_passes_def loop_abort_def split: abort.splits if_splits)
 
+text \<open>The result of one loop iteration, given the result \<^term>\<open>c\<close> of its body, for a loop with
+label \<^term>\<open>lbl\<close>. A \<^verbatim>\<open>continue\<close> caught by the loop becomes \<^term>\<open>True\<close> (go on), a
+\<^verbatim>\<open>break\<close> caught by the loop becomes \<^term>\<open>False\<close> (stop), and every other result is
+unchanged.\<close>
+
+definition loop_step_result :: \<open>String.literal option \<Rightarrow> ('s, bool, 'r, 'abort, 'i, 'o) continuation \<Rightarrow>
+    ('s, bool, 'r, 'abort, 'i, 'o) continuation\<close> where
+  \<open>loop_step_result lbl c \<equiv>
+     case c of
+       Abort a \<sigma>' \<Rightarrow> loop_abort lbl (Success False \<sigma>') (Success True \<sigma>') (\<lambda>a. Abort a \<sigma>') a
+     | _ \<Rightarrow> c\<close>
+
 text \<open>One iteration of a loop with label \<^term>\<open>lbl\<close>. The iteration \<^term>\<open>e\<close> computes whether the
 loop goes on. A \<^verbatim>\<open>continue\<close> caught by the loop goes on with the next iteration, and a
 \<^verbatim>\<open>break\<close> caught by the loop stops it.\<close>
@@ -696,7 +708,7 @@ function loop_step :: \<open>String.literal option \<Rightarrow> ('s, bool, 'r, 
              Success c \<sigma>' \<Rightarrow> Success c \<sigma>'
            | Return r \<sigma>'  \<Rightarrow> Return r \<sigma>'
            | Yield \<pi> \<sigma>' e' \<Rightarrow> Yield \<pi> \<sigma>' (\<lambda>\<omega>. loop_step lbl (e' \<omega>))
-           | Abort a \<sigma>'  \<Rightarrow> loop_abort lbl (Success False \<sigma>') (Success True \<sigma>') (\<lambda>a. Abort a \<sigma>') a))\<close>
+           | Abort a \<sigma>'  \<Rightarrow> loop_step_result lbl (Abort a \<sigma>')))\<close>
 by pat_completeness auto
 
 termination
@@ -720,7 +732,17 @@ lemma evaluate_loop_step:
            | Return r \<sigma>'  \<Rightarrow> Return r \<sigma>'
            | Yield \<pi> \<sigma>' e' \<Rightarrow> Yield \<pi> \<sigma>' (\<lambda>\<omega>. loop_step lbl (e' \<omega>))
            | Abort a \<sigma>'  \<Rightarrow> loop_abort lbl (Success False \<sigma>') (Success True \<sigma>') (\<lambda>a. Abort a \<sigma>') a)\<close>
-  by (simp add: evaluate_def)
+proof -
+  have \<open>evaluate (loop_step lbl e) \<sigma> =
+          (case evaluate e \<sigma> of
+             Success c \<sigma>' \<Rightarrow> Success c \<sigma>'
+           | Return r \<sigma>'  \<Rightarrow> Return r \<sigma>'
+           | Yield \<pi> \<sigma>' e' \<Rightarrow> Yield \<pi> \<sigma>' (\<lambda>\<omega>. loop_step lbl (e' \<omega>))
+           | Abort a \<sigma>'  \<Rightarrow> loop_step_result lbl (Abort a \<sigma>'))\<close>
+    by (simp add: evaluate_def)
+  then show ?thesis
+    by (simp add: loop_step_result_def del: loop_step.simps split: continuation.split)
+qed
 
 declare Core_Expression.loop_step.simps[simp del]
 

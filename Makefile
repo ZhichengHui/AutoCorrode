@@ -10,7 +10,7 @@
 .DEFAULT_GOAL: jedit
 .PHONY: register-components register-afp-components \
         register-fine-grained-timing-panel-component \
-        build expected-failures autolocality-tests autolocality-stress jedit tutorial \
+        build tests expected-failures autolocality-tests autolocality-stress jedit tutorial \
         build-ic2 ic2 ic2-status ic2-stop
 
 # Set this to the directory containing the Isabelle2026 binary
@@ -97,7 +97,12 @@ register-fine-grained-timing-panel-component:
 
 build: register-components
 	$(ISABELLE_HOME)/isabelle build $(ISABELLE_FLAGS) -d . \
-	  AutoCorrode AutoLocality_Tests Tests
+	  AutoCorrode AutoLocality_Tests
+
+# No session builds on Tests (Expected_Failures builds it again when needed),
+# so do not keep a heap image for it.
+tests: register-components
+	$(ISABELLE_HOME)/isabelle build $(filter-out -b,$(ISABELLE_FLAGS)) -d . Tests
 
 expected-failures: register-components
 	./Tests/Expected_Failures/check.sh $(ISABELLE_HOME)/isabelle $(ISABELLE_FLAGS)
