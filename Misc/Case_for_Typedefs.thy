@@ -190,8 +190,8 @@ fun indices_simp_rules variants_hol index_def =
 fun generate_indices lthy distinct_thm variants_hol index_def =
   Proof_Context.get_thm lthy "find_index_eqs"
   |> (fn th => th OF [distinct_thm])
-  |> Simplifier.simplify (clear_simpset lthy
-       addsimps (indices_simp_rules variants_hol index_def))
+  |> Simplifier.simplify (Simplifier.clear_simpset lthy
+       |> Simplifier.add_simps (indices_simp_rules variants_hol index_def))
   |> Conjunction.elim_conjunctions
 
 (* Step 2: Prove TYPE_indices_concrete and register as a fact *)
