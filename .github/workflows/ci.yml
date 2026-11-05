@@ -95,8 +95,9 @@ jobs:
         run: |
           apt install -y make
           echo "ISABELLE_HOME=/home/isabelle/Isabelle" >> $GITHUB_ENV
-          echo "JAVA_HOME=/home/isabelle/Isabelle/contrib/jdk-25.0.4/x86_64-linux/" >> $GITHUB_ENV
-          echo "PATH=/home/isabelle/Isabelle/contrib/jdk-25.0.4/x86_64-linux/bin:$PATH" >> $GITHUB_ENV
+          JDK=$(/home/isabelle/Isabelle/bin/isabelle getenv -b JAVA_HOME)
+          echo "JAVA_HOME=$JDK" >> $GITHUB_ENV
+          echo "PATH=$JDK/bin:$PATH" >> $GITHUB_ENV
 
       - name: Build I/Q plugin
         run: |
@@ -133,8 +134,9 @@ jobs:
         run: |
           apt install -y make
           echo "ISABELLE_HOME=/home/isabelle/Isabelle" >> $GITHUB_ENV
-          echo "JAVA_HOME=/home/isabelle/Isabelle/contrib/jdk-25.0.4/x86_64-linux/" >> $GITHUB_ENV
-          echo "PATH=/home/isabelle/Isabelle/contrib/jdk-25.0.4/x86_64-linux/bin:$PATH" >> $GITHUB_ENV
+          JDK=$(/home/isabelle/Isabelle/bin/isabelle getenv -b JAVA_HOME)
+          echo "JAVA_HOME=$JDK" >> $GITHUB_ENV
+          echo "PATH=$JDK/bin:$PATH" >> $GITHUB_ENV
 
       - name: Build I/P plugin
         run: |

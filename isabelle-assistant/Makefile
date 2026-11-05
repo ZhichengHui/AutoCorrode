@@ -17,7 +17,7 @@ endif
 ISABELLE ?= $(ISABELLE_INSTALLATION_HOME)/bin/isabelle
 JEDIT_DIR := $(shell ls -d $(ISABELLE_INSTALLATION_HOME)/contrib/jedit-* 2>/dev/null | head -1)
 JEDIT_JAR ?= $(JEDIT_DIR)/jedit5.7.0-patched/jedit.jar
-SCALA_HOME ?= $(ISABELLE_INSTALLATION_HOME)/contrib/scala-3.3.4
+SCALA_HOME ?= $(shell $(ISABELLE_INSTALLATION_HOME)/bin/isabelle getenv -b SCALA_HOME 2>/dev/null)
 SCALAC ?= $(SCALA_HOME)/bin/scalac
 SCALAC_FLAGS ?= -deprecation -feature -unchecked -Werror -Wunused:imports,privates,locals,params -Xlint:all -Wvalue-discard -Wnonunit-statement
 # Test flags mirror the production flags except for -Wnonunit-statement:
