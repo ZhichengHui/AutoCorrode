@@ -1,6 +1,6 @@
 session Lenses_And_Other_Optics = HOL +
   description "Optics (Lenses, Prisms, Foci)"
-  options [document = pdf, document_output = "output"]
+  options [document = false]
   sessions
     "HOL-Eisbach"
     "HOL-Library"

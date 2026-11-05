@@ -1,6 +1,6 @@
 session Misc = HOL +
   description "Miscellaneous material"
-  options [document = pdf, document_output = "output"]
+  options [document = false]
   sessions
     "HOL-Eisbach"
     "HOL-Library"

@@ -1,5 +1,5 @@
 session Micro_Rust_Interfaces_Core = HOL +
-  options [document = pdf, document_output = "output"]
+  options [document = false]
   sessions
     "HOL-Library"
     Shallow_Separation_Logic

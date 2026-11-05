@@ -1,5 +1,5 @@
 session Autogen = HOL +
-  options [document = pdf, document_output = "output"]
+  options [document = false]
   sessions
     Misc
     Lenses_And_Other_Optics

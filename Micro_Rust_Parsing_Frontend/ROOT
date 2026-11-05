@@ -1,5 +1,5 @@
 session Micro_Rust_Parsing_Frontend = HOL +
-  options [document = pdf, document_output = "output"]
+  options [document = false]
   sessions
     "HOL-Eisbach"
     "HOL-Library"

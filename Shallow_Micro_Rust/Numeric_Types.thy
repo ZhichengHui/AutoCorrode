@@ -3,7 +3,7 @@
 
 (*<*)
 theory Numeric_Types
-  imports Core_Expression Option_Type "Misc.Signedness"
+  imports Core_Expression Option_Type "Misc.Signedness" "HOL-Library.Code_Target_Numeral"
 begin
 (*>*)
 

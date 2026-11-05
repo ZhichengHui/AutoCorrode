@@ -1011,6 +1011,27 @@ lemma tuple_guard_fallthrough: \<open>run \<lbrakk>
   }
 \<rbrakk> = Val 2\<close> by (simp add: run_simps)
 text\<open>Regression: arms after an irrefutable arm are unreachable and accepted.\<close>
+text\<open>Regression: the guard is evaluated only when the pattern matches (here it would divide by
+zero).\<close>
+lemma guard_after_pattern: \<open>run \<lbrakk>
+  match 6_i8 {
+    5 if 1_i8 / 0_i8 == 0_i8 \<Rightarrow> 1_i8,
+    _ \<Rightarrow> 0_i8
+  }
+\<rbrakk> = Val 0\<close> by (simp add: run_simps)
+lemma guard_after_pattern_nested: \<open>run \<lbrakk>
+  match Some(6_i8) {
+    Some(5) if 1_i8 / 0_i8 == 0_i8 \<Rightarrow> 1_i8,
+    _ \<Rightarrow> 0_i8
+  }
+\<rbrakk> = Val 0\<close> by (simp add: run_simps)
+lemma guard_after_pattern_match: \<open>run \<lbrakk>
+  match 5_i8 {
+    5 if 1_i8 / 0_i8 == 0_i8 \<Rightarrow> 1_i8,
+    _ \<Rightarrow> 0_i8
+  }
+\<rbrakk> = div_zero\<close> by (simp add: run_simps)
+
 lemma tuple_irrefutable_then_wildcard: \<open>run \<lbrakk>
   match (1_i8, -2_i8) {
     (a, b) \<Rightarrow> a + b,
@@ -1153,6 +1174,12 @@ value [code] \<open>run (i8_arith (-128) (-1))\<close>
 lemma i8_arith_run: \<open>run (i8_arith 3 (-1)) = Val (-1)\<close> by (simp add: run_simps i8_arith_def)
 lemma i8_arith_run_overflow: \<open>run (i8_arith 127 1) = overflow\<close> by (simp add: run_simps i8_arith_def)
 lemma i64_stdlib_run: \<open>run (i64_stdlib (-9223372036854775808) 1) = Val (-9223372036854775808)\<close> by (simp add: run_simps i64_stdlib_def)
+text\<open>Regression: generated code for unsigned 64-bit arithmetic runs quickly (natural numbers are
+target-language integers).\<close>
+lemma add_u64_eval: \<open>run \<lbrakk> 18446744073709551614_u64 + 1_u64 \<rbrakk> = Val 18446744073709551615\<close> by eval
+lemma add_u64_overflow_eval: \<open>run \<lbrakk> 18446744073709551615_u64 + 1_u64 \<rbrakk> = overflow\<close> by eval
+lemma add_usize_eval: \<open>run \<lbrakk> 1_usize + 2_usize \<rbrakk> = Val 3\<close> by eval
+
 lemma i8_casts_run: \<open>run (i8_casts (-1) 200) = Val (143, 455, TNil)\<close> by (simp add: run_simps i8_casts_def)
 value [code] \<open>(word_rust_cast (-1 :: 8 sword) :: 32 word)\<close>
 value [code] \<open>word_rust_lt (-1 :: 8 sword) 0\<close>

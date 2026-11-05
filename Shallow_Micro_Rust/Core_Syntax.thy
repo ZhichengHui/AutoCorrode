@@ -764,8 +764,10 @@ let
   fun mk_guard_lt hi = mk_guard_lt_on (mk_anon_expr ()) hi;
   fun mk_guard_conj g1 g2 =
     Syntax.const \<^const_syntax>\<open>urust_conj\<close> $ g1 $ g2;
+  \<comment>\<open>Pattern conditions come before the user's guard, so that the guard is evaluated only
+     when the pattern matches, as in Rust.\<close>
   fun extend_guard NONE g = SOME g
-    | extend_guard (SOME g0) g = SOME (mk_guard_conj g0 g);
+    | extend_guard (SOME g0) g = SOME (mk_guard_conj g g0);
   \<comment>\<open>The argument of a numeric pattern is the raw num_const token, a constant named by
      its digits. The output of this translation is not translated again, so the token is
      converted to a HOL numeral here instead of being wrapped in \<^verbatim>\<open>_Numeral\<close>.\<close>
