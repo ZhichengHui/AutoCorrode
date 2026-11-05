@@ -129,6 +129,15 @@ definition is_aborting_yield_handler :: \<open>('s, 'abort, 'i prompt, 'o prompt
     \<comment> \<open>The environment does not reschedule a thread after a fatal error.\<close>
     \<forall>\<sigma> msg. y (FatalError msg) \<sigma> = {}\<close>
 
+text\<open>Loops catch the aborts \<^term>\<open>LoopBreak l\<close> and \<^term>\<open>LoopContinue l\<close> raised by
+\<^verbatim>\<open>break\<close> and \<^verbatim>\<open>continue\<close> in their body. An abort raised by the yield handler is
+not part of the body, so a loop cannot catch it. The following yield handlers never raise these
+aborts:\<close>
+
+definition is_loop_transparent_yield_handler :: \<open>('s, 'abort, 'i, 'o) yield_handler_nondet_basic \<Rightarrow> bool\<close> where
+  \<open>is_loop_transparent_yield_handler y \<equiv>
+    \<forall>\<pi> \<sigma> l \<sigma>'. YieldAbort (LoopBreak l) \<sigma>' \<notin> y \<pi> \<sigma> \<and> YieldAbort (LoopContinue l) \<sigma>' \<notin> y \<pi> \<sigma>\<close>
+
 text\<open>Validity of a specification with respect to the following \<^emph>\<open>no-yield\<close> yield handler significies 
 that no yields can happen except for \<^verbatim>\<open>Log\<close> and \<^verbatim>\<open>Pause\<close>:\<close>
 
@@ -161,6 +170,10 @@ by (auto simp add: is_nonempty_yield_handler_def yield_handler_no_yield_def)
 lemma yield_handler_no_yield_is_nondet_order [simp]:
   shows \<open>is_nondet_order_yield_handler yield_handler_no_yield\<close>
   by (auto simp add: is_nondet_order_yield_handler_def yield_handler_no_yield_def)
+
+lemma yield_handler_no_yield_is_loop_transparent [simp]:
+  shows \<open>is_loop_transparent_yield_handler yield_handler_no_yield\<close>
+  by (auto simp add: is_loop_transparent_yield_handler_def yield_handler_no_yield_def)
 
 text\<open>Correctness of a \<^verbatim>\<open>\<mu>Rust\<close> program with respect to pre/post conditions and a yield
 handler entails that \<^verbatim>\<open>Abort\<close> will never happen. In particular, if a program is correct with

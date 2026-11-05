@@ -197,7 +197,7 @@ like we would expect.\<close>
       apply (ucincl_discharge\<open>
         rule_tac 
           INV=\<open>\<lambda>_ i. \<Squnion> g. sum_ref \<mapsto>\<langle>\<top>\<rangle> g\<down>(sum_list (take i (array_to_list nums)))\<close> and 
-          \<tau>=\<open>\<lambda>_. \<langle>False\<rangle>\<close> and
+          BRK=\<open>\<lambda>_ _. \<langle>False\<rangle>\<close> and \<tau>=\<open>\<lambda>_. \<langle>False\<rangle>\<close> and
           \<theta>=\<open>\<lambda>_. \<langle>False\<rangle>\<close>
         in wp_raw_for_loop_framedI'
       \<close>)

@@ -41,17 +41,6 @@ lemma len_spec [crush_specs]:
   shows \<open>\<Gamma> ; Range_Type.len lst \<Turnstile>\<^sub>F len_contract lst\<close>
   by (crush_boot f: len_def contract: len_contract_def) crush_base
 
-text\<open>The result of \<^const>\<open>Range_Type.len\<close> is compared with and counted up to by \<^typ>\<open>64 word\<close>
-loop indices. Once the length of the list is known to fit in a word, these rules turn the word
-comparison \<open>i < len\<close> and the increment \<open>i + 1\<close> into their counterparts on natural numbers.
-The equality \<open>i = len\<close> is left alone: \<^verbatim>\<open>Word_Lib\<close>'s \<^verbatim>\<open>unat_eq_of_nat\<close> rewrites
-in the opposite direction and is used in existing proofs, so a default rule for it would loop.
-\<^verbatim>\<open>word_eq_of_nat_iff\<close> and \<^verbatim>\<open>of_nat_eq_word_iff\<close> in \<^verbatim>\<open>WordAdditional\<close> can be passed
-by hand.\<close>
-declare word_less_of_nat_iff [crush_late_simps]
-declare unat_of_nat_eq [crush_late_simps]
-declare unat_plus_one_of_less [crush_late_simps]
-
 definition array_index_contract where [crush_contracts]:
   \<open>array_index_contract (lst :: ('a, 'l::len) array) idx \<equiv>
      let pre = \<langle>unat idx < LENGTH('l)\<rangle> in

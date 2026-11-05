@@ -819,7 +819,7 @@ lemma memset_phys_spec[raw_tagged_pmem_spec_specs]:
   apply (crush_boot f: memset_tagged_phys_def contract: raw_tagged_pmem_defs.memset_tagged_phys_contract_def)
   apply (clarsimp simp add: range_to_aligned_blocks_block_range mset_set_empty_iff)
   apply (crush_base simp add: list_into_iter_def)
-  apply (rule_tac \<tau>=\<open>\<bottom>\<close> and
+  apply (rule_tac BRK=\<open>\<bottom>\<close> and \<tau>=\<open>\<bottom>\<close> and
           INV=\<open>\<lambda>ls i.
             \<star>\<star> {# \<Union> (range
                  (points_to_tagged_phys_byte a \<top> tag)) . a \<leftarrow> mset_set (\<Union>an\<in>set (List.drop i ls). block_range (fst an) (snd an)) #} \<star>
