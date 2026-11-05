@@ -9,8 +9,9 @@ import java.util.Locale
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.util.Try
 import scala.util.Using
+import scala.annotation.unused
 
-import org.gjt.sp.jedit.{View, jEdit, Buffer}
+import org.gjt.sp.jedit.{View, jEdit}
 
 /**
  * Closed status vocabulary for command processing states.
@@ -160,7 +161,7 @@ object IQLineOffsetUtils {
     lines: Array[String],
     startLine: Int,
     endLine: Int,
-    highlightLine: Option[Int] = None
+    highlightLine: Option[Int]
   ): String = {
     if (lines.isEmpty) return ""
 
@@ -403,7 +404,7 @@ class IQServer(
   private def waitForTheoryCompletion(
     model: Document_Model,
     timeout_ms: Option[Int],
-    timeoutPerCommandMs: Option[Int] = None
+    timeoutPerCommandMs: Option[Int]
   ): (Boolean, Document_Status.Node_Status) = {
 
     val startTime = System.currentTimeMillis()
@@ -1760,14 +1761,12 @@ class IQServer(
 
       if (statuses.nonEmpty && !allStatusesProcessed(statuses)) {
         val latch = new CountDownLatch(1)
-        var checkCount = 0
         var perCommandTimerStart: Option[Long] = None
 
         val consumer = Session.Consumer[Session.Commands_Changed](
           "IQServer.handleGetCommandCore"
         ) {
           case Session.Commands_Changed(_, nodes, _) if nodes.contains(node_name) =>
-            checkCount += 1
             statuses = retrieveStatuses()
 
             if (statuses.isEmpty || allStatusesProcessed(statuses)) {
@@ -2285,7 +2284,7 @@ class IQServer(
    * @param includeDetailedCommands Whether to include the detailed commands list
    * @return Map containing timing information
    */
-  private def calculateTimingInfo(model: Document_Model, text_content: String, timingThresholdMs: Int = 0, includeDetailedCommands: Boolean = true): Map[String, Any] = {
+  private def calculateTimingInfo(model: Document_Model, text_content: String, timingThresholdMs: Int = 0, includeDetailedCommands: Boolean): Map[String, Any] = {
     val node_name = model.node_name
     val snapshot = Document_Model.snapshot(model)
     val state = snapshot.state
@@ -3036,7 +3035,7 @@ end"""
     lines: Array[String],
     startLine: Int,
     endLine: Int,
-    highlightLine: Option[Int] = None
+    highlightLine: Option[Int]
   ): String = {
     IQLineOffsetUtils.formatLinesWithNumbers(lines, startLine, endLine, highlightLine)
   }
@@ -4376,7 +4375,7 @@ end"""
       }
     }
 
-    def outputCallback(snapshot: Document.Snapshot, command_results: Command.Results, output: List[XML.Tree]): Unit = {
+    def outputCallback(@unused snapshot: Document.Snapshot, @unused command_results: Command.Results, output: List[XML.Tree]): Unit = {
       // Debug: log callback invocation
       Output.writeln(s"I/Q Server: outputCallback called with ${output.size} XML trees")
 

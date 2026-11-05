@@ -795,7 +795,7 @@ extends JPanel(new BorderLayout) with DefaultFocusComponent {
               }
           }
         },
-        (snapshot, command_results, output) => {
+        (_, command_results, output) => {
           logDebug(s"I/Q Explore: Output callback called with ${output.size} XML trees")
           logDebug(s"I/Q Explore: Command results is_empty: ${command_results.is_empty}")
 
