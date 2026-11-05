@@ -206,7 +206,6 @@ class AssistantDockable(view: View, position: String)
   // Display state — MUST be declared before initializeUI() runs
   private val displayLock = new Object()
   @volatile private var renderedMessageCount = 0
-  @volatile private var welcomeShown = false
 
   // Input history navigation
   private val inputHistory = new InputHistoryBuffer()
@@ -776,7 +775,6 @@ class AssistantDockable(view: View, position: String)
     ToolPermissions.clearSession()
     TaskList.clear()
     badgeContainer.setVisible(false)
-    welcomeShown = false
     renderedMessageCount = 0
     inputHistory.clear()
     contextBar.reset()
@@ -933,11 +931,8 @@ class AssistantDockable(view: View, position: String)
 
       // Render the welcome card whenever the conversation is empty (fresh
       // session, after :clear, or simply reopening the dockable) rather than
-      // only on first load. `welcomeShown` still guards the per-reopen state
-      // used by the incremental-append path below so we don't render it
-      // twice when a message lands.
+      // only on first load.
       val welcome = if (history.isEmpty) {
-        welcomeShown = true
         ConversationRenderer.createWelcomeHtml(
           () => AssistantDockable.registerAction(() => ChatAction.chat(view, ":help")),
           Some((cmd: String) => AssistantDockable.registerAction(() => ChatAction.chat(view, cmd)))
