@@ -103,7 +103,7 @@ object TidyAction {
         case ex: Exception =>
           GUI_Thread.later {
             AssistantDockable.setStatus("Error: " + ex.getMessage)
-            GUI.error_dialog(view, "Tidy Error", ex.getMessage)
+            GUI.error_dialog(title = "Tidy Error", message = Seq(ex.getMessage), parent = Some(view))
           }
       }
     }

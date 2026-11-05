@@ -16,7 +16,7 @@ object TraceSimplifierAction {
     val offset = view.getTextArea.getCaretPosition
 
     if (!IQAvailable.isAvailable) {
-      GUI.warning_dialog(view, "Isabelle Assistant", "I/Q required for tracing")
+      GUI.warning_dialog(title = "Isabelle Assistant", message = Seq("I/Q required for tracing"), parent = Some(view))
       return
     }
 
@@ -29,12 +29,12 @@ object TraceSimplifierAction {
         (goalOpt, commandOpt) match {
           case (None, _) =>
             AssistantDockable.setStatus(AssistantConstants.STATUS_READY)
-            GUI.warning_dialog(view, "Isabelle Assistant", "No goal at cursor")
+            GUI.warning_dialog(title = "Isabelle Assistant", message = Seq("No goal at cursor"), parent = Some(view))
           case (Some(goal), Some(_)) =>
             runSimpTrace(view, goal, method)
           case (Some(_), None) =>
             AssistantDockable.setStatus(AssistantConstants.STATUS_READY)
-            GUI.warning_dialog(view, "Isabelle Assistant", "No command at cursor")
+            GUI.warning_dialog(title = "Isabelle Assistant", message = Seq("No command at cursor"), parent = Some(view))
         }
       }
     }

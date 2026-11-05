@@ -24,11 +24,7 @@ object FindTheoremsAction {
         patternOpt match {
           case Some(pattern) => findTheorems(view, Some(pattern))
           case None =>
-            GUI.warning_dialog(
-              view,
-              "Isabelle Assistant",
-              AssistantConstants.UIText.NO_GOAL_AT_CURSOR
-            )
+            GUI.warning_dialog(title = "Isabelle Assistant", message = Seq(AssistantConstants.UIText.NO_GOAL_AT_CURSOR), parent = Some(view))
         }
       }
     }
@@ -46,7 +42,7 @@ object FindTheoremsAction {
       AssistantDockable.showConversation(ChatAction.getHistory)
 
       if (!IQAvailable.isAvailable) {
-        GUI.warning_dialog(view, "Isabelle Assistant", "I/Q plugin not available")
+        GUI.warning_dialog(title = "Isabelle Assistant", message = Seq("I/Q plugin not available"), parent = Some(view))
       } else {
         val buffer = view.getBuffer
         val offset = view.getTextArea.getCaretPosition
@@ -62,11 +58,7 @@ object FindTheoremsAction {
           GUI_Thread.later {
             if (!hasCommand) {
               AssistantDockable.setStatus(AssistantConstants.STATUS_READY)
-              GUI.warning_dialog(
-                view,
-                "Isabelle Assistant",
-                AssistantConstants.UIText.NO_COMMAND_AT_CURSOR
-              )
+              GUI.warning_dialog(title = "Isabelle Assistant", message = Seq(AssistantConstants.UIText.NO_COMMAND_AT_CURSOR), parent = Some(view))
             } else {
               val quotedPattern = "\"" + searchPattern + "\""
               IQIntegration.runFindTheoremsAsync(

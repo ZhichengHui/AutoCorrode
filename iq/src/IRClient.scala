@@ -358,7 +358,7 @@ final class IRLauncher(
       // Perspective.required = true so the prover processes the node even though
       // nothing is "visible"; awaitConsolidated then blocks until it settles.
       val edits: List[Document.Edit_Text] = List(
-        node -> Document.Node.Deps(header),
+        node -> Document.Node.Thy(header),
         node -> Document.Node.Edits(Text.Edit.inserts(0, text)),
         node -> Document.Node.Perspective(true, Text.Perspective.empty, Document.Node.Overlays.empty)
       )

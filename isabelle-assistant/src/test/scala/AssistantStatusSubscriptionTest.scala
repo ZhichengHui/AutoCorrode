@@ -27,7 +27,7 @@ class AssistantStatusSubscriptionTest extends AnyFunSuite with Matchers {
       if (idx >= 0) { val _ = consumers.remove(idx) }
     }
 
-    def emit(a: A): Unit = consumers.foreach(_.consume_robust(a))
+    def emit(a: A): Unit = consumers.foreach(_.consume(a))
     def size: Int = consumers.size
   }
 

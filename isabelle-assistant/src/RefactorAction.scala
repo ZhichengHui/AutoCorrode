@@ -94,7 +94,7 @@ object RefactorAction {
         case ex: Exception =>
           GUI_Thread.later {
             AssistantDockable.setStatus("Error: " + ex.getMessage)
-            GUI.error_dialog(view, "Refactor Error", ex.getMessage)
+            GUI.error_dialog(title = "Refactor Error", message = Seq(ex.getMessage), parent = Some(view))
           }
       }
     }

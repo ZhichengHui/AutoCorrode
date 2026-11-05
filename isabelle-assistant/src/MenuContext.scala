@@ -7,6 +7,7 @@ import org.gjt.sp.jedit.View
 import org.gjt.sp.jedit.buffer.JEditBuffer
 import scala.jdk.CollectionConverters._
 import java.io.File
+import scala.annotation.unused
 
 /** Analyzes cursor context to determine which context menu items to show. */
 object MenuContext {
@@ -140,7 +141,7 @@ object MenuContext {
   /** Analyze cursor context using only local buffer text (no blocking MCP calls).
     * Safe for use on the EDT (e.g., in menu construction). May be slightly over-inclusive.
     */
-  def analyzeLocal(view: View, buffer: JEditBuffer, offset: Int, selection: Option[String]): Context = {
+  def analyzeLocal(@unused view: View, buffer: JEditBuffer, offset: Int, selection: Option[String]): Context = {
     val hasSelection = selection.exists(_.trim.nonEmpty)
     
     // Check if line at offset has non-whitespace text
@@ -181,7 +182,7 @@ object MenuContext {
   }
 
   /** Analyze cursor context using MCP introspection (may block, use off EDT). */
-  def analyze(view: View, buffer: JEditBuffer, offset: Int, selection: Option[String]): Context = {
+  def analyze(@unused view: View, buffer: JEditBuffer, offset: Int, selection: Option[String]): Context = {
     val inProof = GoalExtractor.isInProofContext(buffer, offset)
     val hasGoal = inProof && GoalExtractor.getGoalState(buffer, offset).isDefined
     val onError = ExplainErrorAction.hasErrorAtOffset(buffer, offset)
