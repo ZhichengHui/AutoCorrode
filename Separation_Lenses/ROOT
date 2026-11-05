@@ -1,5 +1,5 @@
 session Separation_Lenses = HOL +
-  options [document = pdf, document_output = "output"]
+  options [document_output = "output"]
   sessions
     "HOL-Eisbach"
     "HOL-Library"
@@ -9,7 +9,7 @@ session Separation_Lenses = HOL +
     SLens
     SLens_Examples
     SLens_Pullback
-  theories [document=false]
+  theories
     Separation_Lenses
   document_files
     "root.tex"

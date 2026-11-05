@@ -536,6 +536,30 @@ using assms by (simp add: neg_mask_add t2n_mask_eq_if is_aligned_neg_mask_weaken
 abbreviation word64_of_nat :: \<open>nat \<Rightarrow> 64 word\<close> where
   \<open>word64_of_nat \<equiv> word_of_nat\<close>
 
+lemma word_less_of_nat_iff:
+    fixes w :: \<open>'a::len word\<close>
+  assumes \<open>n < 2^LENGTH('a)\<close>
+    shows \<open>(w < of_nat n) = (unat w < n)\<close>
+using assms by (simp add: word_less_nat_alt unat_of_nat_eq)
+
+lemma word_eq_of_nat_iff:
+    fixes w :: \<open>'a::len word\<close>
+  assumes \<open>n < 2^LENGTH('a)\<close>
+    shows \<open>(w = of_nat n) = (unat w = n)\<close>
+using assms by (metis unat_of_nat_eq word_unat.Rep_inverse)
+
+lemma of_nat_eq_word_iff:
+    fixes w :: \<open>'a::len word\<close>
+  assumes \<open>n < 2^LENGTH('a)\<close>
+    shows \<open>(of_nat n = w) = (n = unat w)\<close>
+using assms by (metis unat_of_nat_eq word_unat.Rep_inverse)
+
+lemma unat_plus_one_of_less:
+    fixes w :: \<open>'a::len word\<close>
+  assumes \<open>unat w < 2^LENGTH('a) - 1\<close>
+    shows \<open>unat (w + 1) = Suc (unat w)\<close>
+using assms by (simp add: unat_add_lem')
+
 lemma word64_div_mono:
     fixes x y z :: \<open>64 word\<close>
   assumes \<open>x \<le> y\<close>

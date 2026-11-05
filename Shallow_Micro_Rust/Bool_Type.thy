@@ -15,11 +15,11 @@ subsection\<open>Truth constants\<close>
 
 text\<open>First, we lift the HOL \<^term>\<open>True\<close> and \<^term>\<open>False\<close> constants into Micro Rust, to model the
 equivalent constants in Rust. The truth constant first:\<close>
-definition true :: \<open>('s, bool, 'r, 'abort, 'i, 'o) expression\<close> where
+definition true :: \<open>('s, bool, 'r, 'abort, 'i, 'o) expression\<close> where [micro_rust_simps]:
   \<open>true \<equiv> literal True\<close>
 
 text\<open>And now falsity:\<close>
-definition false :: \<open>('s, bool, 'r, 'abort, 'i, 'o) expression\<close> where
+definition false :: \<open>('s, bool, 'r, 'abort, 'i, 'o) expression\<close> where [micro_rust_simps]:
   \<open>false \<equiv> literal False\<close>
 
 subsection\<open>Conditionals\<close>

@@ -1,5 +1,5 @@
 session Micro_Rust_Runtime = HOL +
-  options [document = pdf, document_output = "output"]
+  options [document_output = "output"]
   sessions
     "HOL-Eisbach"
     "HOL-Library"
@@ -18,5 +18,5 @@ session Micro_Rust_Runtime = HOL +
     Raw_Physical_Memory_Trie_Example
     Runtime_Heap
     Shareable_Resource
-  theories [document=false]
+  theories
     Micro_Rust_Runtime

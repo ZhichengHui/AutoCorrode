@@ -22,5 +22,5 @@ session AutoCorrode = HOL +
     "Separation_Lenses"
     "Shallow_Micro_Rust"
     "Shallow_Separation_Logic"
-  theories [document = false]
+  theories
     "AutoCorrode"

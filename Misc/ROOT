@@ -1,6 +1,6 @@
 session Misc = HOL +
   description "Miscellaneous material"
-  options [document = pdf, document_output = "output"]
+  options [document_output = "output"]
   sessions
     "HOL-Eisbach"
     "HOL-Library"
@@ -22,7 +22,7 @@ session Misc = HOL +
     Undefined
     Vector
     Word_Cast_Simplifier
-  theories [document=false]
+  theories
     Misc
   document_files
     "root.tex"

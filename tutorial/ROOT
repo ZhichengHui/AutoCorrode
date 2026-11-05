@@ -1,5 +1,5 @@
 session AutoCorrodeTutorial = AutoCorrode +
-  options [document = pdf, document_output = "output"]
+  options [document_output = "output"]
   theories
     Slides
     Tutorial_Preamble

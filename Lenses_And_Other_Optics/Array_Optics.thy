@@ -31,6 +31,16 @@ lemma nth_focus_array_components [focus_components]:
       and \<open>focus_modify (nth_focus_array idx) f arr = array_update arr idx (f (array_nth arr idx))\<close>
 using assms by (transfer; clarsimp simp add: nth_lens_array_def lens_to_focus_raw_components lens_modify_def)+
 
+text\<open>The third component again, for a modifier that is passed on as a function (for example to
+a record update function) before the array it modifies is visible, as
+\<^verbatim>\<open>nth_focus_modify_unapplied\<close> for lists:\<close>
+lemma nth_focus_array_modify_unapplied [focus_simps]:
+    fixes idx :: nat
+  assumes \<open>idx < LENGTH('l :: len)\<close>
+    shows \<open>focus_modify (nth_focus_array idx) f =
+             (\<lambda>arr :: ('v, 'l) array. array_update arr idx (f (array_nth arr idx)))\<close>
+using assms by (intro ext) (simp add: nth_focus_array_components)
+
 lemma nth_focus_array_view [focus_intros]:
     fixes ls :: \<open>('a, 'l::{len}) array\<close>
   assumes \<open>n < LENGTH('l)\<close>

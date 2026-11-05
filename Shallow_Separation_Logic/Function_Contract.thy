@@ -75,6 +75,42 @@ lemma function_contract_implies_is_local:
 text\<open>Weakening rules for contracts are proved in the standard library,
 building on the separation logic automation.\<close>
 
+subsection\<open>Recursive functions defined by iterating a step functional\<close>
+
+text\<open>A recursive uRust function is \<^term>\<open>(step ^^ n) P\<close>: a non-recursive step functional
+\<open>step\<close> iterated \<open>n\<close> times (the fuel), starting from a function \<open>P\<close> that panics. A contract
+indexed by the fuel holds of it when \<open>P\<close> satisfies the contract at fuel \<open>0\<close> (its precondition
+is usually false there) and \<open>step\<close> raises the fuel by one, assuming the contract at fuel
+\<open>n\<close> for the function it is applied to. The induction hypothesis is a function specification and
+can be passed to the automation as such. One lemma per arity of the function. The contract
+\<open>\<C>\<close> is applied to the fuel and to the arguments, so unification cannot determine it:
+instantiate it explicitly, as in \<open>rule satisfies_function_contract_funpow2[where \<C>=C]\<close>.\<close>
+
+lemma satisfies_function_contract_funpow:
+  assumes \<open>\<Gamma>; P \<Turnstile>\<^sub>F \<C> 0\<close>
+      and \<open>\<And>n R. \<Gamma>; R \<Turnstile>\<^sub>F \<C> n \<Longrightarrow> \<Gamma>; step R \<Turnstile>\<^sub>F \<C> (Suc n)\<close>
+    shows \<open>\<Gamma>; (step ^^ n) P \<Turnstile>\<^sub>F \<C> n\<close>
+using assms by (induction n) auto
+
+lemma satisfies_function_contract_funpow1:
+  assumes \<open>\<And>x. \<Gamma>; P x \<Turnstile>\<^sub>F \<C> 0 x\<close>
+      and \<open>\<And>n R x. (\<And>x. \<Gamma>; R x \<Turnstile>\<^sub>F \<C> n x) \<Longrightarrow> \<Gamma>; step R x \<Turnstile>\<^sub>F \<C> (Suc n) x\<close>
+    shows \<open>\<Gamma>; (step ^^ n) P x \<Turnstile>\<^sub>F \<C> n x\<close>
+using assms by (induction n arbitrary: x) auto
+
+lemma satisfies_function_contract_funpow2:
+  assumes \<open>\<And>x y. \<Gamma>; P x y \<Turnstile>\<^sub>F \<C> 0 x y\<close>
+      and \<open>\<And>n R x y. (\<And>x y. \<Gamma>; R x y \<Turnstile>\<^sub>F \<C> n x y) \<Longrightarrow> \<Gamma>; step R x y \<Turnstile>\<^sub>F \<C> (Suc n) x y\<close>
+    shows \<open>\<Gamma>; (step ^^ n) P x y \<Turnstile>\<^sub>F \<C> n x y\<close>
+using assms by (induction n arbitrary: x y) auto
+
+lemma satisfies_function_contract_funpow3:
+  assumes \<open>\<And>x y z. \<Gamma>; P x y z \<Turnstile>\<^sub>F \<C> 0 x y z\<close>
+      and \<open>\<And>n R x y z. (\<And>x y z. \<Gamma>; R x y z \<Turnstile>\<^sub>F \<C> n x y z) \<Longrightarrow>
+            \<Gamma>; step R x y z \<Turnstile>\<^sub>F \<C> (Suc n) x y z\<close>
+    shows \<open>\<Gamma>; (step ^^ n) P x y z \<Turnstile>\<^sub>F \<C> n x y z\<close>
+using assms by (induction n arbitrary: x y z) auto
+
 end
 
 text\<open>This contract requires that a function behaves precisely like the first argument (a 'pure'
