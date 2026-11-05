@@ -2398,7 +2398,9 @@ class IQServer(
           JEdit_Rendering(snapshot, buffer_model, PIDE.options)
         case _ =>
           // For File_Model, use standard Rendering with session
-          new Rendering(snapshot, PIDE.options, PIDE.session)
+          new Rendering(snapshot, PIDE.options, PIDE.session) {
+            override def gui_style: GUI.Style = model.gui_style
+          }
       }
 
       val text_range = Text.Range(0, snapshot.node.source.length)
