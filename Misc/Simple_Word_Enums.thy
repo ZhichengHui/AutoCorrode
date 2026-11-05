@@ -560,7 +560,7 @@ fun note_thm name attrs thm lthy =
 fun define_const name rhs lthy =
   let
     val binding = Binding.name name
-    val ((_, (_, def_thm)), lthy) = Specification.definition
+    val ((_, (_, def_thm)), lthy) = Specification.definition {verbose = false}
       (SOME (binding, NONE, NoSyn)) [] []
       ((Binding.name (name ^ "_def"), []), Logic.mk_equals (Free (name, fastype_of rhs), rhs))
       lthy
@@ -1172,7 +1172,7 @@ fun generate_word_conversion (info: Simple_Word_Enum.enum_info) lthy =
     fun define name rhs lthy =
       let
         val binding = Binding.name name
-        val ((_, (_, def_thm)), lthy) = Specification.definition
+        val ((_, (_, def_thm)), lthy) = Specification.definition {verbose = false}
           (SOME (binding, NONE, NoSyn)) [] []
           ((Binding.name (name ^ "_def"), []),
            Logic.mk_equals (Free (name, fastype_of rhs), rhs)) lthy
@@ -1641,7 +1641,7 @@ fun generate_generate_debug (info: Simple_Word_Enum.enum_info) lthy =
           thy
           |> Class.instantiation ([tyco], [], \<^sort>\<open>generate_debug\<close>)
           |> (fn ilthy =>
-                Specification.definition NONE [] []
+                Specification.definition {verbose = false} NONE [] []
                   ((Binding.concealed (Binding.name (def_name ^ "_raw_def")), []),
                    Syntax.check_term ilthy raw_eq) ilthy
                 |> apfst (snd o snd))
@@ -1934,7 +1934,7 @@ fun generate_equal_instance (info: Simple_Word_Enum.enum_info) lthy =
           thy
           |> Class.instantiation ([tyco], [], \<^sort>\<open>equal\<close>)
           |> (fn ilthy =>
-                Specification.definition NONE [] []
+                Specification.definition {verbose = false} NONE [] []
                   ((Binding.concealed (Binding.name (def_name ^ "_raw_def")), []),
                    Syntax.check_term ilthy raw_eq) ilthy
                 |> apfst (snd o snd))
