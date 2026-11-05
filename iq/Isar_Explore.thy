@@ -36,7 +36,7 @@ fun register {name, pri} f =
 
             (* Small delay to ensure status is processed
                TODO: This should not be necessary...? *)
-            val _ = OS.Process.sleep (Time.fromMilliseconds 100)
+            val _ = Time.sleep (Time.fromMilliseconds 100)
             fun main () =
               f {state = state, args = args, output_result = output_result,
                  writeln_result = writeln_result, instance=instance, exec_id=exec_id}
@@ -75,7 +75,7 @@ fun isar_explore exec_id instance text state =
     val thy = Toplevel.theory_of state
     (* Enable quick_and_dirty so that sorry is accepted in proof exploration *)
     val text' = "using [[quick_and_dirty]]\n" ^ text
-    val transitions = Outer_Syntax.parse_text thy (fn () => thy) pos text'
+    val transitions = Outer_Syntax.parse_text thy (fn () => {skip_theory = false, theory = thy}) pos text'
       (* Without this, the execution fails with "Unregistered execution" *)
       |> List.map (Toplevel.exec_id exec_id)
 
@@ -85,10 +85,11 @@ fun isar_explore exec_id instance text state =
             off threads for `by ...` statements which we have trouble capturing
             the output of (they capture their own exceptions and convert them
             directly into error_messages to Isabelle's output channel. *)
-         val old_parallel_proofs = ! Multithreading.parallel_proofs
-         val _ = Multithreading.parallel_proofs := Int.min(2, old_parallel_proofs)
-         val st' = Toplevel.command_exception false tr st
-         val _ = Multithreading.parallel_proofs := old_parallel_proofs
+         val parallel_proofs = Int.min(2, Interactive.parallel_proofs ())
+         val st' =
+           Interactive.setmp false
+             (Interactive.setmp_parallel_proofs parallel_proofs
+               (Toplevel.command_exception tr)) st
       in st' end
   in
     List.foldl (fn (tr, st) => run_transition (tr, st)) state transitions
