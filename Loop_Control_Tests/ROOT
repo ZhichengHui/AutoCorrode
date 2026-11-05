@@ -1,0 +1,7 @@
+session Loop_Control_Tests = Micro_Rust_Examples +
+  options [document = false]
+  theories
+    Loop_Control_Syntax
+    Loop_Control_Semantics
+    Loop_Control_Examples
+    Loop_Control_Automation

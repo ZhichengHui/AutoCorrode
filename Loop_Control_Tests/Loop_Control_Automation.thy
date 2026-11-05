@@ -3,7 +3,7 @@
 
 (*<*)
 theory Loop_Control_Automation
-  imports Showcase
+  imports "Micro_Rust_Examples.Showcase"
 begin
 (*>*)
 
