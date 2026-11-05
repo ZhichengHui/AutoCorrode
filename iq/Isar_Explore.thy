@@ -36,7 +36,7 @@ fun register {name, pri} f =
 
             (* Small delay to ensure status is processed
                TODO: This should not be necessary...? *)
-            val _ = OS.Process.sleep (Time.fromMilliseconds 100)
+            val _ = Time.sleep (Time.fromMilliseconds 100)
             fun main () =
               f {state = state, args = args, output_result = output_result,
                  writeln_result = writeln_result, instance=instance, exec_id=exec_id}
