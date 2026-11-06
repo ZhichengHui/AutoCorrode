@@ -493,13 +493,6 @@ by (auto simp add: urust_eval_action_via_predicate urust_eval_predicate_call)
 
 text\<open>Loop iterations\<close>
 
-definition loop_step_result :: \<open>String.literal option \<Rightarrow> ('s, bool, 'r, 'abort, 'i, 'o) continuation \<Rightarrow>
-    ('s, bool, 'r, 'abort, 'i, 'o) continuation\<close> where
-  \<open>loop_step_result lbl c \<equiv>
-     case c of
-       Abort a \<sigma>' \<Rightarrow> loop_abort lbl (Success False \<sigma>') (Success True \<sigma>') (\<lambda>a. Abort a \<sigma>') a
-     | _ \<Rightarrow> c\<close>
-
 lemma evaluate_loop_step_no_yield:
   assumes \<open>\<forall>\<pi> \<sigma>' e'. evaluate e \<sigma> \<noteq> Yield \<pi> \<sigma>' e'\<close>
     shows \<open>evaluate (loop_step lbl e) \<sigma> = loop_step_result lbl (evaluate e \<sigma>)\<close>
