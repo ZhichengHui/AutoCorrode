@@ -68,12 +68,31 @@ lemma lt_word_to_natI [word_nat_intros]:
     shows \<open>a < b\<close>
 by (simp add: assms word_less_nat_alt)
 
+lemma lt_sword_to_intI [word_nat_intros]:
+    fixes a b :: \<open>'l::{len} sword\<close>
+  assumes \<open>sint a < sint b\<close>
+    shows \<open>a <s b\<close>
+by (simp add: assms word_sless_alt)
+
 text\<open>This is \<^verbatim>\<open>Word.unat_mono\<close> in another guise!\<close>
 lemma lt_word_to_natE [elim_format, word_nat_elims]:
     fixes a b :: \<open>'l::{len} word\<close>
   assumes \<open>a < b\<close>
     shows \<open>unat a < unat b\<close>
 using assms word_less_iff_unsigned by blast
+
+text\<open>The signed counterpart of \<^verbatim>\<open>Word.unat_mono\<close>.\<close>
+lemma sint_mono:
+    fixes a b :: \<open>'l::{len} sword\<close>
+  assumes \<open>a <s b\<close>
+    shows \<open>sint a < sint b\<close>
+using assms word_sless_alt by blast
+
+lemma lt_sword_to_intE [elim_format, word_nat_elims]:
+    fixes a b :: \<open>'l::{len} sword\<close>
+  assumes \<open>a <s b\<close>
+    shows \<open>sint a < sint b\<close>
+using assms word_sless_alt by blast
 
 lemma unat_ucast_up:
     fixes x :: \<open>'k::{len} word\<close>
@@ -96,6 +115,13 @@ lemma unat_ucast_eq [word_nat_simps]:
   assumes \<open>x < 2^LENGTH('k :: len)\<close>
     shows \<open>unat (word_of_nat x :: 'k word) = x\<close>
 by (simp add: assms of_nat_inverse)
+
+lemma sint_ucast_eq [word_nat_simps]:
+    fixes x :: \<open>int\<close>
+  assumes \<open>- (2 ^ (LENGTH('k::{len}) - Suc 0)) \<le> x\<close>
+      and \<open>x < 2 ^ (LENGTH('k) - Suc 0)\<close>
+    shows \<open>sint (word_of_int x :: 'k sword) = x\<close>
+by (simp add: assms signed_of_int signed_take_bit_int_eq_self)
 
 lemma ucast_ucast_eq:
     fixes x :: \<open>'l::{len} word\<close>
@@ -122,6 +148,11 @@ lemma unat_lt_twice [simp]:
   shows \<open>c < unat a \<and> c < unat b \<longleftrightarrow> c < unat(min a b)\<close>
 by (metis min_less_iff_conj min_unat)
 
+text\<open>The signed counterparts of \<^verbatim>\<open>min_unat\<close> and \<^verbatim>\<open>unat_lt_twice\<close> are false: \<^term>\<open>min\<close> on
+\<^typ>\<open>'l sword\<close> follows the unsigned order. For \<^term>\<open>a = (-1 :: 8 sword)\<close> and \<^term>\<open>b = (0 :: 8 sword)\<close>,
+\<^term>\<open>min a b = 0\<close>, so \<^term>\<open>sint (min a b) = 0\<close> while \<^term>\<open>min (sint a) (sint b) = -1\<close>; with
+\<^term>\<open>c = (-1 :: int)\<close>, \<^term>\<open>c < sint (min a b)\<close> holds but \<^term>\<open>c < sint a\<close> does not.\<close>
+
 lemma nat_upd_nth:
   assumes \<open>i < n\<close>
     shows \<open>[0..<n] ! i = i\<close>
@@ -132,6 +163,18 @@ lemma word_unat_lt:
       and \<open>j < 2^LENGTH('l::{len})\<close>
     shows \<open>((word_of_nat i)::'l word) < word_of_nat j\<close>
 by (metis assms dual_order.strict_trans2 nless_le of_nat_inverse word_less_iff_unsigned)
+
+lemma sword_sint_lt:
+  assumes \<open>i < j\<close>
+      and \<open>- (2 ^ (LENGTH('l::{len}) - Suc 0)) \<le> i\<close>
+      and \<open>j < 2 ^ (LENGTH('l) - Suc 0)\<close>
+    shows \<open>((word_of_int i)::'l sword) <s word_of_int j\<close>
+proof -
+  have \<open>i < 2 ^ (LENGTH('l) - Suc 0)\<close> and \<open>- (2 ^ (LENGTH('l) - Suc 0)) \<le> j\<close>
+    using assms by linarith+
+  with assms show ?thesis
+    by (simp add: word_sless_alt sint_ucast_eq)
+qed
 
 lemma ucast_ucast_le:
   fixes x :: \<open>'k::{len} word\<close>
@@ -154,6 +197,15 @@ lemma unat_lt_weakenI:
     shows \<open>unat x < y\<close>
 using assms by (meson order_less_le_trans unat_mono)
 
+lemma sint_lt_weakenI:
+    fixes x  :: \<open>'k::{len} sword\<close>
+      and x' :: \<open>'k sword\<close>
+      and y :: \<open>int\<close>
+  assumes \<open>x <s x'\<close>
+      and \<open>sint x' \<le> y\<close>
+    shows \<open>sint x < y\<close>
+using assms by (simp add: word_sless_alt)
+
 lemma unat_ucast_le:
     fixes x :: \<open>'k::{len} word\<close>
       and y :: \<open>'k word\<close>
@@ -170,6 +222,16 @@ lemma unat_le_weakenI:
       and \<open>unat x' \<le> y\<close>
     shows \<open>unat x \<le> y\<close>
 using assms by (meson dual_order.trans word_less_eq_iff_unsigned)
+
+\<comment>\<open>NOTE: This lemma is not used at present, but seems worth keeping.\<close>
+lemma sint_le_weakenI:
+    fixes x  :: \<open>'k::{len} sword\<close>
+      and x' :: \<open>'k sword\<close>
+      and y :: \<open>int\<close>
+  assumes \<open>x \<le>s x'\<close>
+      and \<open>sint x' \<le> y\<close>
+    shows \<open>sint x \<le> y\<close>
+using assms by (simp add: word_sle_eq)
 
 lemma unat_lt_diff_len:
     fixes x :: \<open>'k::{len} word\<close>
@@ -193,6 +255,15 @@ lemma unat_ucast_adjoint:
     shows \<open>unat x < y \<longleftrightarrow> x < word_of_nat y\<close>
 by (metis assms of_nat_inverse word_less_iff_unsigned)
 
+\<comment>\<open>NOTE: This lemma is not used at present, but seems worth keeping.\<close>
+lemma sint_ucast_adjoint:
+    fixes x  :: \<open>'k::{len} sword\<close>
+      and y :: \<open>int\<close>
+  assumes \<open>- (2 ^ (LENGTH('k) - Suc 0)) \<le> y\<close>
+      and \<open>y < 2 ^ (LENGTH('k) - Suc 0)\<close>
+    shows \<open>sint x < y \<longleftrightarrow> x <s word_of_int y\<close>
+by (simp add: assms word_sless_alt sint_ucast_eq)
+
 lemma word_range_sorted:
     fixes M N :: nat
   assumes \<open>0 \<le> M\<close>
@@ -200,6 +271,25 @@ lemma word_range_sorted:
       and \<open>N < 2^LENGTH('l::{len})\<close>
     shows \<open>sorted (List.map (Word.word_of_nat :: nat \<Rightarrow> 'l word) [M..<N])\<close>
 using assms by (auto simp add: of_nat_inverse word_of_nat_le intro!: sorted_list_map_mono sorted_upt)
+
+lemma sword_range_sorted:
+    fixes M N :: int
+  assumes \<open>- (2 ^ (LENGTH('l::{len}) - Suc 0)) \<le> M\<close>
+      and \<open>M < N\<close>
+      and \<open>N < 2 ^ (LENGTH('l) - Suc 0)\<close>
+    shows \<open>sorted_wrt (\<le>s) (List.map (word_of_int :: int \<Rightarrow> 'l sword) [M..N - 1])\<close>
+unfolding sorted_wrt_map
+proof (rule sorted_wrt_mono_rel[OF _ sorted_upto])
+  fix x y
+  assume \<open>x \<in> set [M..N - 1]\<close> \<open>y \<in> set [M..N - 1]\<close> \<open>x \<le> y\<close>
+  then have \<open>M \<le> x\<close> \<open>x \<le> N - 1\<close> \<open>M \<le> y\<close> \<open>y \<le> N - 1\<close>
+    by auto
+  with assms have \<open>- (2 ^ (LENGTH('l) - Suc 0)) \<le> x\<close> \<open>x < 2 ^ (LENGTH('l) - Suc 0)\<close>
+    and \<open>- (2 ^ (LENGTH('l) - Suc 0)) \<le> y\<close> \<open>y < 2 ^ (LENGTH('l) - Suc 0)\<close>
+    by linarith+
+  with \<open>x \<le> y\<close> show \<open>(word_of_int x :: 'l sword) \<le>s word_of_int y\<close>
+    by (simp add: word_sle_eq sint_ucast_eq)
+qed
 
 lemma add_word_lessI:
     fixes a :: \<open>'a::{len} word\<close>
@@ -213,6 +303,23 @@ proof -
     by simp
 qed
 
+lemma add_sword_lessI:
+    fixes a :: \<open>'a::{len} sword\<close>
+  assumes \<open>n \<le> b\<close> \<open>a + word_of_int b <s c\<close>
+      and \<open>- (2 ^ (LENGTH('a) - Suc 0)) \<le> sint a + n\<close>
+      and \<open>sint a + b < 2 ^ (LENGTH('a) - Suc 0)\<close>
+    shows \<open>a + word_of_int n <s c\<close>
+proof -
+  have \<open>- (2 ^ (LENGTH('a) - Suc 0)) \<le> sint a + n\<close> \<open>sint a + n < 2 ^ (LENGTH('a) - Suc 0)\<close>
+    and \<open>- (2 ^ (LENGTH('a) - Suc 0)) \<le> sint a + b\<close> \<open>sint a + b < 2 ^ (LENGTH('a) - Suc 0)\<close>
+    using assms by linarith+
+  from sint_ucast_eq[OF this(1,2)] sint_ucast_eq[OF this(3,4)]
+  have \<open>sint (a + word_of_int n) = sint a + n\<close> \<open>sint (a + word_of_int b) = sint a + b\<close>
+    by simp_all
+  with assms(1,2) show ?thesis
+    by (simp add: word_sless_alt)
+qed
+
 lemma set_of_wordlist:
     fixes M N :: \<open>nat\<close>
   assumes \<open>0 \<le> M\<close>
@@ -224,6 +331,35 @@ proof -
     by (metis const_le_unat order.strict_trans unat_less_helper word_unat.Rep_inverse)
   then show ?thesis
     using assms by (auto simp: of_nat_inverse word_of_nat_le word_of_nat_less image_iff Bex_def)
+qed
+
+lemma set_of_swordlist:
+    fixes M N :: \<open>int\<close>
+  assumes \<open>- (2 ^ (LENGTH('l::{len}) - Suc 0)) \<le> M\<close>
+      and \<open>M < N\<close>
+      and \<open>N < 2 ^ (LENGTH('l) - Suc 0)\<close>
+    shows \<open>set (List.map word_of_int [M..N - 1]) = {v::'l sword. word_of_int M \<le>s v \<and> v <s word_of_int N}\<close>
+proof -
+  have M: \<open>sint (word_of_int M :: 'l sword) = M\<close> and N: \<open>sint (word_of_int N :: 'l sword) = N\<close>
+    using assms by (simp_all add: sint_ucast_eq)
+  have \<open>v \<in> {v::'l sword. word_of_int M \<le>s v \<and> v <s word_of_int N}\<close>
+    if \<open>M \<le> k\<close> \<open>k \<le> N - 1\<close> \<open>v = word_of_int k\<close> for k v
+  proof -
+    from that assms have \<open>- (2 ^ (LENGTH('l) - Suc 0)) \<le> k\<close> \<open>k < 2 ^ (LENGTH('l) - Suc 0)\<close>
+      by linarith+
+    with that M N show ?thesis
+      by (simp add: word_sle_eq word_sless_alt sint_ucast_eq)
+  qed
+  moreover have \<open>v \<in> set (List.map word_of_int [M..N - 1])\<close>
+    if \<open>word_of_int M \<le>s v\<close> \<open>v <s word_of_int N\<close> for v :: \<open>'l sword\<close>
+  proof -
+    from that M N have \<open>M \<le> sint v\<close> \<open>sint v \<le> N - 1\<close>
+      by (simp_all add: word_sle_eq word_sless_alt)
+    then show ?thesis
+      by (auto simp: image_iff intro!: bexI[of _ \<open>sint v\<close>])
+  qed
+  ultimately show ?thesis
+    by auto
 qed
 
 lemma ucast_16_64_inj:
@@ -248,6 +384,14 @@ lemma unat_word_comparison:
     shows \<open>x = Word.of_nat y\<close> and \<open>y < 2^LENGTH('l)\<close>
 using assms by (auto simp add: unat_arith_simps)
 
+lemma sint_sword_comparison:
+    fixes x :: \<open>'l::{len} sword\<close>
+  assumes \<open>sint x = y\<close>
+    shows \<open>x = word_of_int y\<close>
+      and \<open>- (2 ^ (LENGTH('l) - Suc 0)) \<le> y\<close>
+      and \<open>y < 2 ^ (LENGTH('l) - Suc 0)\<close>
+using assms sint_range'[of x] by auto
+
 \<comment>\<open>NOTE: This lemma is not used at present, but seems worth keeping.\<close>
 lemma unat_word_comparisonE:
     fixes x :: \<open>'l::{len} word\<close>
@@ -255,6 +399,14 @@ lemma unat_word_comparisonE:
       and \<open>x = Word.of_nat y \<Longrightarrow> y < 2^LENGTH('l) \<Longrightarrow> R\<close>
     shows \<open>R\<close>
 using assms by (blast intro: unat_word_comparison)
+
+\<comment>\<open>NOTE: This lemma is not used at present, but seems worth keeping.\<close>
+lemma sint_sword_comparisonE:
+    fixes x :: \<open>'l::{len} sword\<close>
+  assumes \<open>sint x = y\<close>
+      and \<open>x = word_of_int y \<Longrightarrow> - (2 ^ (LENGTH('l) - Suc 0)) \<le> y \<Longrightarrow> y < 2 ^ (LENGTH('l) - Suc 0) \<Longrightarrow> R\<close>
+    shows \<open>R\<close>
+using assms by (blast intro: sint_sword_comparison)
 
 lemma word_int_bound:
     fixes v :: \<open>'l::{len} word\<close>
@@ -264,6 +416,15 @@ lemma word_int_bound:
       and \<open>N < 2^LENGTH('l)\<close>
     shows \<open>v = Word.of_int (uint v)\<close> and \<open>uint v \<le> N\<close>
 using assms by (transfer, force simp add: take_bit_int_eq_self)+
+
+lemma sword_int_bound:
+    fixes v :: \<open>'l::{len} sword\<close>
+      and N :: \<open>int\<close>
+  assumes \<open>v \<le>s word_of_int N\<close>
+      and \<open>- (2 ^ (LENGTH('l) - Suc 0)) \<le> N\<close>
+      and \<open>N < 2 ^ (LENGTH('l) - Suc 0)\<close>
+    shows \<open>v = word_of_int (sint v)\<close> and \<open>sint v \<le> N\<close>
+using assms by (simp_all add: word_sle_eq sint_ucast_eq)
 
 \<comment>\<open>NOTE: This lemma is not used at present, but seems worth keeping.\<close>
 lemma word_int_bound':
@@ -275,6 +436,15 @@ lemma word_int_bound':
 using assms by (transfer, force simp add: take_bit_int_eq_self)+
 
 \<comment>\<open>NOTE: This lemma is not used at present, but seems worth keeping.\<close>
+lemma sword_int_bound':
+    fixes v :: \<open>'l::{len} sword\<close>
+      and N :: \<open>int\<close>
+  assumes \<open>- (2 ^ (LENGTH('l) - Suc 0)) \<le> N\<close>
+      and \<open>N < 2 ^ (LENGTH('l) - Suc 0)\<close>
+    shows \<open>v \<le>s word_of_int N \<longleftrightarrow> sint v \<le> N\<close>
+by (simp add: assms word_sle_eq sint_ucast_eq)
+
+\<comment>\<open>NOTE: This lemma is not used at present, but seems worth keeping.\<close>
 lemma word_int_boundE:
     fixes v :: \<open>'l::{len} word\<close>
       and N :: \<open>int\<close>
@@ -284,6 +454,17 @@ lemma word_int_boundE:
       and \<open>uint v \<le> N \<Longrightarrow> R\<close>
     shows \<open>R\<close>
 using assms by (blast intro: word_int_bound)
+
+\<comment>\<open>NOTE: This lemma is not used at present, but seems worth keeping.\<close>
+lemma sword_int_boundE:
+    fixes v :: \<open>'l::{len} sword\<close>
+      and N :: \<open>int\<close>
+  assumes \<open>v \<le>s word_of_int N\<close>
+      and \<open>- (2 ^ (LENGTH('l) - Suc 0)) \<le> N\<close>
+      and \<open>N < 2 ^ (LENGTH('l) - Suc 0)\<close>
+      and \<open>sint v \<le> N \<Longrightarrow> R\<close>
+    shows \<open>R\<close>
+using assms by (blast intro: sword_int_bound)
 
 lemma word64_bit_twiddle_technicalD1:
     fixes w :: \<open>64 word\<close>
@@ -317,12 +498,40 @@ using assms
   apply (subst of_nat_inverse; force)
   done
 
+lemma sint_sword_of_int64_le:
+    fixes w :: \<open>64 sword\<close>
+  assumes \<open>sint w \<le> m\<close>
+      and \<open>m < 2^63\<close>
+    shows \<open>w \<le>s word_of_int m\<close>
+proof -
+  have \<open>- (2^63) \<le> sint w\<close>
+    using sint_range'[of w] by simp
+  with assms have \<open>- (2^63) \<le> m\<close>
+    by linarith
+  with assms show ?thesis
+    by (simp add: word_sle_eq sint_ucast_eq)
+qed
+
 lemma unat_word_of_nat64_less:
     fixes w :: \<open>64 word\<close>
   assumes \<open>unat w < m\<close>
       and \<open>m < 2^64\<close>
     shows \<open>w < word_of_nat m\<close>
 by (metis assms len32 len_bit0 numeral_Bit0_eq_double unat_less_iff)
+
+lemma sint_sword_of_int64_less:
+    fixes w :: \<open>64 sword\<close>
+  assumes \<open>sint w < m\<close>
+      and \<open>m < 2^63\<close>
+    shows \<open>w <s word_of_int m\<close>
+proof -
+  have \<open>- (2^63) \<le> sint w\<close>
+    using sint_range'[of w] by simp
+  with assms have \<open>- (2^63) \<le> m\<close>
+    by linarith
+  with assms show ?thesis
+    by (simp add: word_sless_alt sint_ucast_eq)
+qed
 
 lemma word_div_mul_bound:
     fixes a b c :: \<open>'l::{len} word\<close>
@@ -344,6 +553,18 @@ lemma le_unat_uoi':
     shows \<open>unat (word_of_nat y::'a word) = y\<close>
 using assms by (meson le_unat_uoi less_or_eq_imp_le)
 
+lemma le_sint_soi':
+    fixes z :: \<open>'a::{len} sword\<close>
+  assumes \<open>- (2 ^ (LENGTH('a) - Suc 0)) \<le> y\<close>
+      and \<open>y < sint z\<close>
+    shows \<open>sint (word_of_int y::'a sword) = y\<close>
+proof -
+  have \<open>y < 2 ^ (LENGTH('a) - Suc 0)\<close>
+    using assms sint_range'[of z] by simp
+  with assms show ?thesis
+    by (simp add: sint_ucast_eq)
+qed
+
 lemma image_word_of_nat_atLeastLessThan:
   assumes \<open>a < 2 ^ LENGTH('a::{len})\<close>
       and \<open>b < 2 ^ LENGTH('a)\<close>
@@ -355,6 +576,33 @@ proof -
   then show ?thesis
     using assms
     by (auto simp: image_iff of_nat_word_less_eq_iff of_nat_word_less_iff take_bit_nat_eq_self)
+qed
+
+lemma image_sword_of_int_atLeastLessThan:
+  assumes \<open>- (2 ^ (LENGTH('a::{len}) - Suc 0)) \<le> a\<close> \<open>a < 2 ^ (LENGTH('a) - Suc 0)\<close>
+      and \<open>- (2 ^ (LENGTH('a) - Suc 0)) \<le> b\<close> \<open>b < 2 ^ (LENGTH('a) - Suc 0)\<close>
+    shows \<open>word_of_int ` {a..<b} = {w::'a sword. word_of_int a \<le>s w \<and> w <s word_of_int b}\<close>
+proof
+  show \<open>word_of_int ` {a..<b} \<subseteq> {w::'a sword. word_of_int a \<le>s w \<and> w <s word_of_int b}\<close>
+  proof
+    fix w :: \<open>'a sword\<close>
+    assume \<open>w \<in> word_of_int ` {a..<b}\<close>
+    then obtain k where k: \<open>a \<le> k\<close> \<open>k < b\<close> and w: \<open>w = word_of_int k\<close>
+      by auto
+    from k assms have \<open>- (2 ^ (LENGTH('a) - Suc 0)) \<le> k\<close> \<open>k < 2 ^ (LENGTH('a) - Suc 0)\<close>
+      by linarith+
+    with k w assms show \<open>w \<in> {w. word_of_int a \<le>s w \<and> w <s word_of_int b}\<close>
+      by (simp add: word_sle_eq word_sless_alt sint_ucast_eq)
+  qed
+  show \<open>{w::'a sword. word_of_int a \<le>s w \<and> w <s word_of_int b} \<subseteq> word_of_int ` {a..<b}\<close>
+  proof
+    fix w :: \<open>'a sword\<close>
+    assume \<open>w \<in> {w. word_of_int a \<le>s w \<and> w <s word_of_int b}\<close>
+    with assms have \<open>a \<le> sint w\<close> \<open>sint w < b\<close>
+      by (simp_all add: word_sle_eq word_sless_alt sint_ucast_eq)
+    then show \<open>w \<in> word_of_int ` {a..<b}\<close>
+      by (auto simp: image_iff intro!: bexI[of _ \<open>sint w\<close>])
+  qed
 qed
 
 lemma image_word_of_nat_atLeastAtMost:
@@ -370,6 +618,33 @@ proof -
     by (auto simp: image_iff of_nat_word_less_eq_iff of_nat_word_less_iff take_bit_nat_eq_self)
 qed
 
+lemma image_sword_of_int_atLeastAtMost:
+  assumes \<open>- (2 ^ (LENGTH('a::{len}) - Suc 0)) \<le> a\<close> \<open>a < 2 ^ (LENGTH('a) - Suc 0)\<close>
+      and \<open>- (2 ^ (LENGTH('a) - Suc 0)) \<le> b\<close> \<open>b < 2 ^ (LENGTH('a) - Suc 0)\<close>
+    shows \<open>word_of_int ` {a..b} = {w::'a sword. word_of_int a \<le>s w \<and> w \<le>s word_of_int b}\<close>
+proof
+  show \<open>word_of_int ` {a..b} \<subseteq> {w::'a sword. word_of_int a \<le>s w \<and> w \<le>s word_of_int b}\<close>
+  proof
+    fix w :: \<open>'a sword\<close>
+    assume \<open>w \<in> word_of_int ` {a..b}\<close>
+    then obtain k where k: \<open>a \<le> k\<close> \<open>k \<le> b\<close> and w: \<open>w = word_of_int k\<close>
+      by auto
+    from k assms have \<open>- (2 ^ (LENGTH('a) - Suc 0)) \<le> k\<close> \<open>k < 2 ^ (LENGTH('a) - Suc 0)\<close>
+      by linarith+
+    with k w assms show \<open>w \<in> {w. word_of_int a \<le>s w \<and> w \<le>s word_of_int b}\<close>
+      by (simp add: word_sle_eq sint_ucast_eq)
+  qed
+  show \<open>{w::'a sword. word_of_int a \<le>s w \<and> w \<le>s word_of_int b} \<subseteq> word_of_int ` {a..b}\<close>
+  proof
+    fix w :: \<open>'a sword\<close>
+    assume \<open>w \<in> {w. word_of_int a \<le>s w \<and> w \<le>s word_of_int b}\<close>
+    with assms have \<open>a \<le> sint w\<close> \<open>sint w \<le> b\<close>
+      by (simp_all add: word_sle_eq sint_ucast_eq)
+    then show \<open>w \<in> word_of_int ` {a..b}\<close>
+      by (auto simp: image_iff intro!: bexI[of _ \<open>sint w\<close>])
+  qed
+qed
+
 lemma image_unat_atLeastLessThan:
   shows \<open>unat ` {a..<b} = {unat a..<unat b}\<close>
 proof
@@ -381,6 +656,25 @@ proof
     by (metis (no_types, opaque_lifting) atLeastLessThan_iff imageI le_unat_uoi' subsetI)
 qed
 
+lemma image_sint_atLeastLessThan:
+  fixes a b :: \<open>'a::{len} sword\<close>
+  shows \<open>sint ` {w. a \<le>s w \<and> w <s b} = {sint a..<sint b}\<close>
+proof
+  show \<open>sint ` {w. a \<le>s w \<and> w <s b} \<subseteq> {sint a..<sint b}\<close>
+    by (auto simp: word_sle_eq word_sless_alt)
+  show \<open>{sint a..<sint b} \<subseteq> sint ` {w. a \<le>s w \<and> w <s b}\<close>
+  proof
+    fix x
+    assume \<open>x \<in> {sint a..<sint b}\<close>
+    then have x: \<open>sint a \<le> x\<close> \<open>x < sint b\<close>
+      by auto
+    then have \<open>- (2 ^ (LENGTH('a) - Suc 0)) \<le> x\<close> \<open>x < 2 ^ (LENGTH('a) - Suc 0)\<close>
+      using sint_range'[of a] sint_range'[of b] by simp_all
+    from sint_ucast_eq[OF this] x show \<open>x \<in> sint ` {w. a \<le>s w \<and> w <s b}\<close>
+      by (auto simp: image_iff word_sle_eq word_sless_alt intro!: exI[of _ \<open>word_of_int x\<close>])
+  qed
+qed
+
 lemma image_unat_atLeastAtMost:
   shows \<open>unat ` {a..b} = {unat a..unat b}\<close>
 proof
@@ -390,6 +684,25 @@ proof
     by (simp add: le_unat_uoi word_le_nat_alt word_of_nat_le)
   then show \<open>{unat a..unat b} \<subseteq> unat ` {a..b}\<close>
     by (metis (no_types, opaque_lifting) atLeastAtMost_iff imageI le_unat_uoi subsetI)
+qed
+
+lemma image_sint_atLeastAtMost:
+  fixes a b :: \<open>'a::{len} sword\<close>
+  shows \<open>sint ` {w. a \<le>s w \<and> w \<le>s b} = {sint a..sint b}\<close>
+proof
+  show \<open>sint ` {w. a \<le>s w \<and> w \<le>s b} \<subseteq> {sint a..sint b}\<close>
+    by (auto simp: word_sle_eq)
+  show \<open>{sint a..sint b} \<subseteq> sint ` {w. a \<le>s w \<and> w \<le>s b}\<close>
+  proof
+    fix x
+    assume \<open>x \<in> {sint a..sint b}\<close>
+    then have x: \<open>sint a \<le> x\<close> \<open>x \<le> sint b\<close>
+      by auto
+    then have \<open>- (2 ^ (LENGTH('a) - Suc 0)) \<le> x\<close> \<open>x < 2 ^ (LENGTH('a) - Suc 0)\<close>
+      using sint_range'[of a] sint_range'[of b] by simp_all
+    from sint_ucast_eq[OF this] x show \<open>x \<in> sint ` {w. a \<le>s w \<and> w \<le>s b}\<close>
+      by (auto simp: image_iff word_sle_eq intro!: exI[of _ \<open>word_of_int x\<close>])
+  qed
 qed
 
 lemma nonoverflow_range:
@@ -410,6 +723,22 @@ lemma lt_sub_left:
       and \<open>x < y\<close>
     shows \<open>y - x < y\<close>
 using assms by unat_arith
+
+lemma lt_sub_left_sword:
+    fixes x y :: \<open>'a::{len} sword\<close>
+  assumes \<open>0 <s x\<close>
+      and \<open>x <s y\<close>
+    shows \<open>y - x <s y\<close>
+proof -
+  have x0: \<open>0 < sint x\<close> and xy: \<open>sint x < sint y\<close>
+    using assms by (simp_all add: word_sless_alt)
+  have \<open>- (2 ^ (LENGTH('a) - Suc 0)) \<le> sint y - sint x\<close> \<open>sint y - sint x < 2 ^ (LENGTH('a) - Suc 0)\<close>
+    using x0 xy sint_range'[of y] by simp_all
+  from sint_ucast_eq[OF this] have \<open>sint (y - x) = sint y - sint x\<close>
+    by simp
+  with x0 show ?thesis
+    by (simp add: word_sless_alt)
+qed
 
 section \<open>Brute-force splitting of @{term\<open>w\<le>nn\<close>} or @{term\<open>w<nn\<close>} into cases\<close>
 

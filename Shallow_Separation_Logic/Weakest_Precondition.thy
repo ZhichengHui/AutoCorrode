@@ -715,16 +715,17 @@ lemma wp_op_eqs [micro_rust_wp_simps]:
   shows \<open>\<W>\<P> \<Gamma> \<lbrakk> e == f \<rbrakk> \<psi> \<rho> \<theta> = \<psi> (e = f)\<close>
   by (clarsimp simp add: urust_eq_def micro_rust_wp_simps micro_rust_simps)
 
-lemma wp_word_add_no_wrap [micro_rust_wp_intros]:
+lemma wp_word_add_no_wrap_unsigned:
     notes aentails_intro [intro]
       and aentails_simp [simp]
       and asepconj_simp [simp]
     fixes x y :: \<open>'l::{len} word\<close>
-    shows \<open>\<langle>unat x + unat y < 2^LENGTH('l)\<rangle> \<star> \<psi> (x + y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x + y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
+    shows \<open>\<langle>unat_range TYPE('l) (unat x + unat y)\<rangle> \<star> \<psi> (x + y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x + y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
 proof -
   have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x + y \<rbrakk>
       \<stileturn> (\<lambda>r. \<langle>r = x + y\<rangle> \<star> \<psi> (x+y)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-    by (intro sstriple_frame_rule_no_return; simp add: sstriple_word_add_no_wrapI)
+    by (intro sstriple_frame_rule_no_return; simp add: sstriple_word_add_no_wrapI[OF assms])
   moreover have \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x + y \<rbrakk>
       \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
     by (intro sstriple_consequence[OF I]; auto intro: apure_precise_entailsL)
@@ -732,22 +733,49 @@ proof -
     by (intro wp_is_weakest_precondition)
 qed
 
-lemma wp_word_add_no_wrapI [micro_rust_wp_intros]:
-    fixes x y :: \<open>'l::{len} word\<close>
-  assumes \<open>\<phi> \<longlongrightarrow> \<langle>unat x + unat y < 2^LENGTH('l)\<rangle> \<star> \<psi> (x + y)\<close>
-    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x + y \<rbrakk> \<psi> \<rho> \<theta>\<close>
-using assms by - (rule aentails_trans', rule wp_word_add_no_wrap, auto)
-
-lemma wp_word_mul_no_wrap [micro_rust_wp_intros]:
+lemma wp_word_add_no_wrap_signed:
     notes aentails_intro [intro]
       and aentails_simp [simp]
       and asepconj_simp [simp]
     fixes x y :: \<open>'l::{len} word\<close>
-    shows \<open>\<langle>unat x * unat y < 2^LENGTH('l)\<rangle> \<star> \<psi> (x * y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x * y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
+  assumes \<open>is_signed TYPE('l)\<close>
+    shows \<open>\<langle>sint_range TYPE('l) (sint x + sint y)\<rangle> \<star> \<psi> (x + y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x + y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
+proof -
+  have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x + y \<rbrakk>
+      \<stileturn> (\<lambda>r. \<langle>r = x + y\<rangle> \<star> \<psi> (x+y)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+    by (intro sstriple_frame_rule_no_return; simp add: sstriple_word_add_no_wrap_signedI[OF assms])
+  moreover have \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x + y \<rbrakk>
+      \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+    by (intro sstriple_consequence[OF I]; auto intro: apure_precise_entailsL)
+  ultimately show \<open>?asm \<longlongrightarrow> ?GOAL\<close>
+    by (intro wp_is_weakest_precondition)
+qed
+
+text\<open>The precondition and the result follow the signedness of the length type.\<close>
+
+lemma wp_word_add_no_wrap [micro_rust_wp_intros]:
+    fixes x y :: \<open>'l::{len} word\<close>
+  shows \<open>\<langle>if is_signed TYPE('l) then sint_range TYPE('l) (sint x + sint y) else unat_range TYPE('l) (unat x + unat y)\<rangle> \<star> \<psi> (x + y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x + y \<rbrakk> \<psi> \<rho> \<theta>\<close>
+  by (cases \<open>is_signed TYPE('l)\<close>) (simp_all add: wp_word_add_no_wrap_unsigned wp_word_add_no_wrap_signed)
+
+lemma wp_word_add_no_wrapI [micro_rust_wp_intros]:
+    fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<phi> \<longlongrightarrow> \<langle>if is_signed TYPE('l) then sint_range TYPE('l) (sint x + sint y) else unat_range TYPE('l) (unat x + unat y)\<rangle> \<star> \<psi> (x + y)\<close>
+    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x + y \<rbrakk> \<psi> \<rho> \<theta>\<close>
+using assms by - (rule aentails_trans', rule wp_word_add_no_wrap, auto)
+
+
+lemma wp_word_mul_no_wrap_unsigned:
+    notes aentails_intro [intro]
+      and aentails_simp [simp]
+      and asepconj_simp [simp]
+    fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
+    shows \<open>\<langle>unat_range TYPE('l) (unat x * unat y)\<rangle> \<star> \<psi> (x * y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x * y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
 proof -
   have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x * y \<rbrakk>
       \<stileturn> (\<lambda>r. \<langle>r = x * y\<rangle> \<star> \<psi> (x*y)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-    by (intro sstriple_frame_rule_no_return) (auto simp add: sstriple_word_mul_no_wrapI)
+    by (intro sstriple_frame_rule_no_return) (auto simp add: sstriple_word_mul_no_wrapI[OF assms])
   moreover have \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x * y \<rbrakk>
       \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
     by (intro sstriple_consequence[OF I]; auto intro: apure_precise_entailsL)
@@ -755,22 +783,49 @@ proof -
     by (intro wp_is_weakest_precondition)
 qed
 
-lemma wp_word_mul_no_wrapI [micro_rust_wp_intros]:
-    fixes x y :: \<open>'l::{len} word\<close>
-  assumes \<open>\<phi> \<longlongrightarrow> \<langle>unat x * unat y < 2^LENGTH('l)\<rangle> \<star> \<psi> (x * y)\<close>
-    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x * y \<rbrakk> \<psi> \<rho> \<theta>\<close>
-using assms by - (rule aentails_trans', rule wp_word_mul_no_wrap, auto)
-
-lemma wp_word_sub_no_wrap:
+lemma wp_word_mul_no_wrap_signed:
     notes aentails_intro [intro]
       and aentails_simp [simp]
       and asepconj_simp [simp]
     fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+    shows \<open>\<langle>sint_range TYPE('l) (sint x * sint y)\<rangle> \<star> \<psi> (x * y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x * y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
+proof -
+  have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x * y \<rbrakk>
+      \<stileturn> (\<lambda>r. \<langle>r = x * y\<rangle> \<star> \<psi> (x*y)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+    by (intro sstriple_frame_rule_no_return) (auto simp add: sstriple_word_mul_no_wrap_signedI[OF assms])
+  moreover have \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x * y \<rbrakk>
+      \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+    by (intro sstriple_consequence[OF I]; auto intro: apure_precise_entailsL)
+  ultimately show \<open>?asm \<longlongrightarrow> ?GOAL\<close>
+    by (intro wp_is_weakest_precondition)
+qed
+
+text\<open>The precondition and the result follow the signedness of the length type.\<close>
+
+lemma wp_word_mul_no_wrap [micro_rust_wp_intros]:
+    fixes x y :: \<open>'l::{len} word\<close>
+  shows \<open>\<langle>if is_signed TYPE('l) then sint_range TYPE('l) (sint x * sint y) else unat_range TYPE('l) (unat x * unat y)\<rangle> \<star> \<psi> (x * y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x * y \<rbrakk> \<psi> \<rho> \<theta>\<close>
+  by (cases \<open>is_signed TYPE('l)\<close>) (simp_all add: wp_word_mul_no_wrap_unsigned wp_word_mul_no_wrap_signed)
+
+lemma wp_word_mul_no_wrapI [micro_rust_wp_intros]:
+    fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<phi> \<longlongrightarrow> \<langle>if is_signed TYPE('l) then sint_range TYPE('l) (sint x * sint y) else unat_range TYPE('l) (unat x * unat y)\<rangle> \<star> \<psi> (x * y)\<close>
+    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x * y \<rbrakk> \<psi> \<rho> \<theta>\<close>
+using assms by - (rule aentails_trans', rule wp_word_mul_no_wrap, auto)
+
+
+lemma wp_word_sub_no_wrap_unsigned:
+    notes aentails_intro [intro]
+      and aentails_simp [simp]
+      and asepconj_simp [simp]
+    fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
     shows \<open>\<langle>y \<le> x\<rangle> \<star> \<psi> (x - y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x - y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
 proof -
   have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x - y \<rbrakk>
       \<stileturn> (\<lambda>r. \<langle>r = x - y\<rangle> \<star> \<psi> (x - y)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-    by (intro sstriple_frame_rule_no_return) (auto simp add: sstriple_word_sub_no_wrapI)
+    by (intro sstriple_frame_rule_no_return) (auto simp add: sstriple_word_sub_no_wrapI[OF assms])
   moreover have \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x - y \<rbrakk>
       \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
     by (intro sstriple_consequence[OF I]) (auto intro: apure_precise_entailsL)
@@ -778,22 +833,49 @@ proof -
     by (intro wp_is_weakest_precondition)
 qed
 
-lemma wp_word_sub_no_wrapI [micro_rust_wp_intros]:
-    fixes x y :: \<open>'l::{len} word\<close>
-  assumes \<open>\<phi> \<longlongrightarrow> \<langle>y \<le> x\<rangle> \<star> \<psi> (x - y)\<close>
-    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x - y \<rbrakk> \<psi> \<rho> \<theta>\<close>
-using assms by - (rule aentails_trans', rule wp_word_sub_no_wrap, auto)
-
-lemma wp_word_udiv:
+lemma wp_word_sub_no_wrap_signed:
     notes aentails_intro [intro]
       and aentails_simp [simp]
       and asepconj_simp [simp]
     fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+    shows \<open>\<langle>sint_range TYPE('l) (sint x - sint y)\<rangle> \<star> \<psi> (x - y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x - y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
+proof -
+  have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x - y \<rbrakk>
+      \<stileturn> (\<lambda>r. \<langle>r = x - y\<rangle> \<star> \<psi> (x - y)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+    by (intro sstriple_frame_rule_no_return) (auto simp add: sstriple_word_sub_no_wrap_signedI[OF assms])
+  moreover have \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x - y \<rbrakk>
+      \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+    by (intro sstriple_consequence[OF I]) (auto intro: apure_precise_entailsL)
+  ultimately show \<open>?asm \<longlongrightarrow> ?GOAL\<close>
+    by (intro wp_is_weakest_precondition)
+qed
+
+text\<open>The precondition and the result follow the signedness of the length type.\<close>
+
+lemma wp_word_sub_no_wrap:
+    fixes x y :: \<open>'l::{len} word\<close>
+  shows \<open>\<langle>if is_signed TYPE('l) then sint_range TYPE('l) (sint x - sint y) else y \<le> x\<rangle> \<star> \<psi> (x - y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x - y \<rbrakk> \<psi> \<rho> \<theta>\<close>
+  by (cases \<open>is_signed TYPE('l)\<close>) (simp_all add: wp_word_sub_no_wrap_unsigned wp_word_sub_no_wrap_signed)
+
+lemma wp_word_sub_no_wrapI [micro_rust_wp_intros]:
+    fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<phi> \<longlongrightarrow> \<langle>if is_signed TYPE('l) then sint_range TYPE('l) (sint x - sint y) else y \<le> x\<rangle> \<star> \<psi> (x - y)\<close>
+    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x - y \<rbrakk> \<psi> \<rho> \<theta>\<close>
+using assms by - (rule aentails_trans', rule wp_word_sub_no_wrap, auto)
+
+
+lemma wp_word_udiv_unsigned:
+    notes aentails_intro [intro]
+      and aentails_simp [simp]
+      and asepconj_simp [simp]
+    fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>\<langle>y \<noteq> 0\<rangle> \<star> \<psi> (x div y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x / y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
 proof -
   have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x / y \<rbrakk>
       \<stileturn> (\<lambda>r. \<langle>r = x div y\<rangle> \<star> \<psi> (x div y)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-    by (intro sstriple_frame_rule_no_return) (auto simp add: sstriple_word_udivI)
+    by (intro sstriple_frame_rule_no_return) (auto simp add: sstriple_word_udivI[OF assms])
   moreover have \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x / y \<rbrakk>
       \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
     by (intro sstriple_consequence[OF I]) (auto intro: apure_precise_entailsL)
@@ -801,22 +883,49 @@ proof -
     by (intro wp_is_weakest_precondition)
 qed
 
-lemma wp_word_udivI [micro_rust_wp_intros]:
-    fixes x y :: \<open>'l::{len} word\<close>
-  assumes \<open>\<phi> \<longlongrightarrow> \<langle>y \<noteq> 0\<rangle> \<star> \<psi> (x div y)\<close>
-    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x / y \<rbrakk> \<psi> \<rho> \<theta>\<close>
-using assms by - (rule aentails_trans', rule wp_word_udiv, auto)
-
-lemma wp_word_umod:
+lemma wp_word_udiv_signed:
     notes aentails_intro [intro]
       and aentails_simp [simp]
       and asepconj_simp [simp]
     fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<langle>y \<noteq> 0 \<and> (sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<longrightarrow> y \<noteq> -1)\<rangle> \<star> \<psi> (x sdiv y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x / y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
+proof -
+  have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x / y \<rbrakk>
+      \<stileturn> (\<lambda>r. \<langle>r = x sdiv y\<rangle> \<star> \<psi> (x sdiv y)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+    by (intro sstriple_frame_rule_no_return) (auto simp add: sstriple_word_udiv_signedI[OF assms])
+  moreover have \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x / y \<rbrakk>
+      \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+    by (intro sstriple_consequence[OF I]) (auto intro: apure_precise_entailsL)
+  ultimately show \<open>?asm \<longlongrightarrow> ?GOAL\<close>
+    by (intro wp_is_weakest_precondition)
+qed
+
+text\<open>The precondition and the result follow the signedness of the length type.\<close>
+
+lemma wp_word_udiv:
+    fixes x y :: \<open>'l::{len} word\<close>
+  shows \<open>\<langle>if is_signed TYPE('l) then y \<noteq> 0 \<and> (sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<longrightarrow> y \<noteq> -1) else y \<noteq> 0\<rangle> \<star> \<psi> (if is_signed TYPE('l) then x sdiv y else x div y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x / y \<rbrakk> \<psi> \<rho> \<theta>\<close>
+  by (cases \<open>is_signed TYPE('l)\<close>) (simp_all add: wp_word_udiv_unsigned wp_word_udiv_signed)
+
+lemma wp_word_udivI [micro_rust_wp_intros]:
+    fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<phi> \<longlongrightarrow> \<langle>if is_signed TYPE('l) then y \<noteq> 0 \<and> (sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<longrightarrow> y \<noteq> -1) else y \<noteq> 0\<rangle> \<star> \<psi> (if is_signed TYPE('l) then x sdiv y else x div y)\<close>
+    shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x / y \<rbrakk> \<psi> \<rho> \<theta>\<close>
+using assms by - (rule aentails_trans', rule wp_word_udiv, auto)
+
+
+lemma wp_word_umod_unsigned:
+    notes aentails_intro [intro]
+      and aentails_simp [simp]
+      and asepconj_simp [simp]
+    fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
     shows \<open>\<langle>y \<noteq> 0\<rangle> \<star> \<psi> (x mod y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x % y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
 proof -
   have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x % y \<rbrakk>
       \<stileturn> (\<lambda>r. \<langle>r = x mod y\<rangle> \<star> \<psi> (x mod y)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-    by (intro sstriple_frame_rule_no_return) (auto simp add: sstriple_word_umodI)
+    by (intro sstriple_frame_rule_no_return) (auto simp add: sstriple_word_umodI[OF assms])
   moreover have \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x % y \<rbrakk>
       \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
     by (intro sstriple_consequence[OF I]) (auto intro: apure_precise_entailsL)
@@ -824,11 +933,37 @@ proof -
     by (intro wp_is_weakest_precondition)
 qed
 
+lemma wp_word_umod_signed:
+    notes aentails_intro [intro]
+      and aentails_simp [simp]
+      and asepconj_simp [simp]
+    fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+    shows \<open>\<langle>y \<noteq> 0 \<and> (sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<longrightarrow> y \<noteq> -1)\<rangle> \<star> \<psi> (x smod y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x % y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
+proof -
+  have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x % y \<rbrakk>
+      \<stileturn> (\<lambda>r. \<langle>r = x smod y\<rangle> \<star> \<psi> (x smod y)) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+    by (intro sstriple_frame_rule_no_return) (auto simp add: sstriple_word_umod_signedI[OF assms])
+  moreover have \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x % y \<rbrakk>
+      \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+    by (intro sstriple_consequence[OF I]) (auto intro: apure_precise_entailsL)
+  ultimately show \<open>?asm \<longlongrightarrow> ?GOAL\<close>
+    by (intro wp_is_weakest_precondition)
+qed
+
+text\<open>The precondition and the result follow the signedness of the length type.\<close>
+
+lemma wp_word_umod:
+    fixes x y :: \<open>'l::{len} word\<close>
+  shows \<open>\<langle>if is_signed TYPE('l) then y \<noteq> 0 \<and> (sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<longrightarrow> y \<noteq> -1) else y \<noteq> 0\<rangle> \<star> \<psi> (if is_signed TYPE('l) then x smod y else x mod y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x % y \<rbrakk> \<psi> \<rho> \<theta>\<close>
+  by (cases \<open>is_signed TYPE('l)\<close>) (simp_all add: wp_word_umod_unsigned wp_word_umod_signed)
+
 lemma wp_word_umodI [micro_rust_wp_intros]:
     fixes x y :: \<open>'l::{len} word\<close>
-  assumes \<open>\<phi> \<longlongrightarrow> \<langle>y \<noteq> 0\<rangle> \<star> \<psi> (x mod y)\<close>
+  assumes \<open>\<phi> \<longlongrightarrow> \<langle>if is_signed TYPE('l) then y \<noteq> 0 \<and> (sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<longrightarrow> y \<noteq> -1) else y \<noteq> 0\<rangle> \<star> \<psi> (if is_signed TYPE('l) then x smod y else x mod y)\<close>
     shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x % y \<rbrakk> \<psi> \<rho> \<theta>\<close>
 using assms by - (rule aentails_trans', rule wp_word_umod, auto)
+
 
 lemma wp_bitwise_or:
   shows \<open>\<psi> (x OR y) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x | y \<rbrakk> \<psi> \<rho> \<theta>\<close>
@@ -892,18 +1027,19 @@ lemma wp_word_shift_leftI [micro_rust_wp_intros]:
     shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x << y \<rbrakk> \<psi> \<rho> \<theta>\<close>
 using assms wp_word_shift_left aentails_trans' by blast
 
-lemma wp_word_shift_right:
+lemma wp_word_shift_right_unsigned:
     notes aentails_intro [intro]
       and aentails_simp [simp]
       and asepconj_simp [simp]
     fixes x :: \<open>'l0::{len} word\<close>
       and y :: \<open>64 word\<close>
+  assumes \<open>\<not> is_signed TYPE('l0)\<close>
     shows \<open>\<langle>unat y < LENGTH('l0)\<rangle> \<star> \<psi> (drop_bit (unat y) x) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x >> y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
 proof -
   have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x >> y \<rbrakk>
       \<stileturn> (\<lambda>r. \<langle>r = drop_bit (unat y) x\<rangle> \<star> \<psi> (drop_bit (unat y) x))
       \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-    by (intro sstriple_frame_rule_no_return) (auto simp add: sstriple_word_shift_rightI)
+    by (intro sstriple_frame_rule_no_return) (auto simp add: sstriple_word_shift_rightI[OF assms])
   moreover have \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x >> y \<rbrakk>
       \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
     by (intro sstriple_consequence[OF I]) (auto intro: apure_precise_entailsL)
@@ -911,12 +1047,40 @@ proof -
     by (intro wp_is_weakest_precondition)
 qed
 
+lemma wp_word_shift_right_signed:
+    notes aentails_intro [intro]
+      and aentails_simp [simp]
+      and asepconj_simp [simp]
+    fixes x :: \<open>'l0::{len} word\<close>
+      and y :: \<open>64 word\<close>
+  assumes \<open>is_signed TYPE('l0)\<close>
+    shows \<open>\<langle>unat y < LENGTH('l0)\<rangle> \<star> \<psi> (signed_drop_bit (unat y) x) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x >> y \<rbrakk> \<psi> \<rho> \<theta>\<close> (is \<open>?asm \<longlongrightarrow> ?GOAL\<close>)
+proof -
+  have I: \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x >> y \<rbrakk>
+      \<stileturn> (\<lambda>r. \<langle>r = signed_drop_bit (unat y) x\<rangle> \<star> \<psi> (signed_drop_bit (unat y) x))
+      \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+    by (intro sstriple_frame_rule_no_return) (auto simp add: sstriple_word_shift_right_signedI[OF assms])
+  moreover have \<open>\<Gamma> ; ?asm \<turnstile> \<lbrakk> x >> y \<rbrakk>
+      \<stileturn> \<psi> \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+    by (intro sstriple_consequence[OF I]) (auto intro: apure_precise_entailsL)
+  ultimately show \<open>?asm \<longlongrightarrow> ?GOAL\<close>
+    by (intro wp_is_weakest_precondition)
+qed
+
+text\<open>The precondition and the result follow the signedness of the length type.\<close>
+
+lemma wp_word_shift_right:
+    fixes x :: \<open>'l0::{len} word\<close>
+      and y :: \<open>64 word\<close>
+  shows \<open>\<langle>unat y < LENGTH('l0)\<rangle> \<star> \<psi> (if is_signed TYPE('l0) then signed_drop_bit (unat y) x else drop_bit (unat y) x) \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x >> y \<rbrakk> \<psi> \<rho> \<theta>\<close>
+  by (cases \<open>is_signed TYPE('l0)\<close>) (simp_all add: wp_word_shift_right_unsigned wp_word_shift_right_signed)
+
 lemma wp_word_shift_rightI [micro_rust_wp_intros]:
     fixes x :: \<open>'l0::{len} word\<close>
       and y :: \<open>64 word\<close>
-  assumes \<open>\<phi> \<longlongrightarrow> \<langle>unat y < LENGTH('l0)\<rangle> \<star> \<psi> (drop_bit (unat y) x)\<close>
+  assumes \<open>\<phi> \<longlongrightarrow> \<langle>unat y < LENGTH('l0)\<rangle> \<star> \<psi> (if is_signed TYPE('l0) then signed_drop_bit (unat y) x else drop_bit (unat y) x)\<close>
     shows \<open>\<phi> \<longlongrightarrow> \<W>\<P> \<Gamma> \<lbrakk> x >> y \<rbrakk> \<psi> \<rho> \<theta>\<close>
-using assms wp_word_shift_right aentails_trans' by blast
+using assms by - (rule aentails_trans', rule wp_word_shift_right, auto)
 
 \<comment>\<open>Exact-accounting automation splits precise pure conclusions without assigning them
 resource.\<close>

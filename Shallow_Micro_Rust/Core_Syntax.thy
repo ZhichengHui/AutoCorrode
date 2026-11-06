@@ -128,6 +128,9 @@ syntax
   "_urust_shallow_negation"
     :: \<open>('s, bool, 'r, 'abort, 'i, 'o) expression \<Rightarrow> ('s, bool, 'r, 'abort, 'i, 'o) expression\<close>
     ("!\<^sub>\<mu>_" [300]300)
+  "_urust_shallow_uminus"
+    :: \<open>('s, 'v, 'r, 'abort, 'i, 'o) expression \<Rightarrow> ('s, 'v, 'r, 'abort, 'i, 'o) expression\<close>
+    ("-\<^sub>\<mu>_" [300]300)
   "_urust_shallow_bool_conjunction"
     :: \<open>('s, bool, 'r, 'abort, 'i, 'o) expression \<Rightarrow> ('s, bool, 'r, 'abort, 'i, 'o) expression \<Rightarrow> ('s, bool, 'r, 'abort, 'i, 'o) expression\<close>
     (infixr "&&\<^sub>\<mu>" 50)
@@ -194,6 +197,10 @@ syntax
     ("0")
   "_urust_shallow_match_pattern_one" :: \<open>urust_shallow_match_pattern\<close>
     ("1")
+  "_urust_shallow_match_pattern_neg_num_const" :: \<open>num_const \<Rightarrow> urust_shallow_match_pattern\<close>
+    ("'- _")
+  "_urust_shallow_match_pattern_neg_one" :: \<open>urust_shallow_match_pattern\<close>
+    ("'- 1")
   "_urust_shallow_match_pattern_constr_no_args" :: \<open>logic \<Rightarrow> urust_shallow_match_pattern\<close>
     ("\<guillemotleft>_\<guillemotright>")
   "_urust_shallow_match_pattern_constr_with_args" :: \<open>logic \<Rightarrow> urust_shallow_match_pattern_args \<Rightarrow> urust_shallow_match_pattern\<close>
@@ -347,6 +354,7 @@ subsection\<open>Special notation for HOL identifiers\<close>
 nonterminal urust_hol_identifier
 syntax
    "_urust_hol_id_u64_from_u16" :: \<open>urust_hol_identifier\<close> ("u64::from\<^sub>u\<^sub>1\<^sub>6")
+   "_urust_hol_id_i64_from_i16" :: \<open>urust_hol_identifier\<close> ("i64::from\<^sub>i\<^sub>1\<^sub>6")
 
 subsection\<open>Semantics\<close>
 
@@ -457,6 +465,8 @@ translations
     \<rightleftharpoons> "CONST false"
   "_urust_shallow_negation e"
     \<rightleftharpoons> "CONST negation_const e"
+  "_urust_shallow_uminus e"
+    \<rightleftharpoons> "CONST Numeric_Types.word_uminus e"
   "_urust_shallow_bool_conjunction a b"
     \<rightleftharpoons> "CONST urust_conj a b"
   "_urust_shallow_bool_disjunction a b"
@@ -652,6 +662,7 @@ translations
     \<rightleftharpoons> "CONST Numeric_Types.word_umod a b"
 
    "_urust_hol_id_u64_from_u16" \<rightleftharpoons> "CONST Numeric_Types.u64_from_u16"
+   "_urust_hol_id_i64_from_i16" \<rightleftharpoons> "CONST Numeric_Types.i64_from_i16"
 
 text\<open>We turn to the semantics of \<^text>\<open>match\<close> expressions. We essentially want to replace \<^text>\<open>match exp { body }\<close> with a bind of \<^text>\<open>exp\<close>
 and a normal \<^text>\<open>case\<close> expression. Unfortunately, since there is no anonymou \<^text>\<open>case\<close> expression in HOL, we have to find a fresh variable for this,
@@ -717,6 +728,10 @@ translations
     \<rightharpoonup> "_case_num_pattern_zero"
   "_urust_shallow_switch_convert_pattern (_urust_shallow_match_pattern_one)"
     \<rightharpoonup> "_case_num_pattern_one"
+  "_urust_shallow_switch_convert_pattern (_urust_shallow_match_pattern_neg_num_const num)"
+    \<rightharpoonup> "_case_num_pattern_neg_numeral num"
+  "_urust_shallow_switch_convert_pattern (_urust_shallow_match_pattern_neg_one)"
+    \<rightharpoonup> "_case_num_pattern_neg_one"
 
 \<comment>\<open>todo: add print translation for this so the case expressions remain readable\<close>
 parse_translation\<open>
@@ -783,8 +798,28 @@ let
   fun mk_guard_lt hi = mk_guard_lt_on (mk_anon_expr ()) hi;
   fun mk_guard_conj g1 g2 =
     Syntax.const \<^const_syntax>\<open>urust_conj\<close> $ g1 $ g2;
+  \<comment>\<open>Pattern conditions come before the user's guard, so that the guard is evaluated only
+     when the pattern matches, as in Rust.\<close>
   fun extend_guard NONE g = SOME g
-    | extend_guard (SOME g0) g = SOME (mk_guard_conj g0 g);
+    | extend_guard (SOME g0) g = SOME (mk_guard_conj g g0);
+  \<comment>\<open>The argument of a numeric pattern is the raw num_const token, a constant named by
+     its digits. The output of this translation is not translated again, so the token is
+     converted to a HOL numeral here instead of being wrapped in \<^verbatim>\<open>_Numeral\<close>.\<close>
+  fun num_token_value tok =
+    (case try (Lexicon.read_num #> #value) tok of
+      SOME n => n
+    | NONE =>
+        (case try (Lexicon.read_num #> #value) (Long_Name.base_name tok) of
+          SOME n => n
+        | NONE => case_error ("bad numeral token in match pattern: " ^ quote tok)));
+  fun num_const_tr (Const ("_constrain", T) $ t $ pos) = Const ("_constrain", T) $ num_const_tr t $ pos
+    | num_const_tr (Const (tok, _)) = Numeral.mk_number_syntax (num_token_value tok)
+    | num_const_tr (Free (tok, _)) = Numeral.mk_number_syntax (num_token_value tok)
+    | num_const_tr t = t;
+  fun lower_numeric_pattern guard_opt rhs n =
+    (Syntax.const \<^syntax_const>\<open>_urust_shallow_match_pattern_other\<close>,
+     extend_guard guard_opt (mk_guard_eq (Syntax.const \<^const_syntax>\<open>literal\<close> $ n)),
+     rhs);
   fun mk_bool_expr b =
     Syntax.const \<^const_syntax>\<open>literal\<close> $
       (if b then Syntax.const \<^const_syntax>\<open>True\<close> else Syntax.const \<^const_syntax>\<open>False\<close>);
@@ -908,13 +943,15 @@ let
         if name = "_urust_shallow_match_pattern_other" then
           Syntax.const \<^syntax_const>\<open>_case_basic_pattern_other\<close>
         else if name = "_urust_shallow_match_pattern_zero" orelse
-                name = "_urust_shallow_match_pattern_one" then
+                name = "_urust_shallow_match_pattern_one" orelse
+                name = "_urust_shallow_match_pattern_neg_one" then
           case_error ("numeric pattern in match_case: " ^ Syntax.string_of_term ctxt pat)
         else case_error ("invalid match pattern: " ^ Syntax.string_of_term ctxt pat)
     | Const (name, _) $ id =>
         if name = "_urust_shallow_match_pattern_constr_no_args" then
           Syntax.const \<^syntax_const>\<open>_case_basic_pattern_constr_no_args\<close> $ id
-        else if name = "_urust_shallow_match_pattern_num_const" then
+        else if name = "_urust_shallow_match_pattern_num_const" orelse
+                name = "_urust_shallow_match_pattern_neg_num_const" then
           case_error ("numeric pattern in match_case: " ^ Syntax.string_of_term ctxt pat)
         else case_error ("invalid match pattern: " ^ Syntax.string_of_term ctxt pat)
     | Const (name, _) $ id $ args =>
@@ -967,12 +1004,64 @@ let
   fun mk_wildcard_pat () =
     Syntax.const \<^syntax_const>\<open>_urust_shallow_match_pattern_other\<close>;
 
+  \<comment>\<open>A pattern is irrefutable if it is built only from wildcards, variables and constructors
+     that are the only constructor of their datatype (tuples, structs). A case clause after an
+     irrefutable pattern would be redundant, which HOL's case syntax rejects.\<close>
+  fun single_constructor ctxt c =
+    let
+      fun name_of (Const ("_constrain", _) $ t $ _) = name_of t
+        | name_of (Const (n, _)) =
+            SOME (if String.isPrefix (Lexicon.mark_const "") n then Lexicon.unmark_const n else n)
+        | name_of _ = NONE
+    in
+      (case name_of c of
+        NONE => false
+      | SOME n =>
+          (case try (Sign.the_const_type (Proof_Context.theory_of ctxt)) n of
+            SOME T =>
+              (case body_type T of
+                Type (tn, _) =>
+                  (case Ctr_Sugar.ctr_sugar_of ctxt tn of
+                    SOME {ctrs = [Const (ctr, _)], ...} => ctr = n
+                  | _ => false)
+              | _ => false)
+          | NONE => false))
+    end;
+
+  fun irrefutable_pat ctxt pat =
+    let
+      fun pat_irr p =
+        (case p of
+          Const ("_urust_shallow_match_pattern_other", _) => true
+        | Const ("_urust_shallow_match_pattern_constr_no_args", _) $ c => single_constructor ctxt c
+        | Const ("_urust_shallow_match_pattern_constr_with_args", _) $ c $ args =>
+            single_constructor ctxt c andalso args_irr args
+        | _ => false)
+      and args_irr args =
+        (case args of
+          Const ("_urust_shallow_match_pattern_args_single", _) $ a => arg_irr a
+        | Const ("_urust_shallow_match_pattern_args_app", _) $ a $ rest => arg_irr a andalso args_irr rest
+        | _ => false)
+      and arg_irr a =
+        (case a of
+          Const ("_urust_shallow_match_pattern_arg_id", _) $ _ => true
+        | Const ("_urust_shallow_match_pattern_arg_dummy", _) => true
+        | Const ("_urust_shallow_match_pattern_arg_pattern", _) $ p => pat_irr p
+        | _ => false)
+    in
+      pat_irr pat
+    end;
+
   fun pattern_requires_nested_elaboration pat =
     let
       fun requires pat =
         (case pat of
           Const ("_urust_shallow_match_pattern_as", _) $ _ $ _ => true
         | Const ("_urust_shallow_match_pattern_num_const", _) $ _ => true
+        | Const ("_urust_shallow_match_pattern_zero", _) => true
+        | Const ("_urust_shallow_match_pattern_one", _) => true
+        | Const ("_urust_shallow_match_pattern_neg_num_const", _) $ _ => true
+        | Const ("_urust_shallow_match_pattern_neg_one", _) => true
         | Const ("_urust_shallow_match_pattern_literal", _) $ _ => true
         | Const ("_urust_shallow_match_pattern_range", _) $ _ $ _ => true
         | Const ("_urust_shallow_match_pattern_range_eq", _) $ _ $ _ => true
@@ -1006,10 +1095,11 @@ let
                 Syntax.const \<^const_syntax>\<open>undefined\<close>
             else
               mk_case_term ctxt
-                [(pat,
+                ((pat,
                   Syntax.const \<^const_syntax>\<open>two_armed_conditional\<close> $ g $ rhs $
-                    Syntax.const \<^const_syntax>\<open>undefined\<close>),
-                 (mk_wildcard_pat (), Syntax.const \<^const_syntax>\<open>undefined\<close>)])
+                    Syntax.const \<^const_syntax>\<open>undefined\<close>) ::
+                 (if irrefutable_pat ctxt pat then []
+                  else [(mk_wildcard_pat (), Syntax.const \<^const_syntax>\<open>undefined\<close>)])))
     | process_branches ctxt ((pat, guard_opt, rhs) :: rest) =
         let
           val rest_case = process_branches ctxt rest;
@@ -1023,6 +1113,8 @@ let
             rhs'
           else if is_wildcard_pat pat then
             rhs'
+          else if irrefutable_pat ctxt pat then
+            mk_case_term ctxt [(pat, rhs')]
           else
             mk_case_term ctxt [(pat, rhs'), (mk_wildcard_pat (), rest_case)]
         end
@@ -1036,7 +1128,15 @@ let
         in Syntax.const \<^const_syntax>\<open>bind\<close> $ exp $ mk_case_abs case_expr
         end
       else
-        mk_match_term ctxt exp (map (fn (pat, _, rhs) => (pat, rhs)) normalized)
+        let
+          \<comment>\<open>Arms after an irrefutable arm are unreachable (Rust warns about them); HOL's case
+             syntax rejects them as redundant, so they are dropped.\<close>
+          fun upto_irrefutable [] = []
+            | upto_irrefutable ((b as (pat, _, _)) :: rest) =
+                if irrefutable_pat ctxt pat then [b] else b :: upto_irrefutable rest
+        in
+          mk_match_term ctxt exp (map (fn (pat, _, rhs) => (pat, rhs)) (upto_irrefutable normalized))
+        end
     end
 
   and mk_nested_match_guard ctxt expr pat =
@@ -1111,9 +1211,17 @@ let
       Const ("_urust_shallow_match_pattern_as", _) $ id $ inner =>
         normalize_extended_pattern ctxt (inner, guard_opt, mk_alias_rhs ctxt id rhs)
     | Const ("_urust_shallow_match_pattern_num_const", _) $ num =>
-        (Syntax.const \<^syntax_const>\<open>_urust_shallow_match_pattern_other\<close>,
-         extend_guard guard_opt (mk_guard_eq (Syntax.const \<^const_syntax>\<open>literal\<close> $ num)),
-         rhs)
+        lower_numeric_pattern guard_opt rhs (num_const_tr num)
+    | Const ("_urust_shallow_match_pattern_zero", _) =>
+        lower_numeric_pattern guard_opt rhs (Numeral.mk_number_syntax 0)
+    | Const ("_urust_shallow_match_pattern_one", _) =>
+        lower_numeric_pattern guard_opt rhs (Numeral.mk_number_syntax 1)
+    | Const ("_urust_shallow_match_pattern_neg_num_const", _) $ num =>
+        lower_numeric_pattern guard_opt rhs
+          (Syntax.const \<^const_syntax>\<open>uminus\<close> $ num_const_tr num)
+    | Const ("_urust_shallow_match_pattern_neg_one", _) =>
+        lower_numeric_pattern guard_opt rhs
+          (Syntax.const \<^const_syntax>\<open>uminus\<close> $ Numeral.mk_number_syntax 1)
     | Const ("_urust_shallow_match_pattern_literal", _) $ lit =>
         (Syntax.const \<^syntax_const>\<open>_urust_shallow_match_pattern_other\<close>,
          extend_guard guard_opt (mk_guard_eq lit),
@@ -1340,7 +1448,7 @@ value\<open>
 \<close>
 
 context
-  fixes x::nat and y::nat
+  fixes x::\<open>64 word\<close> and y::\<open>64 word\<close>
 begin
   term\<open>\<up>x \<le>\<^sub>\<mu> \<up>y\<close>
   term\<open>\<up>x \<ge>\<^sub>\<mu> \<up>y\<close>
@@ -1350,7 +1458,7 @@ begin
   term\<open>(\<up>x \<le>\<^sub>\<mu> \<up>y); true\<close>
 end
 
-value\<open>evaluate ((\<up>(0x2::nat) \<le>\<^sub>\<mu> \<up>0x1)::(unit, bool, unit, unit, unit, unit) expression) ()\<close>
+value\<open>evaluate ((\<up>(0x2::64 word) \<le>\<^sub>\<mu> \<up>0x1)::(unit, bool, unit, unit, unit, unit) expression) ()\<close>
 
 value\<open>
   let x = \<up>0x1;

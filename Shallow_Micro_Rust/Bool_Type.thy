@@ -3,7 +3,7 @@
 
 (*<*)
 theory Bool_Type
-  imports Core_Expression "HOL-Library.Word" Word_Lib.Bit_Shifts_Infix_Syntax
+  imports Core_Expression "HOL-Library.Word" Word_Lib.Bit_Shifts_Infix_Syntax "Misc.Signedness"
 begin
 (*>*)
 
@@ -21,6 +21,11 @@ definition true :: \<open>('s, bool, 'r, 'abort, 'i, 'o) expression\<close> wher
 text\<open>And now falsity:\<close>
 definition false :: \<open>('s, bool, 'r, 'abort, 'i, 'o) expression\<close> where [micro_rust_simps]:
   \<open>false \<equiv> literal False\<close>
+
+text\<open>In generated code, \<^const>\<open>true\<close> and \<^const>\<open>false\<close> would be polymorphic values, which
+SML's value restriction rejects; they are therefore unfolded into their uses.\<close>
+
+declare true_def[code_unfold] false_def[code_unfold]
 
 subsection\<open>Conditionals\<close>
 
@@ -104,17 +109,25 @@ definition urust_neq :: \<open>('s, 'v, bool, 'r, 'abort, 'i, 'o) urust_binop2\<
 
 subsection\<open>Comparison operators\<close>
 
-definition comp_lt :: \<open>('s, 'v::{ord}, bool, 'r, 'abort, 'i, 'o) urust_binop2\<close> where
-  \<open>comp_lt \<equiv> bindlift2 (<)\<close>
+text\<open>The comparison operators compare words, as signed words if the length type is signed
+(\<^const>\<open>word_rust_lt\<close>, \<^const>\<open>word_rust_le\<close>).\<close>
 
-definition comp_le :: \<open>('s, 'v::{ord}, bool, 'r, 'abort, 'i, 'o) urust_binop2\<close> where
-  \<open>comp_le \<equiv> bindlift2 (\<le>)\<close>
+definition comp_lt :: \<open>('s, 'l::len word, bool, 'r, 'abort, 'i, 'o) urust_binop2\<close> where
+  \<open>comp_lt \<equiv> bindlift2 word_rust_lt\<close>
 
-definition comp_gt :: \<open>('s, 'v::{ord}, bool, 'r, 'abort, 'i, 'o) urust_binop2\<close> where
-  \<open>comp_gt \<equiv> bindlift2 (>)\<close>
+definition comp_le :: \<open>('s, 'l::len word, bool, 'r, 'abort, 'i, 'o) urust_binop2\<close> where
+  \<open>comp_le \<equiv> bindlift2 word_rust_le\<close>
 
-definition comp_ge :: \<open>('s, 'v::{ord}, bool, 'r, 'abort, 'i, 'o) urust_binop2\<close> where
-  \<open>comp_ge \<equiv> bindlift2 (\<ge>)\<close>
+definition comp_gt :: \<open>('s, 'l::len word, bool, 'r, 'abort, 'i, 'o) urust_binop2\<close> where
+  \<open>comp_gt \<equiv> bindlift2 (\<lambda>a b. word_rust_lt b a)\<close>
+
+definition comp_ge :: \<open>('s, 'l::len word, bool, 'r, 'abort, 'i, 'o) urust_binop2\<close> where
+  \<open>comp_ge \<equiv> bindlift2 (\<lambda>a b. word_rust_le b a)\<close>
+
+text\<open>The comparisons are unfolded into their uses at concrete word lengths for code generation
+(see \<^verbatim>\<open>Signedness\<close>).\<close>
+
+declare comp_lt_def[abs_def, code_unfold] comp_le_def[abs_def, code_unfold] comp_gt_def[abs_def, code_unfold] comp_ge_def[abs_def, code_unfold]
 
 (*<*)
 end

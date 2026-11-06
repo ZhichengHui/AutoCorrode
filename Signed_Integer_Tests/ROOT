@@ -1,0 +1,11 @@
+session Signed_Tests_Language in "Language" = AutoCorrode +
+  description "Tests of signed integers: syntax, translation, definitions and executable semantics"
+  options [document = false]
+  theories
+    Signed_Tests_Language
+
+session Signed_Tests_Automation in "Automation" = AutoCorrode +
+  description "Tests of signed integers: evaluation, triple and WP rules, Crush and specification checks"
+  options [document = false]
+  theories
+    Signed_Tests_Automation

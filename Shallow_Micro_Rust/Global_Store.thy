@@ -3,7 +3,7 @@
 
 (*<*)
 theory Global_Store
-  imports Lenses_And_Other_Optics.Lenses_And_Other_Optics Misc.Array Misc.Vector
+  imports Lenses_And_Other_Optics.Lenses_And_Other_Optics Misc.Array Misc.Vector Misc.Signedness
       Core_Expression Result_Type (* Range_Type *)
 begin
 (*>*)
@@ -260,6 +260,26 @@ abbreviation raw_ptr_cast_u64 ::
   \<open>('s, ('addr, 'gv) gref, 'c, 'abort, 'i, 'o) expression \<Rightarrow>
    ('s, ('addr, 'gv, 64 word) Global_Store.ref, 'c, 'abort, 'i, 'o) expression\<close> where
   \<open>raw_ptr_cast_u64 \<equiv> raw_ptr_cast raw_ptr_cast_prism\<close>
+
+abbreviation raw_ptr_cast_i8 ::
+  \<open>('s, ('addr, 'gv) gref, 'c, 'abort, 'i, 'o) expression \<Rightarrow>
+   ('s, ('addr, 'gv, 8 sword) Global_Store.ref, 'c, 'abort, 'i, 'o) expression\<close> where
+  \<open>raw_ptr_cast_i8 \<equiv> raw_ptr_cast raw_ptr_cast_prism\<close>
+
+abbreviation raw_ptr_cast_i16 ::
+  \<open>('s, ('addr, 'gv) gref, 'c, 'abort, 'i, 'o) expression \<Rightarrow>
+   ('s, ('addr, 'gv, 16 sword) Global_Store.ref, 'c, 'abort, 'i, 'o) expression\<close> where
+  \<open>raw_ptr_cast_i16 \<equiv> raw_ptr_cast raw_ptr_cast_prism\<close>
+
+abbreviation raw_ptr_cast_i32 ::
+  \<open>('s, ('addr, 'gv) gref, 'c, 'abort, 'i, 'o) expression \<Rightarrow>
+   ('s, ('addr, 'gv, 32 sword) Global_Store.ref, 'c, 'abort, 'i, 'o) expression\<close> where
+  \<open>raw_ptr_cast_i32 \<equiv> raw_ptr_cast raw_ptr_cast_prism\<close>
+
+abbreviation raw_ptr_cast_i64 ::
+  \<open>('s, ('addr, 'gv) gref, 'c, 'abort, 'i, 'o) expression \<Rightarrow>
+   ('s, ('addr, 'gv, 64 sword) Global_Store.ref, 'c, 'abort, 'i, 'o) expression\<close> where
+  \<open>raw_ptr_cast_i64 \<equiv> raw_ptr_cast raw_ptr_cast_prism\<close>
 
 (*<*)
 end

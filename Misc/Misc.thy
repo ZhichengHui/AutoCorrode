@@ -14,6 +14,7 @@ theory Misc
     Remove_Enum_Discriminate_Elims
     Result
     SetAdditional
+    Signedness
     Simple_Word_Enums
     Undefined
     Vector

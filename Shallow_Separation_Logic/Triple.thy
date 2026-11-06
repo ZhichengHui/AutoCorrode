@@ -447,32 +447,72 @@ subsection\<open>Defining triples for numeric and bitwise operators\<close>
 
 lemma sstriple_word_add_no_wrapI:
   fixes x y :: \<open>'l::{len} word\<close>
-  shows \<open>\<Gamma> ; \<langle>unat x + unat y < 2^(LENGTH('l))\<rangle> \<turnstile> \<lbrakk> x + y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x + y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-by (auto intro!: sstriple_from_stripleI striple_word_add_no_wrapI simp add: eval_value_def
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
+  shows \<open>\<Gamma> ; \<langle>unat_range TYPE('l) (unat x + unat y)\<rangle> \<turnstile> \<lbrakk> x + y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x + y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+using assms by (auto intro!: sstriple_from_stripleI striple_word_add_no_wrapI[OF assms] simp add: eval_value_def
+  eval_return_def urust_eval_predicate_simps is_local_def eval_abort_def)
+
+lemma sstriple_word_add_no_wrap_signedI:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<Gamma> ; \<langle>sint_range TYPE('l) (sint x + sint y)\<rangle> \<turnstile> \<lbrakk> x + y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x + y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+using assms by (auto intro!: sstriple_from_stripleI striple_word_add_no_wrap_signedI[OF assms] simp add: eval_value_def
   eval_return_def urust_eval_predicate_simps is_local_def eval_abort_def)
 
 lemma sstriple_word_mul_no_wrapI:
   fixes x y :: \<open>'l::{len} word\<close>
-  shows \<open>\<Gamma> ; \<langle>unat x * unat y < 2^(LENGTH('l))\<rangle> \<turnstile> \<lbrakk> x * y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x * y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-by (auto intro!: sstriple_from_stripleI striple_word_mul_no_wrapI simp add: eval_value_def
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
+  shows \<open>\<Gamma> ; \<langle>unat_range TYPE('l) (unat x * unat y)\<rangle> \<turnstile> \<lbrakk> x * y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x * y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+using assms by (auto intro!: sstriple_from_stripleI striple_word_mul_no_wrapI[OF assms] simp add: eval_value_def
+  eval_return_def urust_eval_predicate_simps is_local_def eval_abort_def)
+
+lemma sstriple_word_mul_no_wrap_signedI:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<Gamma> ; \<langle>sint_range TYPE('l) (sint x * sint y)\<rangle> \<turnstile> \<lbrakk> x * y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x * y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+using assms by (auto intro!: sstriple_from_stripleI striple_word_mul_no_wrap_signedI[OF assms] simp add: eval_value_def
   eval_return_def urust_eval_predicate_simps is_local_def eval_abort_def)
 
 lemma sstriple_word_sub_no_wrapI:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>\<Gamma> ; \<langle>y \<le> x\<rangle> \<turnstile> \<lbrakk> x - y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x - y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-  by (auto intro!: sstriple_from_stripleI striple_word_sub_no_wrapI simp add: eval_value_def
+  using assms by (auto intro!: sstriple_from_stripleI striple_word_sub_no_wrapI[OF assms] simp add: eval_value_def
+    eval_return_def urust_eval_predicate_simps is_local_def eval_abort_def)
+
+lemma sstriple_word_sub_no_wrap_signedI:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<Gamma> ; \<langle>sint_range TYPE('l) (sint x - sint y)\<rangle> \<turnstile> \<lbrakk> x - y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x - y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+  using assms by (auto intro!: sstriple_from_stripleI striple_word_sub_no_wrap_signedI[OF assms] simp add: eval_value_def
     eval_return_def urust_eval_predicate_simps is_local_def eval_abort_def)
 
 lemma sstriple_word_udivI:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>\<Gamma> ; \<langle>y \<noteq> 0\<rangle> \<turnstile> \<lbrakk> x / y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x div y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-by (auto intro!: sstriple_from_stripleI striple_word_udivI simp add: eval_value_def eval_return_def
+using assms by (auto intro!: sstriple_from_stripleI striple_word_udivI[OF assms] simp add: eval_value_def eval_return_def
+  urust_eval_predicate_simps is_local_def eval_abort_def)
+
+lemma sstriple_word_udiv_signedI:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<Gamma> ; \<langle>y \<noteq> 0 \<and> (sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<longrightarrow> y \<noteq> -1)\<rangle> \<turnstile> \<lbrakk> x / y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x sdiv y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+using assms by (auto intro!: sstriple_from_stripleI striple_word_udiv_signedI[OF assms] simp add: eval_value_def eval_return_def
   urust_eval_predicate_simps is_local_def eval_abort_def)
 
 lemma sstriple_word_umodI:
   fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>\<not> is_signed TYPE('l)\<close>
   shows \<open>\<Gamma> ; \<langle>y \<noteq> 0\<rangle> \<turnstile> \<lbrakk> x % y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x mod y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-by (auto intro!: sstriple_from_stripleI striple_word_umodI simp add: eval_value_def eval_return_def
+using assms by (auto intro!: sstriple_from_stripleI striple_word_umodI[OF assms] simp add: eval_value_def eval_return_def
+  urust_eval_predicate_simps is_local_def eval_abort_def)
+
+lemma sstriple_word_umod_signedI:
+  fixes x y :: \<open>'l::{len} word\<close>
+  assumes \<open>is_signed TYPE('l)\<close>
+  shows \<open>\<Gamma> ; \<langle>y \<noteq> 0 \<and> (sint x = - (2 ^ (LENGTH('l) - Suc 0)) \<longrightarrow> y \<noteq> -1)\<rangle> \<turnstile> \<lbrakk> x % y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = x smod y\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+using assms by (auto intro!: sstriple_from_stripleI striple_word_umod_signedI[OF assms] simp add: eval_value_def eval_return_def
   urust_eval_predicate_simps is_local_def eval_abort_def)
 
 lemma sstriple_word_shift_leftI:
@@ -485,8 +525,17 @@ by (auto intro!: sstriple_from_stripleI striple_word_shift_leftI simp add: eval_
 lemma sstriple_word_shift_rightI:
   fixes x :: \<open>'l0::{len} word\<close>
     and y :: \<open>64 word\<close>
+  assumes \<open>\<not> is_signed TYPE('l0)\<close>
   shows \<open>\<Gamma> ; \<langle>unat y < LENGTH('l0)\<rangle> \<turnstile> \<lbrakk> x >> y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = drop_bit (unat y) x\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
-by (auto intro!: sstriple_from_stripleI striple_word_shift_rightI simp add: eval_value_def
+using assms by (auto intro!: sstriple_from_stripleI striple_word_shift_rightI[OF assms] simp add: eval_value_def
+  eval_return_def urust_eval_predicate_simps is_local_def eval_abort_def)
+
+lemma sstriple_word_shift_right_signedI:
+  fixes x :: \<open>'l0::{len} word\<close>
+    and y :: \<open>64 word\<close>
+  assumes \<open>is_signed TYPE('l0)\<close>
+  shows \<open>\<Gamma> ; \<langle>unat y < LENGTH('l0)\<rangle> \<turnstile> \<lbrakk> x >> y \<rbrakk> \<stileturn> (\<lambda>r. \<langle>r = signed_drop_bit (unat y) x\<rangle>) \<bowtie> \<rho> \<bowtie> \<theta>\<close>
+using assms by (auto intro!: sstriple_from_stripleI striple_word_shift_right_signedI[OF assms] simp add: eval_value_def
   eval_return_def urust_eval_predicate_simps is_local_def eval_abort_def)
 
 lemma sstriple_bitwise_orI:

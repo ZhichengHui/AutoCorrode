@@ -8,6 +8,7 @@ theory StdLib_All
     StdLib_Iterators
     StdLib_Logging
     StdLib_Option
+    StdLib_Ordering
     StdLib_Range
     StdLib_References
     StdLib_Result
