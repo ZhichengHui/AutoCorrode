@@ -35,7 +35,7 @@ lemma call_panic:
   shows \<open>call (FunctionBody (panic m)) = panic m\<close>
   by (simp add: call_def call_function_body.simps evaluate_def abort_def)
 
-lemmas run_simps = run_def outcome_def micro_rust_simps bind_evaluate Let_def
+lemmas run_simps = run_def outcome_def micro_rust_simps bind_evaluate Let_def evaluate_loop_step sequence_def
   word_add_no_wrap_def word_add_no_wrap_core_def word_add_no_wrap_as_urust_def
   word_mul_no_wrap_def word_mul_no_wrap_core_def word_mul_no_wrap_as_urust_def
   word_minus_no_wrap_def word_minus_no_wrap_core_def word_minus_no_wrap_as_urust_def
