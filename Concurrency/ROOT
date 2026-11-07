@@ -1,0 +1,5 @@
+session Concurrency = Shallow_Separation_Logic +
+  options [document = false]
+  theories
+    Parallel
+    Parallel_Example
