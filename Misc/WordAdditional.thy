@@ -889,6 +889,80 @@ lemma unat_plus_one_of_less:
     shows \<open>unat (w + 1) = Suc (unat w)\<close>
 using assms by (simp add: unat_add_lem')
 
+text\<open>Loop indices. A loop that counts a word index \<open>i\<close> up to a bound \<open>n\<close> has
+\<open>unat i < n\<close> in its body if it tests \<open>i < of_nat n\<close>, and \<open>unat i \<le> n\<close> and \<open>i \<noteq> of_nat n\<close>
+(or \<open>i \<noteq> n\<close> for a word bound) if it stops when \<open>i = n\<close>. The rules below derive \<open>unat i < n\<close>
+and \<open>unat (i + 1) = Suc (unat i)\<close> from these facts. In the increment rules, \<open>n\<close> or \<open>v\<close> occurs
+only in the premises; the simplifier instantiates it from an assumption.\<close>
+
+lemma unat_plus_one_of_less_bound:
+    fixes w :: \<open>'a::len word\<close>
+  assumes \<open>unat w < n\<close>
+      and \<open>n < 2^LENGTH('a)\<close>
+    shows \<open>unat (w + 1) = Suc (unat w)\<close>
+using assms by (intro unat_plus_one_of_less) linarith
+
+lemma unat_less_iff_le_of_neq_of_nat:
+    fixes w :: \<open>'a::len word\<close>
+  assumes \<open>w \<noteq> of_nat n\<close>
+    shows \<open>(unat w < n) = (unat w \<le> n)\<close>
+using assms by (metis order_le_less word_unat.Rep_inverse)
+
+lemma unat_less_iff_le_of_neq:
+    fixes w v :: \<open>'a::len word\<close>
+  assumes \<open>w \<noteq> v\<close>
+    shows \<open>(unat w < unat v) = (unat w \<le> unat v)\<close>
+using assms by (metis order_le_less word_unat.Rep_inject)
+
+lemma unat_less_of_le_neq_of_nat:
+    fixes w :: \<open>'a::len word\<close>
+  assumes \<open>unat w \<le> n\<close>
+      and \<open>w \<noteq> of_nat n\<close>
+    shows \<open>unat w < n\<close>
+using assms by (simp add: unat_less_iff_le_of_neq_of_nat)
+
+lemma unat_less_of_le_neq:
+    fixes w v :: \<open>'a::len word\<close>
+  assumes \<open>unat w \<le> unat v\<close>
+      and \<open>w \<noteq> v\<close>
+    shows \<open>unat w < unat v\<close>
+using assms by (simp add: unat_less_iff_le_of_neq)
+
+lemma unat_plus_one_of_neq_of_nat:
+    fixes w :: \<open>'a::len word\<close>
+  assumes \<open>w \<noteq> of_nat n\<close>
+      and \<open>unat w \<le> n\<close>
+      and \<open>n < 2^LENGTH('a)\<close>
+    shows \<open>unat (w + 1) = Suc (unat w)\<close>
+proof -
+  from assms(1,2) have \<open>unat w < n\<close>
+    by (simp add: unat_less_iff_le_of_neq_of_nat)
+  with assms(3) show ?thesis
+    by (intro unat_plus_one_of_less) linarith
+qed
+
+lemma unat_plus_one_of_neq:
+    fixes w v :: \<open>'a::len word\<close>
+  assumes \<open>w \<noteq> v\<close>
+      and \<open>unat w \<le> unat v\<close>
+    shows \<open>unat (w + 1) = Suc (unat w)\<close>
+proof -
+  from assms have \<open>unat w < unat v\<close>
+    by (simp add: unat_less_iff_le_of_neq)
+  with unat_lt2p[of v] show ?thesis
+    by (intro unat_plus_one_of_less) linarith
+qed
+
+text\<open>These rules are not in the default simpset or in the default rules of \<^verbatim>\<open>crush\<close>, because
+rewriting every word comparison into natural numbers breaks proofs that do the word arithmetic
+differently. A proof about a loop index passes them by name, for example
+\<open>simp add: unat_loop_index_simps\<close> or \<open>crush_base simp add: unat_loop_index_simps\<close>.\<close>
+
+lemmas unat_loop_index_simps =
+  word_less_of_nat_iff unat_of_nat_eq
+  unat_less_iff_le_of_neq_of_nat unat_less_iff_le_of_neq
+  unat_plus_one_of_less_bound unat_plus_one_of_neq_of_nat unat_plus_one_of_neq
+
 lemma word64_div_mono:
     fixes x y z :: \<open>64 word\<close>
   assumes \<open>x \<le> y\<close>
