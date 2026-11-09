@@ -1103,11 +1103,11 @@ let
     | process_branches ctxt ((pat, guard_opt, rhs) :: rest) =
         let
           val rest_case = process_branches ctxt rest;
-          \<comment>\<open>A guarded arm with a refutable pattern reaches the remaining arms twice (guard false,
-             pattern not matched). Copying them would make the term exponential in the number of
-             such arms; they are bound once with \<^const>\<open>Let\<close> instead.\<close>
-          val shared = is_some guard_opt andalso not (is_wildcard_pat pat)
-            andalso not (irrefutable_pat ctxt pat);
+          \<comment>\<open>After a refutable arm the remaining arms are reached from the wildcard clause, which
+             HOL's case translation copies for every other constructor, and, for a guarded arm,
+             also from the false guard. Copying them would make the term exponential in the number
+             of such arms; they are bound once with \<^const>\<open>Let\<close> instead.\<close>
+          val shared = not (is_wildcard_pat pat) andalso not (irrefutable_pat ctxt pat);
           val rest_var = Free ("urust_match_rest", dummyT);
           val rest_ref = if shared then rest_var else rest_case;
           val rhs' =
