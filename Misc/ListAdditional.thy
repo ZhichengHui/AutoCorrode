@@ -153,21 +153,6 @@ lemma nth_opt_take:
     shows \<open>nth_opt n (take len xs) = nth_opt n xs\<close>
 using assms by (induction n xs arbitrary: len rule: nth_opt.induct; fastforce simp add: Suc_less_eq2)
 
-text\<open>A loop that fills a list position by position, \<open>xs[i := b]\<close> for \<open>i = 0, 1, \<dots>\<close>, is usually
-specified by the prefix \<open>take i\<close> that has been fixed so far. These rules extend the prefix by one
-position.\<close>
-
-lemma take_Suc_list_update:
-  assumes \<open>i < length xs\<close>
-    shows \<open>take (Suc i) (xs[i := b]) = take i xs @ [b]\<close>
-using assms by (simp add: take_Suc_conv_app_nth)
-
-lemma take_Suc_eq_take_Suc_list_update_iff:
-  assumes \<open>i < length xs\<close>
-      and \<open>length ys = length xs\<close>
-    shows \<open>(take (Suc i) ys = take (Suc i) (xs[i := b])) \<longleftrightarrow> (take i ys = take i xs \<and> ys ! i = b)\<close>
-using assms by (simp add: take_Suc_conv_app_nth)
-
 \<comment>\<open>NOTE: This lemma is not used at present, but seems worth keeping.\<close>
 lemma over_nth_expand_lemma:
   assumes \<open>i < length xs\<close>
