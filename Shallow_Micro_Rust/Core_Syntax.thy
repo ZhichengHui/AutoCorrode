@@ -1103,20 +1103,31 @@ let
     | process_branches ctxt ((pat, guard_opt, rhs) :: rest) =
         let
           val rest_case = process_branches ctxt rest;
+          \<comment>\<open>After a refutable arm the remaining arms are reached from the wildcard clause, which
+             HOL's case translation copies for every other constructor, and, for a guarded arm,
+             also from the false guard. Copying them would make the term exponential in the number
+             of such arms; they are bound once with \<^const>\<open>Let\<close> instead.\<close>
+          val shared = not (is_wildcard_pat pat) andalso not (irrefutable_pat ctxt pat);
+          val rest_var = Free ("urust_match_rest", dummyT);
+          val rest_ref = if shared then rest_var else rest_case;
           val rhs' =
             (case guard_opt of
               NONE => rhs
             | SOME g =>
-                Syntax.const \<^const_syntax>\<open>two_armed_conditional\<close> $ g $ rhs $ rest_case);
+                Syntax.const \<^const_syntax>\<open>two_armed_conditional\<close> $ g $ rhs $ rest_ref);
+          val body =
+            if is_wildcard_pat pat andalso guard_opt = NONE then
+              rhs'
+            else if is_wildcard_pat pat then
+              rhs'
+            else if irrefutable_pat ctxt pat then
+              mk_case_term ctxt [(pat, rhs')]
+            else
+              mk_case_term ctxt [(pat, rhs'), (mk_wildcard_pat (), rest_ref)]
         in
-          if is_wildcard_pat pat andalso guard_opt = NONE then
-            rhs'
-          else if is_wildcard_pat pat then
-            rhs'
-          else if irrefutable_pat ctxt pat then
-            mk_case_term ctxt [(pat, rhs')]
-          else
-            mk_case_term ctxt [(pat, rhs'), (mk_wildcard_pat (), rest_case)]
+          if shared then
+            Syntax.const \<^const_syntax>\<open>Let\<close> $ rest_case $ Syntax_Trans.abs_tr [rest_var, body]
+          else body
         end
 
   fun compile_match_branches ctxt exp branch_list =
