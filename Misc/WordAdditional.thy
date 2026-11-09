@@ -889,6 +889,16 @@ lemma unat_plus_one_of_less:
     shows \<open>unat (w + 1) = Suc (unat w)\<close>
 using assms by (simp add: unat_add_lem')
 
+text\<open>A loop that counts a word index \<open>i\<close> up while \<open>unat i < n\<close> increments it without
+overflow when the bound \<open>n\<close> fits in the word.\<close>
+
+lemma unat_plus_one_of_less_bound:
+    fixes w :: \<open>'a::len word\<close>
+  assumes \<open>unat w < n\<close>
+      and \<open>n < 2^LENGTH('a)\<close>
+    shows \<open>unat (w + 1) = Suc (unat w)\<close>
+using assms by (intro unat_plus_one_of_less) linarith
+
 lemma word64_div_mono:
     fixes x y z :: \<open>64 word\<close>
   assumes \<open>x \<le> y\<close>
