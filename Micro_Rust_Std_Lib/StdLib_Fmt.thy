@@ -133,6 +133,8 @@ definition fmt_Binary_sword :: \<open>'l::len sword \<Rightarrow> ('a, 'b, fmt_F
       ('s, (unit, fmt_Error) result, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>fmt_Binary_sword x ptr \<equiv> fmt_emit ptr (\<lambda>f. fmt_Binary_sword_text f x)\<close>
 
+no_adhoc_overloading store_update_const \<rightleftharpoons> update_fun
+
 end
 
 (*<*)
