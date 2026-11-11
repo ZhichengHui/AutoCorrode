@@ -181,6 +181,7 @@ nonterminal urust_shallow_match_pattern_args
 
 syntax
   "_urust_shallow_match" :: "[('s, 'v, 'r, 'abort, 'i, 'o) expression, urust_shallow_match_branches] \<Rightarrow> ('sp, 'vp, 'rp, 'abort, 'i, 'o) expression"  ("match (_) \<lbrace>/ _/ \<rbrace>" [20, 20]20)
+  "_urust_shallow_refutable_let_else" :: "urust_shallow_match_pattern \<Rightarrow> logic \<Rightarrow> logic"
   "_urust_shallow_switch" :: "[('s, 'v, 'r, 'abort, 'i, 'o) expression, urust_shallow_match_branches] \<Rightarrow> ('sp, 'vp, 'rp, 'abort, 'i, 'o) expression"  ("match'_switch (_) \<lbrace>/ _/ \<rbrace>" [20, 20]20)
   \<comment>\<open>Basic case branches\<close>
   "_urust_shallow_match1" :: "[urust_shallow_match_pattern, 'b] \<Rightarrow> urust_shallow_match_branches"  ("(2_ \<Rightarrow>/ _)" [100, 20] 21)
@@ -401,11 +402,14 @@ translations
                                 (_urust_shallow_match1 ptrn this)
                                 (_urust_shallow_match1 _urust_shallow_match_pattern_other (CONST skip)))"
 
+  \<comment>\<open>A \<^verbatim>\<open>let\<close>-\<^verbatim>\<open>else\<close> needs a refutable pattern (as in Rust): with an irrefutable
+     one, \<^verbatim>\<open>let x = if c { a } else { b };\<close> would also parse as a \<^verbatim>\<open>let\<close>-\<^verbatim>\<open>else\<close>.\<close>
   "_urust_shallow_let_else ptrn exp that after"
-    \<rightleftharpoons> "_urust_shallow_match exp
-                             (_urust_shallow_match2
-                                (_urust_shallow_match1 ptrn after)
-                                (_urust_shallow_match1 _urust_shallow_match_pattern_other that))"
+    \<rightharpoonup> "_urust_shallow_refutable_let_else ptrn
+                             (_urust_shallow_match exp
+                               (_urust_shallow_match2
+                                  (_urust_shallow_match1 ptrn after)
+                                  (_urust_shallow_match1 _urust_shallow_match_pattern_other that)))"
 
   \<comment>\<open>Let bindings\<close>
   "_urust_shallow_let_in x exp cont"
@@ -1301,8 +1305,12 @@ let
     | urust_shallow_match_tr ctxt args =
         case_error ("_urust_shallow_match: unexpected arguments: " ^ Syntax.string_of_term ctxt
           (list_comb (Syntax.const \<^syntax_const>\<open>_urust_shallow_match\<close>, args)));
+  fun urust_shallow_refutable_let_else_tr ctxt [pat, t] =
+        if irrefutable_pat ctxt pat then case_error "let-else with an irrefutable pattern" else t
+    | urust_shallow_refutable_let_else_tr _ _ = case_error "_urust_shallow_refutable_let_else: unexpected arguments";
 in
-  [(\<^syntax_const>\<open>_urust_shallow_match\<close>, urust_shallow_match_tr)]
+  [(\<^syntax_const>\<open>_urust_shallow_match\<close>, urust_shallow_match_tr),
+   (\<^syntax_const>\<open>_urust_shallow_refutable_let_else\<close>, urust_shallow_refutable_let_else_tr)]
 end
 \<close>
 
