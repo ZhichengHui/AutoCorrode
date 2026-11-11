@@ -53,7 +53,7 @@ definition fmt_pad_codes :: \<open>fmt_Formatter \<Rightarrow> nat list \<Righta
      if \<not> fmt_flag f 27 \<and> \<not> fmt_flag f 28 then s
      else
        let s' = (if fmt_flag f 28 then List.take (unat (fmt_opt_precision f)) s else s)
-       in if List.length s' < unat (fmt_opt_width f) then
+       in if fmt_flag f 27 \<and> List.length s' < unat (fmt_opt_width f) then
             fmt_padded f (unat (fmt_opt_width f) - List.length s') 0 s'
           else s'\<close>
 
@@ -64,7 +64,7 @@ definition fmt_pad_integral_codes :: \<open>fmt_Formatter \<Rightarrow> bool \<R
          prefix' = (if fmt_flag f 23 then prefix else []);
          width = List.length digits + List.length sign + List.length prefix';
          min = unat (fmt_opt_width f)
-     in if min \<le> width then sign @ prefix' @ digits
+     in if \<not> fmt_flag f 27 \<or> min \<le> width then sign @ prefix' @ digits
         else if fmt_flag f 24 then sign @ prefix' @ List.replicate (min - width) (of_char CHR ''0'') @ digits
         else fmt_padded f (min - width) 1 (sign @ prefix' @ digits)\<close>
 
@@ -117,7 +117,7 @@ definition fmt_debug_char_codes :: \<open>nat \<Rightarrow> nat list\<close> whe
   \<open>fmt_debug_char_codes c \<equiv> [39] @ fmt_escape_debug False c @ [39]\<close>
 
 definition fmt_display_char_codes :: \<open>fmt_Formatter \<Rightarrow> nat \<Rightarrow> nat list\<close> where
-  \<open>fmt_display_char_codes f c \<equiv> if \<not> fmt_flag f 27 \<and> \<not> fmt_flag f 28 then [c] else fmt_pad_codes f [c]\<close>
+  \<open>fmt_display_char_codes f c \<equiv> fmt_pad_codes f [c]\<close>
 
 definition fmt_bool_codes :: \<open>fmt_Formatter \<Rightarrow> bool \<Rightarrow> nat list\<close> where
   \<open>fmt_bool_codes f b \<equiv> fmt_pad_codes f (fmt_codes (if b then STR ''true'' else STR ''false''))\<close>

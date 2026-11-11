@@ -49,7 +49,9 @@ definition fmt_width :: \<open>fmt_Formatter \<Rightarrow> ('s, 64 word option, 
 definition fmt_precision :: \<open>fmt_Formatter \<Rightarrow> ('s, 64 word option, 'abort, 'i, 'o) function_body\<close> where
   \<open>fmt_precision f \<equiv> FunctionBody (literal (if fmt_flag f 28 then Some (ucast (fmt_opt_precision f)) else None))\<close>
 definition fmt_fill :: \<open>fmt_Formatter \<Rightarrow> ('s, char, 'abort, 'i, 'o) function_body\<close> where
-  \<open>fmt_fill f \<equiv> FunctionBody (literal (char_of (fmt_fill_code f)))\<close>
+  \<open>fmt_fill f \<equiv> FunctionBody
+     (if fmt_fill_code f < 128 then literal (char_of (fmt_fill_code f))
+      else unimplemented STR ''formatting: fill character outside ASCII'')\<close>
 
 context reference
 begin
@@ -61,11 +63,13 @@ definition fmt_emit :: \<open>('a, 'b, fmt_Formatter) Global_Store.ref \<Rightar
       ('s, (unit, fmt_Error) result, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>fmt_emit ptr g \<equiv> FunctionBody \<lbrakk>
      let fo = *ptr;
-     if \<llangle>g fo = None\<rrangle> {
-       \<epsilon>\<open>unimplemented STR ''formatting: output outside ASCII''\<close>
-     };
-     ptr = \<llangle>fmt_append fo (the (g fo))\<rrangle>;
-     Ok(())
+     match \<llangle>g fo\<rrangle> {
+       None \<Rightarrow> \<epsilon>\<open>unimplemented STR ''formatting: output outside ASCII''\<close>,
+       Some(t) \<Rightarrow> {
+         ptr = \<llangle>fmt_append fo t\<rrangle>;
+         Ok(())
+       }
+     }
   \<rbrakk>\<close>
 
 text\<open>\<^verbatim>\<open>Formatter::write_str\<close>, \<^verbatim>\<open>Formatter::write_char\<close>, \<^verbatim>\<open>Formatter::pad\<close>,
