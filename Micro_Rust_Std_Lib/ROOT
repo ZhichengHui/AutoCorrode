@@ -8,6 +8,7 @@ session Micro_Rust_Std_Lib = HOL +
     Shallow_Separation_Logic
     Crush
     Micro_Rust_Interfaces_Core
+    "Word_Lib"
   theories
     StdLib_All
     StdLib_Arithmetic
@@ -23,6 +24,8 @@ session Micro_Rust_Std_Lib = HOL +
     StdLib_Tuple
   theories
     StdLib_Frontend_Models
+    StdLib_Fmt_Text
+    StdLib_Fmt
     Micro_Rust_Std_Lib
   document_files
     "root.tex"
