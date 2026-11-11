@@ -181,6 +181,7 @@ nonterminal urust_shallow_match_pattern_args
 
 syntax
   "_urust_shallow_match" :: "[('s, 'v, 'r, 'abort, 'i, 'o) expression, urust_shallow_match_branches] \<Rightarrow> ('sp, 'vp, 'rp, 'abort, 'i, 'o) expression"  ("match (_) \<lbrace>/ _/ \<rbrace>" [20, 20]20)
+  "_urust_shallow_refutable_let_else" :: "urust_shallow_match_pattern \<Rightarrow> logic \<Rightarrow> logic"
   "_urust_shallow_switch" :: "[('s, 'v, 'r, 'abort, 'i, 'o) expression, urust_shallow_match_branches] \<Rightarrow> ('sp, 'vp, 'rp, 'abort, 'i, 'o) expression"  ("match'_switch (_) \<lbrace>/ _/ \<rbrace>" [20, 20]20)
   \<comment>\<open>Basic case branches\<close>
   "_urust_shallow_match1" :: "[urust_shallow_match_pattern, 'b] \<Rightarrow> urust_shallow_match_branches"  ("(2_ \<Rightarrow>/ _)" [100, 20] 21)
@@ -401,11 +402,14 @@ translations
                                 (_urust_shallow_match1 ptrn this)
                                 (_urust_shallow_match1 _urust_shallow_match_pattern_other (CONST skip)))"
 
+  \<comment>\<open>A \<^verbatim>\<open>let\<close>-\<^verbatim>\<open>else\<close> needs a refutable pattern (as in Rust): with an irrefutable
+     one, \<^verbatim>\<open>let x = if c { a } else { b };\<close> would also parse as a \<^verbatim>\<open>let\<close>-\<^verbatim>\<open>else\<close>.\<close>
   "_urust_shallow_let_else ptrn exp that after"
-    \<rightleftharpoons> "_urust_shallow_match exp
-                             (_urust_shallow_match2
-                                (_urust_shallow_match1 ptrn after)
-                                (_urust_shallow_match1 _urust_shallow_match_pattern_other that))"
+    \<rightharpoonup> "_urust_shallow_refutable_let_else ptrn
+                             (_urust_shallow_match exp
+                               (_urust_shallow_match2
+                                  (_urust_shallow_match1 ptrn after)
+                                  (_urust_shallow_match1 _urust_shallow_match_pattern_other that)))"
 
   \<comment>\<open>Let bindings\<close>
   "_urust_shallow_let_in x exp cont"
@@ -1007,12 +1011,28 @@ let
   \<comment>\<open>A pattern is irrefutable if it is built only from wildcards, variables and constructors
      that are the only constructor of their datatype (tuples, structs). A case clause after an
      irrefutable pattern would be redundant, which HOL's case syntax rejects.\<close>
+  \<comment>\<open>The constant an identifier of a pattern denotes: at parse-translation time an
+     identifier may still be a free variable that names a constant.\<close>
+  fun pattern_const_name ctxt c =
+    (case c of
+      Const ("_constrain", _) $ t $ _ => pattern_const_name ctxt t
+    | Const (n, _) => SOME (if String.isPrefix (Lexicon.mark_const "") n then Lexicon.unmark_const n else n)
+    | Free (n, _) =>
+        (case try (Proof_Context.read_const {proper = true, strict = false} ctxt) n of
+          SOME (Const (n', _)) => SOME n'
+        | _ => NONE)
+    | _ => NONE);
+
+  \<comment>\<open>A pattern identifier that names no constant binds a variable.\<close>
+  fun pattern_variable ctxt c =
+    (case c of
+      Const ("_constrain", _) $ t $ _ => pattern_variable ctxt t
+    | Free _ => pattern_const_name ctxt c = NONE
+    | _ => false);
+
   fun single_constructor ctxt c =
     let
-      fun name_of (Const ("_constrain", _) $ t $ _) = name_of t
-        | name_of (Const (n, _)) =
-            SOME (if String.isPrefix (Lexicon.mark_const "") n then Lexicon.unmark_const n else n)
-        | name_of _ = NONE
+      val name_of = pattern_const_name ctxt
     in
       (case name_of c of
         NONE => false
@@ -1033,7 +1053,8 @@ let
       fun pat_irr p =
         (case p of
           Const ("_urust_shallow_match_pattern_other", _) => true
-        | Const ("_urust_shallow_match_pattern_constr_no_args", _) $ c => single_constructor ctxt c
+        | Const ("_urust_shallow_match_pattern_constr_no_args", _) $ c =>
+            pattern_variable ctxt c orelse single_constructor ctxt c
         | Const ("_urust_shallow_match_pattern_constr_with_args", _) $ c $ args =>
             single_constructor ctxt c andalso args_irr args
         | _ => false)
@@ -1284,8 +1305,12 @@ let
     | urust_shallow_match_tr ctxt args =
         case_error ("_urust_shallow_match: unexpected arguments: " ^ Syntax.string_of_term ctxt
           (list_comb (Syntax.const \<^syntax_const>\<open>_urust_shallow_match\<close>, args)));
+  fun urust_shallow_refutable_let_else_tr ctxt [pat, t] =
+        if irrefutable_pat ctxt pat then case_error "let-else with an irrefutable pattern" else t
+    | urust_shallow_refutable_let_else_tr _ _ = case_error "_urust_shallow_refutable_let_else: unexpected arguments";
 in
-  [(\<^syntax_const>\<open>_urust_shallow_match\<close>, urust_shallow_match_tr)]
+  [(\<^syntax_const>\<open>_urust_shallow_match\<close>, urust_shallow_match_tr),
+   (\<^syntax_const>\<open>_urust_shallow_refutable_let_else\<close>, urust_shallow_refutable_let_else_tr)]
 end
 \<close>
 
