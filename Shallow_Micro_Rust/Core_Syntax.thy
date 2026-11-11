@@ -1007,12 +1007,28 @@ let
   \<comment>\<open>A pattern is irrefutable if it is built only from wildcards, variables and constructors
      that are the only constructor of their datatype (tuples, structs). A case clause after an
      irrefutable pattern would be redundant, which HOL's case syntax rejects.\<close>
+  \<comment>\<open>The constant an identifier of a pattern denotes: at parse-translation time an
+     identifier may still be a free variable that names a constant.\<close>
+  fun pattern_const_name ctxt c =
+    (case c of
+      Const ("_constrain", _) $ t $ _ => pattern_const_name ctxt t
+    | Const (n, _) => SOME (if String.isPrefix (Lexicon.mark_const "") n then Lexicon.unmark_const n else n)
+    | Free (n, _) =>
+        (case try (Proof_Context.read_const {proper = true, strict = false} ctxt) n of
+          SOME (Const (n', _)) => SOME n'
+        | _ => NONE)
+    | _ => NONE);
+
+  \<comment>\<open>A pattern identifier that names no constant binds a variable.\<close>
+  fun pattern_variable ctxt c =
+    (case c of
+      Const ("_constrain", _) $ t $ _ => pattern_variable ctxt t
+    | Free _ => pattern_const_name ctxt c = NONE
+    | _ => false);
+
   fun single_constructor ctxt c =
     let
-      fun name_of (Const ("_constrain", _) $ t $ _) = name_of t
-        | name_of (Const (n, _)) =
-            SOME (if String.isPrefix (Lexicon.mark_const "") n then Lexicon.unmark_const n else n)
-        | name_of _ = NONE
+      val name_of = pattern_const_name ctxt
     in
       (case name_of c of
         NONE => false
@@ -1033,7 +1049,8 @@ let
       fun pat_irr p =
         (case p of
           Const ("_urust_shallow_match_pattern_other", _) => true
-        | Const ("_urust_shallow_match_pattern_constr_no_args", _) $ c => single_constructor ctxt c
+        | Const ("_urust_shallow_match_pattern_constr_no_args", _) $ c =>
+            pattern_variable ctxt c orelse single_constructor ctxt c
         | Const ("_urust_shallow_match_pattern_constr_with_args", _) $ c $ args =>
             single_constructor ctxt c andalso args_irr args
         | _ => false)

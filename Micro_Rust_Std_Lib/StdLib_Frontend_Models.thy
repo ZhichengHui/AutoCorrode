@@ -73,6 +73,44 @@ no_adhoc_overloading store_update_const \<rightleftharpoons> update_fun
 
 end
 
+section\<open>Type variables of a definition's body only\<close>
+
+text\<open>
+  A type variable that occurs in the right-hand side of a definition \<open>c \<equiv> t\<close> but not in the
+  type of \<open>c\<close> is not constrained by anything: the program never observes a value of that type
+  (for instance the element type of an empty list that is only measured, or the value type of a
+  \<^verbatim>\<open>return\<close> ending a loop body). Isabelle would make it an extra \<^typ>\<open>'a itself\<close>
+  parameter of \<open>c\<close>, so that no use of \<open>c\<close> at its stated type type-checks. With the option
+  \<open>urust_ground_body_types\<close> (set by the theories the frontend generates) such schematic type
+  variables are instantiated with \<^typ>\<open>unit\<close> after type inference.
+\<close>
+
+ML\<open>
+val urust_ground_body_types = Attrib.setup_config_bool \<^binding>\<open>urust_ground_body_types\<close> (K false);
+
+fun urust_ground_body_type_vars ctxt ts =
+  if not (Config.get ctxt urust_ground_body_types) then ts
+  else
+    let
+      (*the type variables of the context's fixed variables, e.g. of a locale's parameters*)
+      val context_tfrees =
+        Vartab.fold (fn (_, T) => Term.add_tfreesT T) (#1 (Variable.constraints_of ctxt)) []
+      fun ground (Const (\<^const_name>\<open>Pure.eq\<close>, _) $ lhs $ rhs) t =
+            let
+              val stated = fastype_of lhs
+              val tvars = subtract (op =) (Term.add_tvarsT stated []) (Term.add_tvars rhs [])
+              val tfrees = subtract (op =) (Term.add_tfreesT stated context_tfrees) (Term.add_tfrees rhs [])
+              val unit_for = (fn v => (v, \<^typ>\<open>unit\<close>))
+            in
+              t |> Term_Subst.instantiate (TVars.make (map unit_for tvars), Vars.empty)
+                |> Term_Subst.instantiate_frees (TFrees.make (map unit_for tfrees), Frees.empty)
+            end
+        | ground _ t = t
+    in map (fn t => ground t t) ts end;
+
+val _ = Context.>> (Syntax_Phases.term_check 100 "urust_ground_body_types" urust_ground_body_type_vars);
+\<close>
+
 (*<*)
 end
 (*>*)

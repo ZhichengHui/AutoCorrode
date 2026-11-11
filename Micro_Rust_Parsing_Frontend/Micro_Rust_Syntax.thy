@@ -238,6 +238,22 @@ syntax
     ("1'_i64")
   "_urust_numeral_ascription_i64" :: "num_const \<Rightarrow> urust"
     ("_'_i64")
+  "_urust_primitive_integral_cast_u128" :: "urust \<Rightarrow> urust"
+    ("(_) as/ u128" [100]299)
+  "_urust_primitive_integral_cast_i128" :: "urust \<Rightarrow> urust"
+    ("(_) as/ i128" [100]299)
+  "_urust_numeral_ascription_0_u128" :: "urust"
+    ("0'_u128")
+  "_urust_numeral_ascription_1_u128" :: "urust"
+    ("1'_u128")
+  "_urust_numeral_ascription_u128" :: "num_const \<Rightarrow> urust"
+    ("_'_u128")
+  "_urust_numeral_ascription_0_i128" :: "urust"
+    ("0'_i128")
+  "_urust_numeral_ascription_1_i128" :: "urust"
+    ("1'_i128")
+  "_urust_numeral_ascription_i128" :: "num_const \<Rightarrow> urust"
+    ("_'_i128")
   "_urust_numeral_ascription_0_isize" :: "urust"
     ("0'_isize")
   "_urust_numeral_ascription_1_isize" :: "urust"

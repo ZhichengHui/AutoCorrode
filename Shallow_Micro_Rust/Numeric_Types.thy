@@ -64,6 +64,14 @@ abbreviation ascribei32 :: \<open>32 sword \<Rightarrow> ('s, 32 sword, 'c, 'abo
 
 abbreviation ascribei64 :: \<open>64 sword \<Rightarrow> ('s, 64 sword, 'c, 'abort, 'i, 'o) expression\<close> where
   \<open>ascribei64 \<equiv> literal\<close>
+abbreviation ucastu128 :: \<open>('s, 'a::{len} word, 'c, 'abort, 'i, 'o) expression \<Rightarrow> ('s, 128 word, 'c, 'abort, 'i, 'o) expression\<close> where
+  \<open>ucastu128 \<equiv> bind1 (literal \<circ> word_rust_cast)\<close>
+abbreviation ucasti128 :: \<open>('s, 'a::{len} word, 'c, 'abort, 'i, 'o) expression \<Rightarrow> ('s, 128 sword, 'c, 'abort, 'i, 'o) expression\<close> where
+  \<open>ucasti128 \<equiv> bind1 (literal \<circ> word_rust_cast)\<close>
+abbreviation ascribeu128 :: \<open>128 word \<Rightarrow> ('s, 128 word, 'c, 'abort, 'i, 'o) expression\<close> where
+  \<open>ascribeu128 \<equiv> literal\<close>
+abbreviation ascribei128 :: \<open>128 sword \<Rightarrow> ('s, 128 sword, 'c, 'abort, 'i, 'o) expression\<close> where
+  \<open>ascribei128 \<equiv> literal\<close>
 
 subsection\<open>Arithmetic\<close>
 
