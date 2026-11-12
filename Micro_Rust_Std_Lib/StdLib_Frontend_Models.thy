@@ -1,6 +1,6 @@
 (*<*)
 theory StdLib_Frontend_Models
-  imports Crush.Crush StdLib_References Misc.Result "HOL-Library.Sublist" "Word_Lib.Word_Lib_Sumo"
+  imports Crush.Crush StdLib_References StdLib_Ordering Misc.Result "HOL-Library.Sublist" "Word_Lib.Word_Lib_Sumo"
 begin
 (*>*)
 
@@ -431,6 +431,144 @@ text\<open>\<^verbatim>\<open>Vec::shrink_to_fit\<close>: it changes only the ca
 definition vec_shrink_to_fit :: \<open>('a, 'b, 'v list) Global_Store.ref \<Rightarrow> ('s, unit, 'abort, 'i, 'o) function_body\<close> where
   \<open>vec_shrink_to_fit ptr \<equiv> FunctionBody (literal ())\<close>
 
+text\<open>\<^verbatim>\<open>Filter<I, P>\<close>: the state of \<^verbatim>\<open>I\<close> and the predicate; \<^verbatim>\<open>next\<close> is the inner
+  \<^verbatim>\<open>find\<close>, which takes the crate's fuel (it panics when the fuel runs out).\<close>
+fun filter_next :: \<open>nat \<Rightarrow> ('r, 's, 'v, 'abort, 'i, 'o) iter_step \<Rightarrow>
+    ('r \<times> ('v \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body) \<times> tnil, 's, 'v, 'abort, 'i, 'o) iter_step\<close> where
+  \<open>filter_next 0 nv st = FunctionBody \<lbrakk> panic!("out of fuel") \<rbrakk>\<close>
+| \<open>filter_next (Suc n) nv st = FunctionBody \<lbrakk>
+     let p = st.1;
+     let r = nv(st.0);
+     match r.0 {
+       None \<Rightarrow> (None, (r.1, p)),
+       Some(x) \<Rightarrow> {
+         if p(x) {
+           (\<llangle>Some x\<rrangle>, (r.1, p))
+         } else {
+           let g = \<llangle>filter_next n nv\<rrangle>;
+           g((r.1, p))
+         }
+       }
+     }
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>slice::Chunks<T>\<close>: the remaining elements and the chunk size (the last chunk may be
+  shorter).\<close>
+definition chunks_next :: \<open>('v list \<times> 64 word \<times> tnil, 's, 'v list, 'abort, 'i, 'o) iter_step\<close> where
+  \<open>chunks_next st \<equiv> FunctionBody (literal (case st of (xs, n, _) \<Rightarrow>
+     if xs = [] then (None, st, TNil) else (Some (take (unat n) xs), (drop (unat n) xs, n, TNil), TNil)))\<close>
+
+text\<open>\<^verbatim>\<open><[T]>::chunks(size)\<close>: panics if \<open>size\<close> is 0.\<close>
+definition slice_chunks :: \<open>'v list \<Rightarrow> 64 word \<Rightarrow> ('s, 'v list \<times> 64 word \<times> tnil, 'abort, 'i, 'o) function_body\<close> where
+  \<open>slice_chunks xs n \<equiv> FunctionBody \<lbrakk>
+     if n == 0_usize { panic!("chunk size must be non-zero") };
+     \<llangle>(xs, n, TNil)\<rrangle>
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>RangeFrom<T>\<close> of an unsigned integer as an iterator: its next value; panics on overflow
+  (Rust's debug semantics).\<close>
+definition range_from_next :: \<open>('l::len word, 's, 'l word, 'abort, 'i, 'o) iter_step\<close> where
+  \<open>range_from_next st \<equiv> FunctionBody \<lbrakk>
+     if \<llangle>st = - 1\<rrangle> { panic!("attempt to add with overflow") };
+     \<llangle>(Some st, st + 1, TNil)\<rrangle>
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>Iterator::any\<close>: stops at the first item satisfying the predicate; the result and
+  the iterator's state after it.\<close>
+fun iter_any_st :: \<open>nat \<Rightarrow> ('r, 's, 'v, 'abort, 'i, 'o) iter_step \<Rightarrow> ('v \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body) \<Rightarrow>
+    'r \<Rightarrow> ('s, bool \<times> 'r \<times> tnil, 'abort, 'i, 'o) function_body\<close> where
+  \<open>iter_any_st 0 nv f st = FunctionBody \<lbrakk> panic!("out of fuel") \<rbrakk>\<close>
+| \<open>iter_any_st (Suc n) nv f st = FunctionBody \<lbrakk>
+     let r = nv(st);
+     match r.0 {
+       None \<Rightarrow> (False, r.1),
+       Some(x) \<Rightarrow> {
+         if f(x) {
+           (True, r.1)
+         } else {
+           let g = \<llangle>iter_any_st n nv f\<rrangle>;
+           g(r.1)
+         }
+       }
+     }
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>Iterator::min\<close> for items of a linear order (the unsigned integers): the first least
+  item.\<close>
+definition iter_min :: \<open>nat \<Rightarrow> ('r, 's, 'v::linorder, 'abort, 'i, 'o) iter_step \<Rightarrow> 'r \<Rightarrow>
+    ('s, 'v option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>iter_min fuel nv st \<equiv> iter_fold fuel nv (\<lambda>m x. FunctionBody (literal (case m of
+     None \<Rightarrow> Some x | Some y \<Rightarrow> if x < y then Some x else Some y))) st None\<close>
+
+section\<open>Sorting and removing\<close>
+
+text\<open>A comparison as Rust's \<^verbatim>\<open>Ord::cmp\<close> on a linear order.\<close>
+definition ord_cmp :: \<open>'a::linorder \<Rightarrow> 'a \<Rightarrow> ordering\<close> where
+  \<open>ord_cmp a b \<equiv> if a < b then Less else if a = b then Equal else Greater\<close>
+
+text\<open>Lexicographic combination of comparisons (\<^verbatim>\<open>Ordering::then\<close>).\<close>
+definition ordering_then :: \<open>ordering \<Rightarrow> ordering \<Rightarrow> ordering\<close> where
+  \<open>ordering_then a b \<equiv> if a = Equal then b else a\<close>
+
+text\<open>Stable insertion of \<open>x\<close> into a sorted list: after the elements not greater than it.\<close>
+fun insort_by :: \<open>('v \<Rightarrow> 'v \<Rightarrow> ordering) \<Rightarrow> 'v \<Rightarrow> 'v list \<Rightarrow> 'v list\<close> where
+  \<open>insort_by c x [] = [x]\<close>
+| \<open>insort_by c x (y # ys) = (if c x y = Less then x # y # ys else y # insort_by c x ys)\<close>
+
+text\<open>The stable sort by a comparison (the result of every stable sort for a total order).\<close>
+definition sort_by :: \<open>('v \<Rightarrow> 'v \<Rightarrow> ordering) \<Rightarrow> 'v list \<Rightarrow> 'v list\<close> where
+  \<open>sort_by c xs \<equiv> foldl (\<lambda>acc x. insort_by c x acc) [] xs\<close>
+
+text\<open>\<^verbatim>\<open>Vec::dedup\<close> by structural equality: consecutive repeated elements removed.\<close>
+fun dedup_list :: \<open>'v list \<Rightarrow> 'v list\<close> where
+  \<open>dedup_list [] = []\<close>
+| \<open>dedup_list [x] = [x]\<close>
+| \<open>dedup_list (x # y # ys) = (if x = y then dedup_list (x # ys) else x # dedup_list (y # ys))\<close>
+
+section\<open>Characters\<close>
+
+text\<open>The UTF-8 encoding of a character (whose code point is below 256).\<close>
+definition char_utf8 :: \<open>char \<Rightarrow> 8 word list\<close> where
+  \<open>char_utf8 c \<equiv> let n = (of_char c :: nat) in
+     if n < 128 then [of_nat n] else [of_nat (192 + n div 64), of_nat (128 + n mod 64)]\<close>
+
+text\<open>\<^verbatim>\<open>PartialOrd::partial_cmp\<close> on integers: \<^verbatim>\<open>Some\<close> of the comparison.\<close>
+definition partial_cmp_word :: \<open>'l::len word \<Rightarrow> 'l word \<Rightarrow> ('s, ordering option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>partial_cmp_word a b \<equiv> FunctionBody (literal (Some (ord_cmp a b)))\<close>
+
+section\<open>Hash maps\<close>
+
+text\<open>A \<^verbatim>\<open>HashMap<K, V>\<close> whose iteration order is never observed is the list of its entries,
+  with distinct keys; keys are compared by HOL's equality (the frontend uses these models only for
+  keys whose \<^verbatim>\<open>PartialEq\<close> is structural).\<close>
+
+definition hm_lookup :: \<open>('k \<times> 'v \<times> tnil) list \<Rightarrow> 'k \<Rightarrow> 'v option\<close> where
+  \<open>hm_lookup m k \<equiv> map_option (\<lambda>e. fst (snd e)) (List.find (\<lambda>e. fst e = k) m)\<close>
+
+definition hm_index :: \<open>('k \<times> 'v \<times> tnil) list \<Rightarrow> 'k \<Rightarrow> nat\<close> where
+  \<open>hm_index m k \<equiv> length (takeWhile (\<lambda>e. fst e \<noteq> k) m)\<close>
+
+definition hashmap_new :: \<open>('s, ('k \<times> 'v \<times> tnil) list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>hashmap_new \<equiv> FunctionBody (literal [])\<close>
+
+definition hashmap_len :: \<open>('k \<times> 'v \<times> tnil) list \<Rightarrow> ('s, 64 word, 'abort, 'i, 'o) function_body\<close> where
+  \<open>hashmap_len m \<equiv> FunctionBody (literal (of_nat (length m)))\<close>
+
+definition hashmap_is_empty :: \<open>('k \<times> 'v \<times> tnil) list \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>hashmap_is_empty m \<equiv> FunctionBody (literal (m = []))\<close>
+
+definition hashmap_contains_key :: \<open>('k \<times> 'v \<times> tnil) list \<Rightarrow> 'k \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>hashmap_contains_key m k \<equiv> FunctionBody (literal (hm_lookup m k \<noteq> None))\<close>
+
+definition hashmap_get :: \<open>('k \<times> 'v \<times> tnil) list \<Rightarrow> 'k \<Rightarrow> ('s, 'v option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>hashmap_get m k \<equiv> FunctionBody (literal (hm_lookup m k))\<close>
+
+text\<open>\<^verbatim>\<open>Range<T>\<close> (\<^verbatim>\<open>a..b\<close>) of an unsigned integer as an iterator: the start while it is
+  below the end, each time increased.\<close>
+definition range_next :: \<open>('l::len word range, 's, 'l word, 'abort, 'i, 'o) iter_step\<close> where
+  \<open>range_next r \<equiv> FunctionBody (literal (if start r < end r
+     then (Some (start r), make_range (start r + 1) (end r) (end_inclusive r), TNil) else (None, r, TNil)))\<close>
+
 context reference
 begin
 
@@ -561,6 +699,123 @@ definition slice_copy_within :: \<open>('a, 'b, 'v list) Global_Store.ref \<Righ
        },
        None \<Rightarrow> panic!("range out of bounds")
      }
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>Iterator::any(&mut self, f)\<close> of an iterator with step function \<open>nv\<close>.\<close>
+definition iter_ref_any :: \<open>nat \<Rightarrow> ('r, 's, 'v, 'abort, 'i prompt, 'o prompt_output) iter_step \<Rightarrow>
+    ('v \<Rightarrow> ('s, bool, 'abort, 'i prompt, 'o prompt_output) function_body) \<Rightarrow>
+    ('a, 'b, 'r) Global_Store.ref \<Rightarrow> ('s, bool, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>iter_ref_any fuel nv f ptr \<equiv> FunctionBody \<lbrakk>
+     let st = *ptr;
+     let g = \<llangle>iter_any_st fuel nv f\<rrangle>;
+     let r = g(st);
+     ptr = r.1;
+     r.0
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open><[T]>::sort\<close>, \<^verbatim>\<open>sort_by\<close> with the comparison \<open>c\<close> (the frontend passes the \<^verbatim>\<open>Ord\<close> of
+  the element type).\<close>
+definition slice_sort_by :: \<open>('v \<Rightarrow> 'v \<Rightarrow> ordering) \<Rightarrow> ('a, 'b, 'v list) Global_Store.ref \<Rightarrow>
+      ('s, unit, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>slice_sort_by c ptr \<equiv> FunctionBody \<lbrakk>
+     let ls = *ptr;
+     ptr = \<llangle>sort_by c ls\<rrangle>;
+     ()
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>Vec::dedup\<close> (structural equality).\<close>
+definition vec_dedup :: \<open>('a, 'b, 'v list) Global_Store.ref \<Rightarrow>
+      ('s, unit, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>vec_dedup ptr \<equiv> FunctionBody \<lbrakk>
+     let ls = *ptr;
+     ptr = \<llangle>dedup_list ls\<rrangle>;
+     ()
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>Vec::swap_remove(&mut self, i)\<close>: the \<open>i\<close>-th element, replaced by the last one; panics if
+  \<open>i\<close> is out of bounds.\<close>
+definition vec_swap_remove :: \<open>('a, 'b, 'v list) Global_Store.ref \<Rightarrow> 64 word \<Rightarrow>
+      ('s, 'v, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>vec_swap_remove ptr i \<equiv> FunctionBody \<lbrakk>
+     let ls = *ptr;
+     if \<llangle>unat i < length ls\<rrangle> {
+        ptr = \<llangle>butlast (ls[unat i := last ls])\<rrangle>;
+        \<llangle>ls ! unat i\<rrangle>
+     } else {
+        panic!("swap_remove index out of bounds")
+     }
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>char::encode_utf8(self, &mut [u8])\<close> followed by \<^verbatim>\<open>as_bytes\<close>: writes the encoding to
+  the start of the buffer (panics if it is too short) and returns it.\<close>
+definition char_encode_utf8_bytes :: \<open>char \<Rightarrow> ('a, 'b, 8 word list) Global_Store.ref \<Rightarrow>
+      ('s, 8 word list, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>char_encode_utf8_bytes c ptr \<equiv> FunctionBody \<lbrakk>
+     let ls = *ptr;
+     if \<llangle>length (char_utf8 c) \<le> length ls\<rrangle> {
+        ptr = \<llangle>char_utf8 c @ drop (length (char_utf8 c)) ls\<rrangle>;
+        \<llangle>char_utf8 c\<rrangle>
+     } else {
+        panic!("encode_utf8: buffer too small")
+     }
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>HashMap::insert\<close>: replaces the value of an existing key (keeping the key), or adds the
+  entry; the old value.\<close>
+definition hashmap_insert :: \<open>('a, 'b, ('k \<times> 'v \<times> tnil) list) Global_Store.ref \<Rightarrow> 'k \<Rightarrow> 'v \<Rightarrow>
+      ('s, 'v option, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>hashmap_insert ptr k v \<equiv> FunctionBody \<lbrakk>
+     let m = *ptr;
+     match \<llangle>hm_lookup m k\<rrangle> {
+       Some(old) \<Rightarrow> {
+         ptr = \<llangle>m[hm_index m k := (k, v, TNil)]\<rrangle>;
+         Some(old)
+       },
+       None \<Rightarrow> {
+         ptr = \<llangle>m @ [(k, v, TNil)]\<rrangle>;
+         None
+       }
+     }
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>HashMap::remove\<close>: the value of the key, removed.\<close>
+definition hashmap_remove :: \<open>('a, 'b, ('k \<times> 'v \<times> tnil) list) Global_Store.ref \<Rightarrow> 'k \<Rightarrow>
+      ('s, 'v option, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>hashmap_remove ptr k \<equiv> FunctionBody \<lbrakk>
+     let m = *ptr;
+     ptr = \<llangle>List.filter (\<lambda>e. fst e \<noteq> k) m\<rrangle>;
+     \<llangle>hm_lookup m k\<rrangle>
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>HashMap::get_mut\<close>: a reference to the value of the key, focused into the map.\<close>
+definition hashmap_get_mut :: \<open>('a, 'b, ('k \<times> 'v \<times> tnil) list) Global_Store.ref \<Rightarrow> 'k \<Rightarrow>
+      ('s, ('a, 'b, 'v) Global_Store.ref option, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>hashmap_get_mut ptr k \<equiv> FunctionBody \<lbrakk>
+     let m = *ptr;
+     if \<llangle>hm_lookup m k \<noteq> None\<rrangle> {
+       \<llangle>Some (focus_reference_via_lens (snd\<^sub>L \<circ>\<^sub>L fst\<^sub>L) (focus_nth (hm_index m k) ptr))\<rrangle>
+     } else {
+       None
+     }
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>HashMap::entry(k)\<close> followed by \<^verbatim>\<open>Entry::or_insert(v)\<close>: the entry \<^verbatim>\<open>(map, key)\<close>;
+  \<^verbatim>\<open>or_insert\<close> adds \<open>(k, v)\<close> if the key is absent and returns a reference to the key's value.\<close>
+definition hashmap_entry :: \<open>('a, 'b, ('k \<times> 'v \<times> tnil) list) Global_Store.ref \<Rightarrow> 'k \<Rightarrow>
+      ('s, ('a, 'b, ('k \<times> 'v \<times> tnil) list) Global_Store.ref \<times> 'k \<times> tnil, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>hashmap_entry ptr k \<equiv> FunctionBody (literal (ptr, k, TNil))\<close>
+
+definition hashmap_entry_or_insert :: \<open>('a, 'b, ('k \<times> 'v \<times> tnil) list) Global_Store.ref \<times> 'k \<times> tnil \<Rightarrow> 'v \<Rightarrow>
+      ('s, ('a, 'b, 'v) Global_Store.ref, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>hashmap_entry_or_insert e v \<equiv> FunctionBody \<lbrakk>
+     let ptr = e.0;
+     let k = e.1;
+     let m = *ptr;
+     if \<llangle>hm_lookup m k = None\<rrangle> {
+       ptr = \<llangle>m @ [(k, v, TNil)]\<rrangle>;
+     };
+     let m2 = *ptr;
+     \<llangle>focus_reference_via_lens (snd\<^sub>L \<circ>\<^sub>L fst\<^sub>L) (focus_nth (hm_index m2 k) ptr)\<rrangle>
   \<rbrakk>\<close>
 
 no_adhoc_overloading store_update_const \<rightleftharpoons> update_fun
