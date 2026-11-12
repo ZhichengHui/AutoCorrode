@@ -9,6 +9,7 @@ session Micro_Rust_Std_Lib = HOL +
     Crush
     Micro_Rust_Interfaces_Core
     "Word_Lib"
+    Enum_Theory
   theories
     StdLib_All
     StdLib_Arithmetic
