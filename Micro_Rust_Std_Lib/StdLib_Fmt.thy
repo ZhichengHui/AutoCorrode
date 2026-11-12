@@ -18,10 +18,11 @@ text\<open>
   28: precision set; 29--30: alignment, 0 left, 1 right, 2 center, 3 unset), the width and the
   precision.
 
-  Strings are \<^typ>\<open>String.literal\<close>, which holds ASCII characters only. The text is computed as a
-  list of Unicode code points; when the output would contain a character outside ASCII (a
-  \<^verbatim>\<open>char\<close> argument or a fill character from U+0080 on), the model aborts with
-  \<^const>\<open>Unimplemented\<close> instead of producing a different string.
+  The output is a list of Unicode code points. Strings are \<^typ>\<open>String.literal\<close>, which holds
+  ASCII characters only: when the output read as a \<^verbatim>\<open>String\<close> (\<^verbatim>\<open>format!\<close>) or a
+  \<^verbatim>\<open>str\<close> written to it contains a character outside ASCII, or so does the fill character read
+  as a \<^verbatim>\<open>char\<close>, the model aborts with \<^const>\<open>Unimplemented\<close> instead of producing a
+  different string.
 \<close>
 
 subsection\<open>uRust functions\<close>
@@ -31,9 +32,13 @@ definition fmt_formatter_new :: \<open>32 word \<Rightarrow> 16 word \<Rightarro
       ('s, fmt_Formatter, 'abort, 'i, 'o) function_body\<close> where
   \<open>fmt_formatter_new fl w p \<equiv> FunctionBody (literal (fmt_opts fl w p))\<close>
 
-text\<open>The output of a formatter.\<close>
+text\<open>The output of a formatter as a string, and as code points.\<close>
 definition fmt_formatter_buf :: \<open>fmt_Formatter \<Rightarrow> ('s, String.literal, 'abort, 'i, 'o) function_body\<close> where
-  \<open>fmt_formatter_buf f \<equiv> FunctionBody (literal (fmt_buf f))\<close>
+  \<open>fmt_formatter_buf f \<equiv> FunctionBody (case fmt_lit (fmt_buf f) of
+     Some s \<Rightarrow> literal s
+   | None \<Rightarrow> unimplemented STR ''formatting: a string outside ASCII'')\<close>
+definition fmt_formatter_codes :: \<open>fmt_Formatter \<Rightarrow> ('s, nat list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>fmt_formatter_codes f \<equiv> FunctionBody (literal (fmt_buf f))\<close>
 
 text\<open>The option getters of \<^verbatim>\<open>Formatter\<close> (they take \<^verbatim>\<open>&self\<close>, a value).\<close>
 definition fmt_alternate :: \<open>fmt_Formatter \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
@@ -58,28 +63,25 @@ begin
 
 adhoc_overloading store_update_const \<rightleftharpoons> update_fun
 
-text\<open>Appends the text \<open>g f\<close> computes from the formatter \<open>f\<close>; aborts if it is not ASCII.\<close>
-definition fmt_emit :: \<open>('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow> (fmt_Formatter \<Rightarrow> String.literal option) \<Rightarrow>
+text\<open>Appends the text \<open>g f\<close> computes from the formatter \<open>f\<close>.\<close>
+definition fmt_emit :: \<open>('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow> (fmt_Formatter \<Rightarrow> nat list) \<Rightarrow>
       ('s, (unit, fmt_Error) result, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>fmt_emit ptr g \<equiv> FunctionBody \<lbrakk>
      let fo = *ptr;
-     match \<llangle>g fo\<rrangle> {
-       None \<Rightarrow> \<epsilon>\<open>unimplemented STR ''formatting: output outside ASCII''\<close>,
-       Some(t) \<Rightarrow> {
-         ptr = \<llangle>fmt_append fo t\<rrangle>;
-         Ok(())
-       }
-     }
+     ptr = \<llangle>fmt_append fo (g fo)\<rrangle>;
+     Ok(())
   \<rbrakk>\<close>
 
-text\<open>\<^verbatim>\<open>Formatter::write_str\<close>, \<^verbatim>\<open>Formatter::write_char\<close>, \<^verbatim>\<open>Formatter::pad\<close>,
+text\<open>\<^verbatim>\<open>Formatter::write_str\<close> (of a string, or of code points: a literal outside ASCII, the
+  output of another formatter), \<^verbatim>\<open>Formatter::write_char\<close>, \<^verbatim>\<open>Formatter::pad\<close>,
   \<^verbatim>\<open>Formatter::pad_integral\<close>.\<close>
-definition fmt_write_str where \<open>fmt_write_str ptr s \<equiv> fmt_emit ptr (\<lambda>_. Some s)\<close>
-definition fmt_write_char where \<open>fmt_write_char ptr c \<equiv> fmt_emit ptr (\<lambda>_. fmt_lit [of_char c])\<close>
-definition fmt_pad where \<open>fmt_pad ptr s \<equiv> fmt_emit ptr (\<lambda>f. fmt_lit (fmt_pad_codes f (fmt_codes s)))\<close>
+definition fmt_write_str where \<open>fmt_write_str ptr s \<equiv> fmt_emit ptr (\<lambda>_. fmt_codes s)\<close>
+definition fmt_write_codes where \<open>fmt_write_codes ptr cs \<equiv> fmt_emit ptr (\<lambda>_. cs)\<close>
+definition fmt_write_char where \<open>fmt_write_char ptr c \<equiv> fmt_emit ptr (\<lambda>_. [of_char c])\<close>
+definition fmt_pad where \<open>fmt_pad ptr s \<equiv> fmt_emit ptr (\<lambda>f. fmt_pad_codes f (fmt_codes s))\<close>
 definition fmt_pad_integral where
   \<open>fmt_pad_integral ptr nonneg pfx digs \<equiv>
-     fmt_emit ptr (\<lambda>f. fmt_lit (fmt_pad_integral_codes f nonneg (fmt_codes pfx) (fmt_codes digs)))\<close>
+     fmt_emit ptr (\<lambda>f. fmt_pad_integral_codes f nonneg (fmt_codes pfx) (fmt_codes digs))\<close>
 
 text\<open>The formatting-trait implementations of the primitive types.\<close>
 definition fmt_Display_word :: \<open>'l::len word \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>

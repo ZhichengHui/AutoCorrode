@@ -12,7 +12,7 @@ text\<open>Pure functions computing what the models in \<^verbatim>\<open>StdLib
 datatype fmt_Error = fmt_Error
 
 datatype fmt_Formatter =
-  fmt_Formatter_mk (fmt_buf: String.literal) (fmt_opt_flags: \<open>32 word\<close>) (fmt_opt_width: \<open>16 word\<close>)
+  fmt_Formatter_mk (fmt_buf: \<open>nat list\<close>) (fmt_opt_flags: \<open>32 word\<close>) (fmt_opt_width: \<open>16 word\<close>)
     (fmt_opt_precision: \<open>16 word\<close>)
 
 subsection\<open>Pure functions\<close>
@@ -20,7 +20,8 @@ subsection\<open>Pure functions\<close>
 definition fmt_codes :: \<open>String.literal \<Rightarrow> nat list\<close> where
   \<open>fmt_codes s \<equiv> List.map of_char (String.explode s)\<close>
 
-text\<open>The string of a list of code points; \<^term>\<open>None\<close> if one is outside ASCII.\<close>
+text\<open>The string of a list of code points (the output of a formatter as a \<^verbatim>\<open>String\<close>);
+  \<^term>\<open>None\<close> if one is outside ASCII, which \<^typ>\<open>String.literal\<close> cannot hold.\<close>
 definition fmt_lit :: \<open>nat list \<Rightarrow> String.literal option\<close> where
   \<open>fmt_lit xs \<equiv> if List.list_all (\<lambda>c. c < 128) xs then Some (String.implode (List.map char_of xs)) else None\<close>
 
@@ -125,49 +126,49 @@ definition fmt_bool_codes :: \<open>fmt_Formatter \<Rightarrow> bool \<Rightarro
 text\<open>The text a formatting-trait implementation appends, for a formatter with an empty buffer
   built from the options; used to test the model against Rust.\<close>
 definition fmt_opts :: \<open>32 word \<Rightarrow> 16 word \<Rightarrow> 16 word \<Rightarrow> fmt_Formatter\<close> where
-  \<open>fmt_opts fl w p \<equiv> fmt_Formatter_mk STR '''' fl w p\<close>
+  \<open>fmt_opts fl w p \<equiv> fmt_Formatter_mk [] fl w p\<close>
 
-definition fmt_append :: \<open>fmt_Formatter \<Rightarrow> String.literal \<Rightarrow> fmt_Formatter\<close> where
-  \<open>fmt_append f s \<equiv> case f of fmt_Formatter_mk b fl w p \<Rightarrow> fmt_Formatter_mk (b + s) fl w p\<close>
+definition fmt_append :: \<open>fmt_Formatter \<Rightarrow> nat list \<Rightarrow> fmt_Formatter\<close> where
+  \<open>fmt_append f s \<equiv> case f of fmt_Formatter_mk b fl w p \<Rightarrow> fmt_Formatter_mk (b @ s) fl w p\<close>
 
-text\<open>The text appended by the formatting-trait implementations of the primitive types
-  (\<^term>\<open>None\<close>: not ASCII).\<close>
-definition fmt_Display_word_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len word \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_Display_word_text f x \<equiv> fmt_lit (fmt_display_int_codes f True (unat x))\<close>
-definition fmt_Display_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len sword \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_Display_sword_text f x \<equiv> fmt_lit (fmt_display_int_codes f (0 \<le> sint x) (nat \<bar>sint x\<bar>))\<close>
-definition fmt_Display_bool_text :: \<open>fmt_Formatter \<Rightarrow> bool \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_Display_bool_text f x \<equiv> fmt_lit (fmt_bool_codes f x)\<close>
-definition fmt_Display_char_text :: \<open>fmt_Formatter \<Rightarrow> char \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_Display_char_text f x \<equiv> fmt_lit (fmt_display_char_codes f (of_char x))\<close>
-definition fmt_Display_str_text :: \<open>fmt_Formatter \<Rightarrow> String.literal \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_Display_str_text f x \<equiv> fmt_lit (fmt_pad_codes f (fmt_codes x))\<close>
-definition fmt_Debug_word_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len word \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_Debug_word_text f x \<equiv> fmt_lit (fmt_debug_int_codes f True (unat x) (unat x))\<close>
-definition fmt_Debug_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len sword \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_Debug_sword_text f x \<equiv> fmt_lit (fmt_debug_int_codes f (0 \<le> sint x) (nat \<bar>sint x\<bar>) (unat x))\<close>
-definition fmt_Debug_bool_text :: \<open>fmt_Formatter \<Rightarrow> bool \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_Debug_bool_text f x \<equiv> fmt_lit (fmt_bool_codes f x)\<close>
-definition fmt_Debug_char_text :: \<open>fmt_Formatter \<Rightarrow> char \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_Debug_char_text f x \<equiv> fmt_lit (fmt_debug_char_codes (of_char x))\<close>
-definition fmt_Debug_str_text :: \<open>fmt_Formatter \<Rightarrow> String.literal \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_Debug_str_text f x \<equiv> fmt_lit (fmt_debug_str_codes (fmt_codes x))\<close>
-definition fmt_LowerHex_word_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len word \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_LowerHex_word_text f x \<equiv> fmt_lit (fmt_radix_codes f 16 False (unat x))\<close>
-definition fmt_LowerHex_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len sword \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_LowerHex_sword_text f x \<equiv> fmt_lit (fmt_radix_codes f 16 False (unat x))\<close>
-definition fmt_UpperHex_word_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len word \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_UpperHex_word_text f x \<equiv> fmt_lit (fmt_radix_codes f 16 True (unat x))\<close>
-definition fmt_UpperHex_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len sword \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_UpperHex_sword_text f x \<equiv> fmt_lit (fmt_radix_codes f 16 True (unat x))\<close>
-definition fmt_Octal_word_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len word \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_Octal_word_text f x \<equiv> fmt_lit (fmt_radix_codes f 8 False (unat x))\<close>
-definition fmt_Octal_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len sword \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_Octal_sword_text f x \<equiv> fmt_lit (fmt_radix_codes f 8 False (unat x))\<close>
-definition fmt_Binary_word_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len word \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_Binary_word_text f x \<equiv> fmt_lit (fmt_radix_codes f 2 False (unat x))\<close>
-definition fmt_Binary_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len sword \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_Binary_sword_text f x \<equiv> fmt_lit (fmt_radix_codes f 2 False (unat x))\<close>
+text\<open>The text (code points) appended by the formatting-trait implementations of the primitive
+  types.\<close>
+definition fmt_Display_word_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len word \<Rightarrow> nat list\<close> where
+  \<open>fmt_Display_word_text f x \<equiv> fmt_display_int_codes f True (unat x)\<close>
+definition fmt_Display_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len sword \<Rightarrow> nat list\<close> where
+  \<open>fmt_Display_sword_text f x \<equiv> fmt_display_int_codes f (0 \<le> sint x) (nat \<bar>sint x\<bar>)\<close>
+definition fmt_Display_bool_text :: \<open>fmt_Formatter \<Rightarrow> bool \<Rightarrow> nat list\<close> where
+  \<open>fmt_Display_bool_text f x \<equiv> fmt_bool_codes f x\<close>
+definition fmt_Display_char_text :: \<open>fmt_Formatter \<Rightarrow> char \<Rightarrow> nat list\<close> where
+  \<open>fmt_Display_char_text f x \<equiv> fmt_display_char_codes f (of_char x)\<close>
+definition fmt_Display_str_text :: \<open>fmt_Formatter \<Rightarrow> String.literal \<Rightarrow> nat list\<close> where
+  \<open>fmt_Display_str_text f x \<equiv> fmt_pad_codes f (fmt_codes x)\<close>
+definition fmt_Debug_word_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len word \<Rightarrow> nat list\<close> where
+  \<open>fmt_Debug_word_text f x \<equiv> fmt_debug_int_codes f True (unat x) (unat x)\<close>
+definition fmt_Debug_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len sword \<Rightarrow> nat list\<close> where
+  \<open>fmt_Debug_sword_text f x \<equiv> fmt_debug_int_codes f (0 \<le> sint x) (nat \<bar>sint x\<bar>) (unat x)\<close>
+definition fmt_Debug_bool_text :: \<open>fmt_Formatter \<Rightarrow> bool \<Rightarrow> nat list\<close> where
+  \<open>fmt_Debug_bool_text f x \<equiv> fmt_bool_codes f x\<close>
+definition fmt_Debug_char_text :: \<open>fmt_Formatter \<Rightarrow> char \<Rightarrow> nat list\<close> where
+  \<open>fmt_Debug_char_text f x \<equiv> fmt_debug_char_codes (of_char x)\<close>
+definition fmt_Debug_str_text :: \<open>fmt_Formatter \<Rightarrow> String.literal \<Rightarrow> nat list\<close> where
+  \<open>fmt_Debug_str_text f x \<equiv> fmt_debug_str_codes (fmt_codes x)\<close>
+definition fmt_LowerHex_word_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len word \<Rightarrow> nat list\<close> where
+  \<open>fmt_LowerHex_word_text f x \<equiv> fmt_radix_codes f 16 False (unat x)\<close>
+definition fmt_LowerHex_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len sword \<Rightarrow> nat list\<close> where
+  \<open>fmt_LowerHex_sword_text f x \<equiv> fmt_radix_codes f 16 False (unat x)\<close>
+definition fmt_UpperHex_word_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len word \<Rightarrow> nat list\<close> where
+  \<open>fmt_UpperHex_word_text f x \<equiv> fmt_radix_codes f 16 True (unat x)\<close>
+definition fmt_UpperHex_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len sword \<Rightarrow> nat list\<close> where
+  \<open>fmt_UpperHex_sword_text f x \<equiv> fmt_radix_codes f 16 True (unat x)\<close>
+definition fmt_Octal_word_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len word \<Rightarrow> nat list\<close> where
+  \<open>fmt_Octal_word_text f x \<equiv> fmt_radix_codes f 8 False (unat x)\<close>
+definition fmt_Octal_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len sword \<Rightarrow> nat list\<close> where
+  \<open>fmt_Octal_sword_text f x \<equiv> fmt_radix_codes f 8 False (unat x)\<close>
+definition fmt_Binary_word_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len word \<Rightarrow> nat list\<close> where
+  \<open>fmt_Binary_word_text f x \<equiv> fmt_radix_codes f 2 False (unat x)\<close>
+definition fmt_Binary_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len sword \<Rightarrow> nat list\<close> where
+  \<open>fmt_Binary_sword_text f x \<equiv> fmt_radix_codes f 2 False (unat x)\<close>
 
 (*<*)
 end
