@@ -43,4 +43,18 @@ lemma the_map_of_Cons_neq: \<open>k' \<noteq> k \<Longrightarrow> the_map_of ((k
 
 ML_file "enum_cmd.ML"
 
+text \<open>Example: constructors with arguments (the sum-type representation).\<close>
+
+experiment
+begin
+
+enum example = Ex_A | Ex_B nat | Ex_C nat bool
+
+lemma \<open>Ex_B a \<noteq> Ex_C b c\<close> by simp
+lemma \<open>(Ex_C a b = Ex_C c d) \<longleftrightarrow> a = c \<and> b = d\<close> by simp
+lemma \<open>(case Ex_B 3 of Ex_A \<Rightarrow> 0 | Ex_B n \<Rightarrow> n | Ex_C n _ \<Rightarrow> n) = 3\<close> by simp
+lemma \<open>x = Ex_A \<or> (\<exists>n. x = Ex_B n) \<or> (\<exists>n b. x = Ex_C n b)\<close> by (cases x) simp_all
+
+end
+
 end

@@ -1,6 +1,8 @@
 (*<*)
 theory StdLib_Frontend_Models
   imports Crush.Crush StdLib_References
+    \<comment>\<open>\<^verbatim>\<open>enum\<close>, for the enums the frontend declares with it\<close>
+    "Enum_Theory.Enum_Theory"
   keywords "urust_const_data" :: thy_defn
 begin
 (*>*)
@@ -124,7 +126,9 @@ text\<open>A Rust constant with a large value (for instance a lookup table of 10
   \<^item> \<open>[d1, .., dn]\<close>, a list; \<open>()\<close>, the unit; \<open>(d1, .., dn)\<close> for \<open>n \<ge> 2\<close>, a tuple.
   The term is built in one pass over the data, from the expected type down: the inner syntax
   (parsing and type inference) takes time superlinear in the size of such a term, and does not
-  finish for tables of this size. Only the small term \<open>FunctionBody (literal x)\<close> is checked.\<close>
+  finish for tables of this size. Only the small term \<open>FunctionBody (literal x)\<close> is checked. A list of
+  more than 256 elements is a balanced tree of appends \<open>(l1 @ l2) @ (l3 @ l4)\<close> of lists of at most 256
+  elements: the definition takes time superlinear in the depth of the term.\<close>
 
 ML\<open>
 structure Urust_Const_Data =
@@ -183,10 +187,25 @@ fun parse s =
     val d = value ()
   in skip_ws (); if ! pos < n then err "trailing text" else d end
 
+(*Local_Theory.define takes time superlinear in the depth of the term: a list longer than chunk
+  is a balanced tree of appends (@) of lists of at most chunk elements, whose depth is
+  logarithmic in its length*)
+val chunk = 256
+
 (*the term of type T given by d*)
 fun elaborate ctxt T d =
   let
     val thy = Proof_Context.theory_of ctxt
+    fun mk_list A ts =
+      if length ts <= chunk then HOLogic.mk_list A ts
+      else
+        let
+          val LT = HOLogic.listT A
+          fun tree [l] = l
+            | tree ls =
+                let val (a, b) = chop (length ls div 2) ls
+                in Const (\<^const_name>\<open>append\<close>, LT --> LT --> LT) $ tree a $ tree b end
+        in tree (map (HOLogic.mk_list A) (chop_groups chunk ts)) end
     val consts = Unsynchronized.ref Symtab.empty
     fun const name =
       (case Symtab.lookup (! consts) name of
@@ -195,10 +214,13 @@ fun elaborate ctxt T d =
           let val c = Proof_Context.read_const {proper = true, strict = true} ctxt name
           in consts := Symtab.update (name, c) (! consts); c end)
     fun bad T what = error ("urust_const_data: " ^ what ^ " for the type " ^ Syntax.string_of_typ ctxt T)
-    fun elab T (Int i) = HOLogic.mk_number T i
+    (*the term is not type-checked as a whole: a numeral needs a type of the numeral classes*)
+    fun elab T (Int i) =
+          if Sign.of_sort thy (T, if i < 0 then \<^sort>\<open>neg_numeral\<close> else \<^sort>\<open>{zero, numeral}\<close>)
+          then HOLogic.mk_number T i else bad T ("the number " ^ string_of_int i)
       | elab T (List ds) =
           (case T of
-            Type (\<^type_name>\<open>list\<close>, [A]) => HOLogic.mk_list A (map (elab A) ds)
+            Type (\<^type_name>\<open>list\<close>, [A]) => mk_list A (map (elab A) ds)
           | _ => bad T "a list")
       | elab T (Tuple []) = if T = HOLogic.unitT then HOLogic.unit else bad T "()"
       | elab T (Tuple [d]) = elab T d
@@ -227,7 +249,7 @@ fun const_data ((b, raw_T), raw_data) lthy =
         Type (\<^type_name>\<open>function_body\<close>, [_, vT, _, _, _]) => vT
       | _ => error "urust_const_data: the type is not a function_body type")
     val v = elaborate lthy vT (parse raw_data)
-    val x = Free ("x", vT)
+    val x = Free (singleton (Variable.variant_names lthy) ("x", vT))
     val template = Syntax.check_term lthy
       (Type.constraint T (Const (\<^const_name>\<open>FunctionBody\<close>, dummyT) $ (Const (\<^const_name>\<open>literal\<close>, dummyT) $ x)))
     val rhs = Term.subst_free [(x, v)] template
@@ -242,6 +264,19 @@ val _ =
 
 end
 \<close>
+
+text\<open>Example: a list of tuples (the frontend's tuples end with \<^const>\<open>TNil\<close>) with a negative number.\<close>
+
+experiment
+begin
+
+urust_const_data "ex_table" :: \<open>('s, (32 sword \<times> bool \<times> tnil) list, 'abort, 'i, 'o) function_body\<close> =
+  \<open>[(1, True, TNil), (-2, False, TNil)]\<close>
+
+lemma \<open>ex_table = FunctionBody (literal [(1, True, TNil), (-2, False, TNil)])\<close>
+  by (simp add: ex_table_def)
+
+end
 
 (*<*)
 end

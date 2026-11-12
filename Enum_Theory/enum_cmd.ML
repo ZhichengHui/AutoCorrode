@@ -62,21 +62,17 @@ fun do_the_works ctxt works =
    and the proofs about one constructor stay small for enums with many constructors. *)
 fun halves tys = chop (length tys div 2) tys
 
-fun mk_sum_type [] = raise ERROR "Empty enum"
-  | mk_sum_type [ty] = ty
-  | mk_sum_type tys =
-    let val (l, r) = halves tys
-    in @{Type \<open>sum \<open>mk_sum_type l\<close> \<open>mk_sum_type r\<close>\<close>} end
-
-(* Inject a value of the nth of the types tys into their sum type (see mk_sum_type) *)
-fun mk_inj_term _ term [_] = term
-  | mk_inj_term n term tys =
+(* The sum type of the types tys (one or more), and for each of them the injection of its values
+   into the sum type, built in one pass over the tree *)
+fun sum_tree [ty] = (ty, [I])
+  | sum_tree tys =
     let
       val (l, r) = halves tys
-      val (a, b) = (mk_sum_type l, mk_sum_type r)
+      val ((a, injs_l), (b, injs_r)) = (sum_tree l, sum_tree r)
     in
-      if n < length l then @{Const\<open>Inl a b for \<open>mk_inj_term n term l\<close>\<close>}
-      else @{Const\<open>Inr b a for \<open>mk_inj_term (n - length l) term r\<close>\<close>}
+      (@{Type \<open>sum a b\<close>},
+       map (fn inj => fn t => @{Const\<open>Inl a b for \<open>inj t\<close>\<close>}) injs_l @
+       map (fn inj => fn t => @{Const\<open>Inr b a for \<open>inj t\<close>\<close>}) injs_r)
     end
 
 fun get_type_thm_local ctxt typ thm_suffix =
@@ -189,44 +185,19 @@ fun mk_case_certificate ctxt raw_thms =
     |> Thm.varifyT_global
   end
 
-fun mk_equal_eqns typ constr_terms constr_arg_typs inject_simps thy =
+(* The code equations for HOL.equal of the simple representation (constructors without arguments):
+   one per pair of constructors, and the reflexivity equation for nbe *)
+fun mk_equal_eqns typ constr_terms thy =
   let
-    val ctxt = Proof_Context.init_global thy
     val equal_const = Const (@{const_name HOL.equal}, typ --> typ --> HOLogic.boolT)
-
-    fun mk_applied_pair ctxt0 ((ci, argi), (cj, argj)) =
-      let
-        val (xs, ctxt1) = mk_Frees "x" argi ctxt0
-        val (ys, _) = mk_Frees "y" argj ctxt1
-        val lhs = list_comb (ci, xs)
-        val rhs = list_comb (cj, ys)
-        val eq_tm = equal_const $ lhs $ rhs
-        val is_same = (ci aconv cj)
-        val goal_body =
-          if is_same andalso null argi
-          then HOLogic.mk_eq (eq_tm, @{term True})
-          else if is_same
-          then HOLogic.mk_eq (eq_tm,
-            foldr1 HOLogic.mk_conj (map2 (fn x => fn y => HOLogic.mk_eq (x, y)) xs ys))
-          else HOLogic.mk_eq (eq_tm, @{term False})
-        val goal = fold_rev Logic.all (xs @ ys) (HOLogic.mk_Trueprop goal_body)
-      in
-        (goal, is_same andalso null argi)
-      end
-
-    val indexed = constr_terms ~~ constr_arg_typs
-    val pairs = map_product pair indexed indexed
-    val goals_with_refl = map (mk_applied_pair ctxt) pairs
-    val simp_thms = @{thms equal_eq} @ inject_simps
-    val eqns = map (fn (goal, _) =>
-      Goal.prove_sorry_global thy [] [] goal (fn {context, ...} =>
-        simp_tac (Simplifier.add_simps simp_thms context) 1)
-      |> Simpdata.mk_eq) goals_with_refl
-    val refl_eqn = fst (the (find_first (fn (_, (_, is_nullary_refl)) => is_nullary_refl)
-      (eqns ~~ goals_with_refl)))
-      handle Option => hd eqns
+    fun mk_goal (ci, cj) =
+      HOLogic.mk_Trueprop (HOLogic.mk_eq (equal_const $ ci $ cj, if ci aconv cj then @{term True} else @{term False}))
+    val eqns = map (fn pair =>
+      Goal.prove_sorry_global thy [] [] (mk_goal pair) (fn {context, ...} =>
+        simp_tac (Simplifier.add_simps @{thms equal_eq} context) 1)
+      |> Simpdata.mk_eq) (map_product pair constr_terms constr_terms)
   in
-    (refl_eqn, eqns)
+    (hd eqns, eqns)
   end
 
 (* The code equations for HOL.equal of the complex representation: x = y iff their
@@ -431,7 +402,7 @@ fun enum_cmd_complex (typ_binding, constrs) lthy =
 
     (* Build representation type as sum of products *)
     val prod_typs = map (HOLogic.mk_tupleT o snd) constrs_with_typs
-    val rep_typ = mk_sum_type prod_typs
+    val (rep_typ, injections) = sum_tree prod_typs
     val timer = time (timer "Setup")
 
     (* Step 1: Define the type using typedef *)
@@ -468,7 +439,7 @@ fun enum_cmd_complex (typ_binding, constrs) lthy =
         (* Build constructor body: \<lambda>x1 ... xn. Abs (Inl/Inr (x1, ..., xn)) *)
         val (var_terms, lthy1) = mk_Frees "x" arg_typs lthy
         val tuple = HOLogic.mk_tuple var_terms
-        val injected = mk_inj_term idx tuple prod_typs
+        val injected = nth injections idx tuple
         val abs_applied = abs_const $ injected
         (* Use absfree to properly abstract over Free variables *)
         val constr_tm = fold_rev lambda var_terms abs_applied
@@ -555,7 +526,7 @@ fun enum_cmd_complex (typ_binding, constrs) lthy =
     (* case f1 f2 ... x = case (Rep x) of Inl a => f1 a | Inr (Inl b) => f2 b | ... *)
     val case_body_var = rep_const $ x_ind
 
-    (* the branches split in halves as the types in mk_sum_type *)
+    (* the branches split in halves as the types in sum_tree *)
     fun mk_case_of_sum [] _ _ = raise ERROR "mk_case_of_sum: empty list"
       | mk_case_of_sum [rhs] var _ = rhs $ var
       | mk_case_of_sum rhss sum_var ctx =
@@ -609,7 +580,7 @@ fun enum_cmd_complex (typ_binding, constrs) lthy =
       let
         val (xs, _) = mk_Frees "x" arg_typs lthy7
         val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq
-          (rep_const $ list_comb (c_term, xs), mk_inj_term idx (HOLogic.mk_tuple xs) prod_typs))
+          (rep_const $ list_comb (c_term, xs), nth injections idx (HOLogic.mk_tuple xs)))
       in
         trace_prove lthy7 (map (fst o dest_Free) xs) [] prop (fn {context, ...} =>
           Local_Defs.unfold_tac context [nth constr_defs idx] THEN
@@ -1003,7 +974,7 @@ fun enum_cmd_simpl (typ_binding, constrs : binding list) lthy =
       |> add_and_prove_is_enum typ_name
       |> Local_Theory.background_theory
            (add_equal_instance typ constr_terms case_eq_thms
-              (fn thy => let val (refl, eqns) = mk_equal_eqns typ constr_terms (replicate n []) [] thy
+              (fn thy => let val (refl, eqns) = mk_equal_eqns typ constr_terms thy
                 in (refl, false) :: map (rpair true) (rev eqns) end))
 
   in

@@ -120,38 +120,42 @@ fun mk_update_defs typ_name lthy =
 
     val thms = flat (map (prove lthy'') (0 upto len - 1))
 
-    (*on g (update_f h r) with f \<noteq> g: the equation g (update_f h r) = g r, proved for h and r fixed
-      and instantiated to the term*)
-    val update_names = map dest_Const_name update_ts
-    (*the theorems for the proof at an instance of the record's type parameters*)
+    (*on g (update_f h r) with f \<noteq> g: the equation g (update_f h r) = g r, proved when first needed
+      for the pair f, g (generic in the record's type parameters: an update may change those that
+      occur in no field) and instantiated to the term*)
+    val sel_index = Symtab.make (map_index (fn (j, s) => (dest_Const_name s, j)) sels)
+    val upd_index = Symtab.make (map_index (fn (i, u) => (dest_Const_name u, i)) update_ts)
     val varifyT = map (Drule.zero_var_indexes o Thm.varifyT_global)
     val (split_v, simp_thms_v, update_defs_v) = (hd (varifyT [split]), varifyT simp_thms, varifyT update_defs)
+    val cache = Synchronized.var "scalable_datatype_record" (Inttab.empty : thm Inttab.table)
+    fun generic ctxt (i, j) =
+      (case Inttab.lookup (Synchronized.value cache) (i * len + j) of
+        SOME th => th
+      | NONE =>
+          let
+            val ([hn, rn], ctxt') = Variable.variant_fixes ["h", "r"] ctxt
+            val (h, r) = (Free (hn, dummyT), Free (rn, dummyT))
+            val sel = nth sels_dummy j
+            val prop = Syntax.check_term ctxt'
+              (HOLogic.mk_Trueprop (mk_eq_dummy (sel $ (dummify (nth update_ts i) $ h $ r), sel $ r)))
+            val th =
+              Goal.prove ctxt' [] [] prop (fn {context, ...} =>
+                record_tac split_v simp_thms_v [nth update_defs_v i] context)
+              |> singleton (Variable.export ctxt' ctxt)
+              |> Drule.zero_var_indexes
+              |> mk_meta_eq
+          in Synchronized.change cache (Inttab.update (i * len + j, th)); th end)
     fun proc _ ctxt ct =
       (case Thm.term_of ct of
-        sel $ (upd $ h $ r) =>
-          (case (find_index (fn s => s = dest_Const_name sel) (map dest_Const_name sels),
-                 find_index (fn u => (case upd of Const (c, _) => c = u | _ => false)) update_names) of
-            (j, i) =>
-              if j < 0 orelse i < 0 orelse i = j then NONE
-              else
-                let
-                  val ([hn, rn], ctxt') = Variable.variant_fixes ["h", "r"] ctxt
-                  val (hv, rv) = (Free (hn, fastype_of h), Free (rn, fastype_of r))
-                  (*the update may change type parameters that occur in no field: the selector
-                    of the updated record is at another instance than the one of r*)
-                  val sel_r = Const (dest_Const_name sel, fastype_of r --> range_type (fastype_of sel))
-                  val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (sel $ (upd $ hv $ rv), sel_r $ rv))
-                  val thm =
-                    Goal.prove ctxt' [] [] prop (fn {context, ...} =>
-                      record_tac split_v simp_thms_v [nth update_defs_v i] context)
-                    |> singleton (Variable.export ctxt' ctxt)
-                    |> Drule.zero_var_indexes
-                    |> mk_meta_eq
-                in
-                  SOME (Thm.instantiate (Thm.first_order_match (Thm.lhs_of thm, ct)) thm)
-                end)
+        Const (s, _) $ (Const (u, _) $ _ $ _) =>
+          (case (Symtab.lookup sel_index s, Symtab.lookup upd_index u) of
+            (SOME j, SOME i) =>
+              if i = j then NONE
+              else let val th = generic ctxt (i, j)
+                   in SOME (Thm.instantiate (Thm.first_order_match (Thm.lhs_of th, ct)) th) end
+          | _ => NONE)
       | _ => NONE)
-      handle Pattern.MATCH => NONE | ERROR _ => NONE
+      handle Pattern.MATCH => NONE
 
     (*the simproc applies at every instance of the record's type parameters (schematic in the
       selectors): they become type variables new to the context, which define_simproc generalises*)
@@ -185,9 +189,10 @@ fun record_cmd binding opts tyargs args lthy =
     (map (apsnd (apfst (Syntax.parse_typ lthy) o apsnd (Typedecl.read_constraint lthy))) tyargs)
     (map (apsnd (Syntax.parse_typ lthy)) args) lthy
 
+(*as Datatype_Records' parser*)
 val parse_ctr_options =
   Scan.optional (\<^keyword>\<open>(\<close> |-- Parse.list1 (Plugin_Name.parse_filter >> K) --| \<^keyword>\<open>)\<close> >>
-    (fn fs => fold I fs (K Plugin_Name.default_filter))) (K Plugin_Name.default_filter)
+    (fn fs => fold I fs Datatype_Records.default_ctr_options_cmd)) Datatype_Records.default_ctr_options_cmd
 
 val _ =
   Outer_Syntax.local_theory \<^command_keyword>\<open>scalable_datatype_record\<close>
@@ -198,6 +203,23 @@ val _ =
 
 end
 \<close>
+
+text\<open>Example: a record with a type parameter in no field (\<open>'b\<close>), which updates may change.\<close>
+
+experiment
+begin
+
+scalable_datatype_record ('a, 'b) example =
+  ex_x :: 'a
+  ex_y :: nat
+  ex_z :: bool
+
+lemma \<open>ex_y (update_ex_z h r) = ex_y r\<close> by simp
+lemma \<open>ex_x (update_ex_x h r) = h (ex_x r)\<close> by simp
+lemma \<open>ex_x (update_ex_y h (update_ex_z g r)) = ex_x r\<close> by simp
+lemma \<open>h (ex_y r) = ex_y r \<Longrightarrow> update_ex_y h r = r\<close> by simp
+
+end
 
 (*<*)
 end
