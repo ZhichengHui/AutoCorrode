@@ -1,6 +1,7 @@
 (*<*)
 theory StdLib_Frontend_Models
   imports Crush.Crush StdLib_References
+  keywords "urust_const_data" :: thy_defn
 begin
 (*>*)
 
@@ -109,6 +110,137 @@ fun urust_ground_body_type_vars ctxt ts =
     in map (fn t => ground t t) ts end;
 
 val _ = Context.>> (Syntax_Phases.term_check 100 "urust_ground_body_types" urust_ground_body_type_vars);
+\<close>
+
+text\<open>A Rust constant with a large value (for instance a lookup table of 10^5 entries) is
+  translated from the value computed by Rust's constant evaluation, with
+
+  \<^verbatim>\<open>urust_const_data "c" :: \<open>T\<close> = \<open>data\<close>\<close>
+
+  which defines \<open>c \<equiv> FunctionBody (literal v)\<close> of type \<open>T\<close>, a \<^typ>\<open>('s, 'v, 'abort, 'i, 'o) function_body\<close>.
+  The value \<open>v :: 'v\<close> is given by \<open>data\<close>:
+  \<^item> an integer, possibly negative, a numeral of the expected type;
+  \<^item> \<open>name\<close> or \<open>name(d1, .., dn)\<close>, the constant \<open>name\<close> applied to the values \<open>d1\<close>, .., \<open>dn\<close>;
+  \<^item> \<open>[d1, .., dn]\<close>, a list; \<open>()\<close>, the unit; \<open>(d1, .., dn)\<close> for \<open>n \<ge> 2\<close>, a tuple.
+  The term is built in one pass over the data, from the expected type down: the inner syntax
+  (parsing and type inference) takes time superlinear in the size of such a term, and does not
+  finish for tables of this size. Only the small term \<open>FunctionBody (literal x)\<close> is checked.\<close>
+
+ML\<open>
+structure Urust_Const_Data =
+struct
+
+datatype data = Int of int | App of string * data list | List of data list | Tuple of data list
+
+fun parse s =
+  let
+    val n = size s
+    val pos = Unsynchronized.ref 0
+    fun peek () = if ! pos < n then SOME (String.sub (s, ! pos)) else NONE
+    fun advance () = pos := ! pos + 1
+    fun skip_ws () = (case peek () of SOME c => if Char.isSpace c then (advance (); skip_ws ()) else () | NONE => ())
+    fun err msg = error ("urust_const_data: " ^ msg ^ " at offset " ^ string_of_int (! pos))
+    fun expect c = (skip_ws (); if peek () = SOME c then advance () else err ("expected " ^ quote (str c)))
+    fun is_name_char c = Char.isAlphaNum c orelse c = #"_" orelse c = #"'" orelse c = #"."
+    fun take_while p =
+      let val start = ! pos
+          fun go () = (case peek () of SOME c => if p c then (advance (); go ()) else () | NONE => ())
+      in go (); String.substring (s, start, ! pos - start) end
+    fun digits () =
+      let val ds = take_while Char.isDigit
+      in if ds = "" then err "expected digits"
+         else fold (fn c => fn acc => acc * 10 + (Char.ord c - Char.ord #"0")) (String.explode ds) 0 end
+    fun value () =
+      (skip_ws ();
+       case peek () of
+         SOME #"[" => List (seq #"[" #"]")
+       | SOME #"(" =>
+           (case seq #"(" #")" of
+              [] => Tuple []
+            | [_] => err "a tuple has at least two components"
+            | ds => Tuple ds)
+       | SOME #"-" => (advance (); Int (~ (digits ())))
+       | SOME c =>
+           if Char.isDigit c then Int (digits ())
+           else if is_name_char c then
+             let val name = take_while is_name_char
+             in skip_ws (); if peek () = SOME #"(" then App (name, seq #"(" #")") else App (name, []) end
+           else err ("unexpected " ^ quote (str c))
+       | NONE => err "unexpected end")
+    and seq opn cls =
+      let
+        val _ = expect opn
+        fun more acc =
+          let val d = value () in
+            skip_ws ();
+            (case peek () of
+              SOME c => if c = #"," then (advance (); more (d :: acc))
+                        else if c = cls then (advance (); rev (d :: acc))
+                        else err ("expected " ^ quote "," ^ " or " ^ quote (str cls))
+            | NONE => err "unexpected end")
+          end
+      in skip_ws (); if peek () = SOME cls then (advance (); []) else more [] end
+    val d = value ()
+  in skip_ws (); if ! pos < n then err "trailing text" else d end
+
+(*the term of type T given by d*)
+fun elaborate ctxt T d =
+  let
+    val thy = Proof_Context.theory_of ctxt
+    val consts = Unsynchronized.ref Symtab.empty
+    fun const name =
+      (case Symtab.lookup (! consts) name of
+        SOME c => c
+      | NONE =>
+          let val c = Proof_Context.read_const {proper = true, strict = true} ctxt name
+          in consts := Symtab.update (name, c) (! consts); c end)
+    fun bad T what = error ("urust_const_data: " ^ what ^ " for the type " ^ Syntax.string_of_typ ctxt T)
+    fun elab T (Int i) = HOLogic.mk_number T i
+      | elab T (List ds) =
+          (case T of
+            Type (\<^type_name>\<open>list\<close>, [A]) => HOLogic.mk_list A (map (elab A) ds)
+          | _ => bad T "a list")
+      | elab T (Tuple []) = if T = HOLogic.unitT then HOLogic.unit else bad T "()"
+      | elab T (Tuple [d]) = elab T d
+      | elab T (Tuple (d :: ds)) =
+          (case T of
+            Type (\<^type_name>\<open>prod\<close>, [A, B]) => HOLogic.mk_prod (elab A d, elab B (Tuple ds))
+          | _ => bad T "a tuple")
+      | elab T (App (name, ds)) =
+          let
+            val (c, cT) = dest_Const (const name)
+            val k = length ds
+            val argTs = take k (binder_types cT)
+            val _ = if length argTs = k then () else error ("urust_const_data: too many arguments of " ^ quote name)
+            val resT = funpow k range_type cT
+            val tyenv = Sign.typ_match thy (resT, T) Vartab.empty
+              handle Type.TYPE_MATCH => bad T ("the constant " ^ quote name ^ " of type " ^ Syntax.string_of_typ ctxt cT)
+            val inst = Envir.subst_type tyenv
+          in list_comb (Const (c, inst cT), map2 (fn A => elab (inst A)) argTs ds) end
+  in elab T d end
+
+fun const_data ((b, raw_T), raw_data) lthy =
+  let
+    val T = Syntax.read_typ lthy raw_T
+    val vT =
+      (case T of
+        Type (\<^type_name>\<open>function_body\<close>, [_, vT, _, _, _]) => vT
+      | _ => error "urust_const_data: the type is not a function_body type")
+    val v = elaborate lthy vT (parse raw_data)
+    val x = Free ("x", vT)
+    val template = Syntax.check_term lthy
+      (Type.constraint T (Const (\<^const_name>\<open>FunctionBody\<close>, dummyT) $ (Const (\<^const_name>\<open>literal\<close>, dummyT) $ x)))
+    val rhs = Term.subst_free [(x, v)] template
+  in
+    lthy |> Local_Theory.define ((b, NoSyn), ((Thm.def_binding b, []), rhs)) |> snd
+  end
+
+val _ =
+  Outer_Syntax.local_theory \<^command_keyword>\<open>urust_const_data\<close>
+    "define a uRust constant by its value, built from data without the inner syntax"
+    (Parse.binding -- (\<^keyword>\<open>::\<close> |-- Parse.typ) -- (\<^keyword>\<open>=\<close> |-- Parse.embedded) >> const_data)
+
+end
 \<close>
 
 (*<*)

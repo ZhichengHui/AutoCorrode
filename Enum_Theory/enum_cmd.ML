@@ -57,21 +57,27 @@ fun do_the_works ctxt works =
     (* if we do asynchronous proving, then we just don't bother doing optimization *)
     map (fn f => f ()) works
 
-(* Build sum type from a list of types*)
+(* The sum type of a list of types, as a balanced tree: the first half on the left, the rest on
+   the right. A value of the nth type is then O(log n) injections deep, so the case combinator
+   and the proofs about one constructor stay small for enums with many constructors. *)
+fun halves tys = chop (length tys div 2) tys
+
 fun mk_sum_type [] = raise ERROR "Empty enum"
   | mk_sum_type [ty] = ty
-  | mk_sum_type (ty :: tys) =
-    @{Type \<open>sum ty \<open>mk_sum_type tys\<close>\<close>}
+  | mk_sum_type tys =
+    let val (l, r) = halves tys
+    in @{Type \<open>sum \<open>mk_sum_type l\<close> \<open>mk_sum_type r\<close>\<close>} end
 
-(* Build injection term: inject the nth element into a sum type *)
-(* Special case: if there's only one constructor, no injection needed *)
-fun mk_inj_term 0 term @{Type \<open>sum a b\<close>} = @{Const\<open>Inl a b for term\<close>}
-  | mk_inj_term 0 term _ = term  (* Single constructor, no sum type needed *)
-  | mk_inj_term n term @{Type \<open>sum a rest\<close>} = @{Const\<open>Inr rest a for \<open>mk_inj_term (n - 1) term rest\<close>\<close>}
-  | mk_inj_term _ _ _ = raise ERROR "mk_inj_term: malformed sum type"
-
-fun find_inner_most_arg (_ $ x) = find_inner_most_arg x
-  | find_inner_most_arg t = t
+(* Inject a value of the nth of the types tys into their sum type (see mk_sum_type) *)
+fun mk_inj_term _ term [_] = term
+  | mk_inj_term n term tys =
+    let
+      val (l, r) = halves tys
+      val (a, b) = (mk_sum_type l, mk_sum_type r)
+    in
+      if n < length l then @{Const\<open>Inl a b for \<open>mk_inj_term n term l\<close>\<close>}
+      else @{Const\<open>Inr b a for \<open>mk_inj_term (n - length l) term r\<close>\<close>}
+    end
 
 fun get_type_thm_local ctxt typ thm_suffix =
   let
@@ -223,7 +229,25 @@ fun mk_equal_eqns typ constr_terms constr_arg_typs inject_simps thy =
     (refl_eqn, eqns)
   end
 
-fun add_equal_instance typ constr_terms constr_arg_typs case_eq_thms inject_simps thy =
+(* The code equations for HOL.equal of the complex representation: x = y iff their
+   representations are equal, with one code equation for Rep per constructor (rep_eqns), instead
+   of one equation per pair of constructors (mk_equal_eqns) *)
+fun equal_eqns_by_rep typ rep_const Rep_inject rep_eqns thy =
+  let
+    val (x, y) = (Free ("x", typ), Free ("y", typ))
+    val equal = Const (@{const_name HOL.equal}, typ --> typ --> HOLogic.boolT)
+    fun prove xs prop = Goal.prove_global thy xs [] (HOLogic.mk_Trueprop prop)
+      (fn {context, ...} => simp_tac (put_simpset HOL_basic_ss context
+        |> Simplifier.add_simps (Rep_inject :: @{thms equal_eq simp_thms})) 1)
+      |> Simpdata.mk_eq
+    val by_rep = prove ["x", "y"] (HOLogic.mk_eq (equal $ x $ y, HOLogic.mk_eq (rep_const $ x, rep_const $ y)))
+    val refl = prove ["x"] (HOLogic.mk_eq (equal $ x $ x, @{term True}))
+  in
+    (refl, false) :: (by_rep, true) :: map (rpair true o Thm.varifyT_global) rep_eqns
+  end
+
+(* equal_eqns: the code equations of HOL.equal, with their nbe flags *)
+fun add_equal_instance typ constr_terms case_eq_thms equal_eqns thy =
   let
     val tyco = dest_Type_name typ
     fun add_eq_def lthy_inst =
@@ -254,38 +278,28 @@ fun add_equal_instance typ constr_terms constr_arg_typs case_eq_thms inject_simp
          let
            val ctxt = Proof_Context.init_global thy'
            val case_thms = map Thm.varifyT_global case_eq_thms
-           val (refl_eqn, eq_eqns) =
-             mk_equal_eqns typ constr_terms constr_arg_typs inject_simps thy'
          in thy'
-           |> Code.declare_default_eqns_global
-                ((refl_eqn, false) :: map (rpair true) (rev eq_eqns))
+           |> Code.declare_default_eqns_global (equal_eqns thy')
            |> Code.declare_default_eqns_global (map (rpair true) (rev case_thms))
            |> Code.declare_case_global (mk_case_certificate ctxt case_thms)
          end)
   end
 
-fun prove_complex_induct lthy2 vars ind_prop Abs_induct constrs_with_typs constr_defs =
-trace_prove lthy2 vars [] ind_prop
-      (fn {context, ...} =>
-        let
-          val n = length constrs_with_typs
-        in EVERY [
-            resolve_tac context [Abs_induct] 1,
-            rewrite_goal_tac context constr_defs 1,
-            (* For singleton enums, no sum type case splitting needed *)
-            if n = 1 then ALLGOALS (clarsimp_tac context)
-            else
-              REPEAT (Subgoal.FOCUS (fn {context, concl, ...} =>
-                let val concl = Thm.term_of concl
-                    val var = find_inner_most_arg concl
-                    val cvar = Thm.cterm_of context var
-                    val bconcl = concl |> HOLogic.dest_Trueprop |> Thm.cterm_of context
-                    val instan = infer_instantiate' context [SOME cvar, SOME bconcl] @{thm sum.exhaust}
-                in rtac context instan 1
-                end) context 1 THEN
-                ALLGOALS (clarsimp_tac context))
-          ]
-        end)
+(* The induction rule: P holds for Abs y for every y. The quantifier over y is split along the
+   sum type (split_sum_all) and the tuples (split_paired_All, unit_all) down to the injections of
+   the constructors' arguments, where the premises (constructor definitions unfolded) apply. The
+   body is simplified before its quantifier is split, so a constructor argument that is itself
+   a sum or a tuple is not split further. *)
+fun prove_complex_induct lthy2 vars ind_prop Abs_induct constr_defs =
+  trace_prove lthy2 vars [] ind_prop
+    (fn {context, ...} =>
+      rewrite_goal_tac context constr_defs 1 THEN
+      Subgoal.FOCUS (fn {context = ctxt, prems, ...} =>
+        resolve_tac ctxt [Abs_induct] 1 THEN
+        Object_Logic.full_atomize_tac ctxt 1 THEN
+        simp_tac (put_simpset HOL_basic_ss ctxt |> Simplifier.add_simps
+          (prems @ @{thms UNIV_I simp_thms split_sum_all split_paired_All} @
+           [@{lemma \<open>(\<forall>x::unit. P x) \<longleftrightarrow> P ()\<close> by (metis old.unit.exhaust)}])) 1) context 1)
 
 (* prove exhaust using induction principle *)
 fun solve_exhaust_tac context x_ind goal induct_thm = 
@@ -304,10 +318,28 @@ fun solve_exhaust_tac context x_ind goal induct_thm =
     ]
   end
 
-fun add_and_prove_exhaust lthy typ_name vars x_ind goal induct_thm constr_names =
+(* The exhaustion rule [| \<And>xs. x = C1 xs \<Longrightarrow> P; ... |] \<Longrightarrow> P, forward from the induction rule
+   instantiated with \<lambda>y. x = y \<longrightarrow> P: each of its premises is discharged by a small proof from the
+   corresponding premise of the goal, so the proof state never holds all constructors' cases *)
+fun forward_exhaust_tac context x_ind induct_thm =
+  Subgoal.FOCUS (fn {context = ctxt, prems, concl, ...} =>
+    let
+      val P = HOLogic.dest_Trueprop (Thm.term_of concl)
+      val T = fastype_of x_ind
+      val Q = Abs ("y", T, HOLogic.mk_imp (HOLogic.mk_eq (x_ind, Bound 0), P))
+      val inst = map (fn (v as (_, vT)) => (v, Thm.cterm_of ctxt (if vT = T then x_ind else Q)))
+        (Term.add_vars (Thm.prop_of induct_thm) [])
+      val induct_inst = Thm.instantiate (TVars.empty, Vars.make inst) induct_thm
+        |> Conv.fconv_rule (Thm.beta_conversion true)
+      fun discharge prem acc =
+        Thm.implies_elim acc (Goal.prove_internal ctxt [] (Thm.cprem_of acc 1) (fn _ =>
+          resolve_tac ctxt @{thms impI} 1 THEN resolve_tac ctxt [prem] 1 THEN assume_tac ctxt 1))
+      val final = @{thm mp} OF [fold discharge prems induct_inst, @{thm refl}]
+    in resolve_tac ctxt [final] 1 end) context 1
+
+fun add_and_prove_exhaust lthy typ_name vars goal tac constr_names =
   let
-    val exhaust_thm = trace_prove lthy vars [] goal
-        (fn {context, ...} => solve_exhaust_tac context x_ind goal induct_thm)
+    val exhaust_thm = trace_prove lthy vars [] goal (fn {context, ...} => tac context)
     val exhaust_binding = Binding.qualify true typ_name (Binding.name "exhaust")
     val case_names_att = Attrib.internal \<^here> (fn _ => Rule_Cases.case_names constr_names)
   in
@@ -342,6 +374,45 @@ fun solve_split_tac context x_varc case_eq_thms exhaust_thm =
           end)
         context i) |> time_tactic "split to simp" context
     ]
+  end
+
+(* The split rule P (case x of ..) = ((\<forall>xs. x = C1 xs \<longrightarrow> P (f1 xs)) \<and> ...), each direction
+   built from one small proof per constructor (arg_counts: the numbers of their arguments) *)
+fun forward_split_tac context x_ind case_eq_thms exhaust_thm arg_counts =
+  let
+    val n = length arg_counts
+    val case_eqs = map mk_meta_eq case_eq_thms
+    fun conjuncts 1 th = [th]
+      | conjuncts k th = (th RS @{thm conjunct1}) :: conjuncts (k - 1) (th RS @{thm conjunct2})
+    fun dest_conjs 1 t = [t]
+      | dest_conjs k (Const (\<^const_name>\<open>HOL.conj\<close>, _) $ a $ b) = a :: dest_conjs (k - 1) b
+      | dest_conjs _ t = raise TERM ("forward_split_tac: not a conjunction", [t])
+    (* P (case x) \<Longrightarrow> each clause: rewrite x to the constructor, then the case *)
+    val to_clauses = Subgoal.FOCUS (fn {context = ctxt, prems, concl, ...} =>
+      let
+        val H = hd prems
+        fun clause (j, cl) = Goal.prove ctxt [] [] (HOLogic.mk_Trueprop cl) (fn {context = c, ...} =>
+          REPEAT (resolve_tac c @{thms allI} 1) THEN resolve_tac c @{thms impI} 1 THEN
+          Subgoal.FOCUS (fn {context = c', prems = eqs, ...} =>
+            resolve_tac c' [rewrite_rule c' [mk_meta_eq (hd eqs), nth case_eqs j] H] 1) c 1)
+        val clauses = dest_conjs n (HOLogic.dest_Trueprop (Thm.term_of concl))
+      in resolve_tac ctxt [foldr1 (fn (a, b) => @{thm conjI} OF [a, b]) (map_index clause clauses)] 1 end)
+    (* the clauses \<Longrightarrow> P (case x): by exhaustion, with the clause of the constructor *)
+    val from_clauses = Subgoal.FOCUS (fn {context = ctxt, prems, concl, ...} =>
+      let
+        val cls = conjuncts n (hd prems)
+        val goal = HOLogic.dest_Trueprop (Thm.term_of concl)
+        val inst = map (fn (v as (_, vT)) => (v, Thm.cterm_of ctxt (if vT = fastype_of x_ind then x_ind else goal)))
+          (Term.add_vars (Thm.prop_of exhaust_thm) [])
+        val exhaust_inst = Thm.instantiate (TVars.empty, Vars.make inst) exhaust_thm
+        fun discharge ((i, cl), k) acc =
+          Thm.implies_elim acc (Goal.prove_internal ctxt [] (Thm.cprem_of acc 1) (fn _ =>
+            Subgoal.FOCUS (fn {context = c', prems = eqs, ...} =>
+              rewrite_goal_tac c' [mk_meta_eq (hd eqs), nth case_eqs i] 1 THEN
+              resolve_tac c' [@{thm mp} OF [funpow k (fn th => th RS @{thm spec}) cl, hd eqs]] 1) ctxt 1))
+      in resolve_tac ctxt [fold discharge (map_index I cls ~~ arg_counts) exhaust_inst] 1 end)
+  in
+    resolve_tac context @{thms iffI} 1 THEN to_clauses context 1 THEN from_clauses context 1
   end
 
 fun solve_split_asm_tac context split_thm =
@@ -387,6 +458,7 @@ fun enum_cmd_complex (typ_binding, constrs) lthy =
     val { Abs_induct,
           Abs_inverse,
           Abs_inject,
+          Rep_inject,
            ...} = typedef_info
     val timer = time (timer "Typedef")
 
@@ -396,7 +468,7 @@ fun enum_cmd_complex (typ_binding, constrs) lthy =
         (* Build constructor body: \<lambda>x1 ... xn. Abs (Inl/Inr (x1, ..., xn)) *)
         val (var_terms, lthy1) = mk_Frees "x" arg_typs lthy
         val tuple = HOLogic.mk_tuple var_terms
-        val injected = mk_inj_term idx tuple rep_typ
+        val injected = mk_inj_term idx tuple prod_typs
         val abs_applied = abs_const $ injected
         (* Use absfree to properly abstract over Free variables *)
         val constr_tm = fold_rev lambda var_terms abs_applied
@@ -445,7 +517,7 @@ fun enum_cmd_complex (typ_binding, constrs) lthy =
     val ind_prop = Logic.list_implies (ind_prems_prop, HOLogic.mk_Trueprop ind_concl)
 
     val vars = Variable.add_free_names lthy2 ind_prop []
-    val induct_thm = prove_complex_induct lthy2 vars ind_prop Abs_induct constrs_with_typs constr_defs
+    val induct_thm = prove_complex_induct lthy2 vars ind_prop Abs_induct constr_defs
 
     (* Add the induction theorem to the context with qualified name and induct_type attribute *)
     val induct_binding = Binding.qualify true typ_name (Binding.name "induct")
@@ -483,16 +555,18 @@ fun enum_cmd_complex (typ_binding, constrs) lthy =
     (* case f1 f2 ... x = case (Rep x) of Inl a => f1 a | Inr (Inl b) => f2 b | ... *)
     val case_body_var = rep_const $ x_ind
 
+    (* the branches split in halves as the types in mk_sum_type *)
     fun mk_case_of_sum [] _ _ = raise ERROR "mk_case_of_sum: empty list"
       | mk_case_of_sum [rhs] var _ = rhs $ var
-      | mk_case_of_sum (rhs :: rest) sum_var ctx =
+      | mk_case_of_sum rhss sum_var ctx =
         let
+          val (l, r) = halves rhss
           val @{Type \<open>sum a b\<close>} = fastype_of sum_var
-          val (right_var, ctx') = yield_singleton (mk_Frees "b") b ctx
-          val right_body = mk_case_of_sum rest right_var ctx'
-          val right_branch = lambda right_var right_body
+          val ([left_var, right_var], ctx') = mk_Frees "b" [a, b] ctx
+          val left_branch = lambda left_var (mk_case_of_sum l left_var ctx')
+          val right_branch = lambda right_var (mk_case_of_sum r right_var ctx')
         in
-          @{Const \<open>case_sum a Ta b for rhs right_branch sum_var\<close>}
+          @{Const \<open>case_sum a Ta b for left_branch right_branch sum_var\<close>}
         end
 
     val case_body = mk_case_of_sum branches case_body_var lthy5
@@ -516,43 +590,83 @@ fun enum_cmd_complex (typ_binding, constrs) lthy =
            (fn _ => Case_Translation.register case_const constr_terms)
     val timer = time (timer "Case expression")
 
+    (* case f1 .. fn x \<equiv> the case tree on Rep x, for all f1 .. fn and x: unfolding the case
+       combinator (a \<lambda>-term of n + 1 arguments) costs time quadratic in n, so it is done once *)
+    val case_app =
+      let
+        val lhs = list_comb (case_const, case_funs @ [x_ind])
+        val rhs = case_body
+        val vars = map (fst o dest_Free) (case_funs @ [x_ind])
+      in
+        Goal.prove lthy7 [] [] (Logic.mk_equals (lhs, rhs)) (fn {context, ...} =>
+          rewrite_goal_tac context [case_def] 1 THEN resolve_tac context @{thms Pure.reflexive} 1)
+        |> Thm.generalize (Names.empty, Names.make_set vars) 0
+      end
+
+    (* Rep (Ci x1 .. xk) = injection of (x1, .., xk), the code equations of Rep
+       and the first step of the case equations *)
+    fun mk_rep_eqn (idx, (c_term, arg_typs)) =
+      let
+        val (xs, _) = mk_Frees "x" arg_typs lthy7
+        val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq
+          (rep_const $ list_comb (c_term, xs), mk_inj_term idx (HOLogic.mk_tuple xs) prod_typs))
+      in
+        trace_prove lthy7 (map (fst o dest_Free) xs) [] prop (fn {context, ...} =>
+          Local_Defs.unfold_tac context [nth constr_defs idx] THEN
+          simp_tac (put_simpset HOL_basic_ss context |> Simplifier.add_simps [Abs_inverse, @{thm UNIV_I}]) 1)
+      end
+    val rep_eqns = map_index mk_rep_eqn (constr_terms ~~ map snd constrs_with_typs)
+
     (* Step 5: Prove case equality theorems *)
-    (* For each constructor Ci: case f1 ... fn (Ci x1 ... xk) = fi x1 ... xk *)
+    (* For each constructor Ci: case f1 ... fn (Ci x1 ... xk) = fi x1 ... xk, forward from case_app
+       at x = Ci x1 .. xk: Rep (Ci x1 .. xk) is the injection, which selects the branch of the case
+       tree (a goal of this size for each constructor would take time quadratic in n to prove) *)
+    val x_var = (fst (dest_Free x_ind), 0)
+    val case_ss = put_simpset HOL_basic_ss lthy7
+      |> Simplifier.add_simps @{thms sum.case prod.case}
+      |> Simplifier.add_cong @{thm sum.case_cong_weak}
     fun mk_case_eq_thm (idx, (c_term, arg_typs)) =
       let
-        (* Create fresh variables for constructor arguments *)
-        val arg_vars = mk_Frees "x" arg_typs lthy7 |> fst
-        val c_applied = list_comb (c_term, arg_vars)
-
-        (* Create fresh variables for case functions *)
+        val (xs, _) = mk_Frees "x" arg_typs lthy7
+        val th = infer_instantiate lthy7 [(x_var, Thm.cterm_of lthy7 (list_comb (c_term, xs)))] case_app
+          |> Conv.fconv_rule (Conv.arg_conv (Simplifier.rewrite (case_ss |> Simplifier.add_simps [nth rep_eqns idx])))
+        val expected = list_comb (Var ((fst (dest_Free (nth case_funs idx)), 0), nth case_arg_typs idx), xs)
+        val _ = if snd (Logic.dest_equals (Thm.prop_of th)) aconv expected then ()
+          else raise THM ("enum: case equation of constructor " ^ string_of_int idx, 0, [th])
+        val eq = th RS @{thm meta_eq_to_obj_eq}
+        val eq = Thm.generalize (Names.empty, Names.make_set (map (fst o dest_Free) xs)) (Thm.maxidx_of eq + 1) eq
+        (* stated as before (the form the code generator's case certificate expects) and proved
+           by the derived equation *)
         val case_fun_vars = mk_Frees "f" case_arg_typs lthy7 |> fst
-
-        (* LHS: case f1 ... fn (Ci x1 ... xk) *)
-        val lhs = list_comb (case_const, case_fun_vars @ [c_applied])
-
-        (* RHS: fi x1 ... xk *)
-        val fi = nth case_fun_vars idx
-        val rhs = list_comb (fi, arg_vars)
-
-        val eq = HOLogic.mk_eq (lhs, rhs)
-
-        val goal = fold_rev Logic.all (arg_vars @ case_fun_vars) (HOLogic.mk_Trueprop eq)
-
-        (* Prove it using case_def and constructor definitions *)
-        (* TODO: This proof needs proper tactics to handle tuple destructuring *)
-        val thm = trace_prove lthy7 [] [] goal
-          (fn {context, ...} =>
-            rewrite_goal_tac context [case_def] 1 THEN
-            clarsimp_tac (Simplifier.add_simps (Abs_inverse :: case_def :: constr_defs) context) 1)
+        val goal = fold_rev Logic.all (xs @ case_fun_vars) (HOLogic.mk_Trueprop (HOLogic.mk_eq
+          (list_comb (case_const, case_fun_vars @ [list_comb (c_term, xs)]), list_comb (nth case_fun_vars idx, xs))))
       in
-        thm
+        trace_prove lthy7 [] [] goal (fn {context, ...} => resolve_tac context [eq] 1)
       end
 
     val case_eq_thms = map_index mk_case_eq_thm (constr_terms ~~ map snd constrs_with_typs)
 
+    (* Ci x1 .. xk = Ci y1 .. yk \<longleftrightarrow> x1 = y1 \<and> .. \<and> xk = yk, as for a datatype *)
+    fun mk_inject (idx, (c_term, arg_typs)) =
+      let
+        val (xs, ctxt') = mk_Frees "x" arg_typs lthy7
+        val (ys, _) = mk_Frees "y" arg_typs ctxt'
+        val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (HOLogic.mk_eq (list_comb (c_term, xs), list_comb (c_term, ys)),
+          foldr1 HOLogic.mk_conj (map2 (curry HOLogic.mk_eq) xs ys)))
+      in
+        trace_prove lthy7 (map (fst o dest_Free) (xs @ ys)) [] prop (fn {context, ...} =>
+          Local_Defs.unfold_tac context [nth constr_defs idx] THEN
+          simp_tac (put_simpset HOL_basic_ss context
+            |> Simplifier.add_simps (Abs_inject :: @{thms UNIV_I sum.inject prod.inject simp_thms})) 1)
+      end
+    val inject_thms = map_index I (constr_terms ~~ map snd constrs_with_typs)
+      |> filter_out (null o snd o snd) |> map mk_inject
+
     (* Store case theorems as ENUM.cases with simp attribute *)
     val cases_binding = Binding.qualify true typ_name (Binding.name "cases")
     val ((_, _), lthy8) = lthy7
+      |> Local_Theory.note ((Binding.qualify true typ_name (Binding.name "inject"), @{attributes [simp]}), inject_thms)
+      |> snd
       |> Local_Theory.note ((cases_binding, @{attributes [simp]}), case_eq_thms)
     val timer = time (timer "Case Equalities")
 
@@ -572,7 +686,8 @@ fun enum_cmd_complex (typ_binding, constrs) lthy =
     val goal = Logic.list_implies (premises, P)
     val vars = Variable.add_free_names lthy8 goal []
     val constr_names = map (Binding.name_of o fst) constrs_with_typs
-    val (exhaust_thm, lthy9) = add_and_prove_exhaust lthy8 typ_name vars x_ind goal induct_thm constr_names
+    val (exhaust_thm, lthy9) =
+      add_and_prove_exhaust lthy8 typ_name vars goal (fn ctxt => forward_exhaust_tac ctxt x_ind induct_thm) constr_names
     val _ = time (timer "Case Split")
 
     (* Step 7: Prove split theorems *)
@@ -604,10 +719,9 @@ fun enum_cmd_complex (typ_binding, constrs) lthy =
     val split_prop = HOLogic.mk_eq (lhs, rhs) |> HOLogic.mk_Trueprop
     val split_vars = Variable.add_free_names lthy9 split_prop []
 
-    val x_varc = Thm.cterm_of lthy9 x_ind
     val split_thm = trace_prove lthy9 split_vars [] split_prop
       (fn {context, ...} =>
-        solve_split_tac context x_varc case_eq_thms exhaust_thm)
+        forward_split_tac context x_ind case_eq_thms exhaust_thm (map (length o snd) constrs_with_typs))
 
     fun mk_split_clause' ((ctor, branch), arg_typs) =
       let
@@ -641,9 +755,8 @@ fun enum_cmd_complex (typ_binding, constrs) lthy =
 
     val lthy11 = lthy10
       |> Local_Theory.background_theory
-           (add_equal_instance typ constr_terms (map snd constrs_with_typs)
-              case_eq_thms
-              (Abs_inject :: constr_defs))
+           (add_equal_instance typ constr_terms case_eq_thms
+              (equal_eqns_by_rep typ rep_const Rep_inject rep_eqns))
 
   in
     lthy11
@@ -829,7 +942,8 @@ fun enum_cmd_simpl (typ_binding, constrs : binding list) lthy =
     val goal = Logic.list_implies (premises, P)
     val vars = Variable.add_free_names lthy9 goal []
     val constr_names = map Binding.name_of constrs
-    val (exhaust_thm, lthy10) = add_and_prove_exhaust lthy9 typ_name vars x_ind goal induct_thm constr_names
+    val (exhaust_thm, lthy10) =
+      add_and_prove_exhaust lthy9 typ_name vars goal (fn ctxt => solve_exhaust_tac ctxt x_ind goal induct_thm) constr_names
     val timer = time (timer "Exhaustiveness")
 
     (* Step 8: Prove split theorems *)
@@ -888,8 +1002,9 @@ fun enum_cmd_simpl (typ_binding, constrs : binding list) lthy =
     val lthy12 = lthy11
       |> add_and_prove_is_enum typ_name
       |> Local_Theory.background_theory
-           (add_equal_instance typ constr_terms (replicate n [])
-              case_eq_thms [])
+           (add_equal_instance typ constr_terms case_eq_thms
+              (fn thy => let val (refl, eqns) = mk_equal_eqns typ constr_terms (replicate n []) [] thy
+                in (refl, false) :: map (rpair true) (rev eqns) end))
 
   in
     lthy12

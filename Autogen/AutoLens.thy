@@ -4,6 +4,7 @@
 (*<*)
 theory AutoLens
   imports AutoCommon "Lenses_And_Other_Optics.Lenses_And_Other_Optics" "HOL-Library.Datatype_Records"
+    Scalable_Datatype_Records
 begin
 (*>*)
 
