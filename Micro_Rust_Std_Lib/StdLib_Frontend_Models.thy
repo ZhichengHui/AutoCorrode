@@ -379,11 +379,60 @@ text\<open>\<^verbatim>\<open>str::chars\<close>: the characters.\<close>
 definition str_chars :: \<open>String.literal \<Rightarrow> ('s, char list, 'abort, 'i, 'o) function_body\<close> where
   \<open>str_chars s \<equiv> FunctionBody (literal (String.explode s))\<close>
 
-text\<open>The write-back of a mutable borrow of the subslice of \<open>xs\<close> starting at \<open>lo\<close> (the frontend
-  copies the subslice into a fresh mutable local and writes its final value \<open>ys\<close> back, which has
-  the subslice's length): \<open>xs\<close> with the subslice replaced by \<open>ys\<close>.\<close>
-definition slice_splice :: \<open>'v list \<Rightarrow> 64 word \<Rightarrow> 'v list \<Rightarrow> ('s, 'v list, 'abort, 'i, 'o) function_body\<close> where
-  \<open>slice_splice xs lo ys \<equiv> FunctionBody (literal (take (unat lo) xs @ ys @ drop (unat lo + length ys) xs))\<close>
+subsection\<open>Subslices\<close>
+
+text\<open>The part of a list after its first \<open>a\<close> elements and before its last \<open>k\<close> ones.\<close>
+definition sublist_view :: \<open>nat \<Rightarrow> nat \<Rightarrow> 'v list \<Rightarrow> 'v list option\<close> where
+  \<open>sublist_view a k xs \<equiv>
+     if a + k \<le> length xs then Some (List.take (length xs - a - k) (List.drop a xs)) else None\<close>
+
+definition sublist_modify :: \<open>nat \<Rightarrow> nat \<Rightarrow> ('v list \<Rightarrow> 'v list) \<Rightarrow> 'v list \<Rightarrow> 'v list\<close> where
+  \<open>sublist_modify a k f xs \<equiv>
+     if a + k \<le> length xs then
+       List.take a xs @ f (List.take (length xs - a - k) (List.drop a xs)) @ List.drop (length xs - k) xs
+     else xs\<close>
+
+lemma sublist_split:
+  assumes \<open>a + k \<le> length xs\<close>
+  shows \<open>List.take a xs @ List.take (length xs - a - k) (List.drop a xs) @ List.drop (length xs - k) xs = xs\<close>
+proof -
+  have \<open>List.drop (length xs - k) xs = List.drop (length xs - a - k) (List.drop a xs)\<close>
+    using assms by (simp add: add.commute)
+  then show ?thesis
+    by (simp only: append_take_drop_id)
+qed
+
+lemma sublist_modify_view:
+  shows \<open>sublist_view a k (sublist_modify a k f xs) = map_option f (sublist_view a k xs)\<close>
+  by (auto simp add: sublist_view_def sublist_modify_def)
+
+lemma sublist_modify_id:
+  assumes \<open>map_option f (sublist_view a k xs) = sublist_view a k xs\<close>
+  shows \<open>sublist_modify a k f xs = xs\<close>
+  using assms sublist_split[of a k xs] by (auto simp add: sublist_view_def sublist_modify_def)
+
+lemma sublist_modify_comp:
+  shows \<open>sublist_modify a k f (sublist_modify a k g xs) = sublist_modify a k (\<lambda>x. f (g x)) xs\<close>
+  by (auto simp add: sublist_modify_def)
+
+text\<open>The focus of a mutable borrow of a subslice: on the elements between the first \<open>a\<close> and
+  the last \<open>k\<close>. It is valid, unlike a focus on the fixed positions \<open>a..b\<close> (an update of another
+  length would break it, see \<^verbatim>\<open>StdLib_Slice\<close>); the two agree on the lists of the same
+  length, and a slice keeps its length.\<close>
+lift_definition sublist_focus :: \<open>nat \<Rightarrow> nat \<Rightarrow> ('v list, 'v list) focus\<close> is
+  \<open>\<lambda>a k. make_focus_raw_via_view_modify (sublist_view a k) (sublist_modify a k)\<close>
+  by (intro is_valid_focus_via_modifyI)
+     (auto simp add: sublist_modify_view sublist_modify_id sublist_modify_comp)
+
+lemma sublist_focus_components [focus_components]:
+  shows \<open>focus_view (sublist_focus a k) = sublist_view a k\<close>
+    and \<open>focus_update (sublist_focus a k) y xs = sublist_modify a k (\<lambda>_. y) xs\<close>
+    and \<open>focus_modify (sublist_focus a k) f xs = sublist_modify a k f xs\<close>
+  apply (transfer; clarsimp simp add: make_focus_raw_via_view_modify_def)
+  apply (transfer; clarsimp simp add: make_focus_raw_via_view_modify_def)
+  apply (transfer; clarsimp simp add: make_focus_raw_via_view_modify_components sublist_modify_view
+    sublist_modify_id sublist_modify_comp is_valid_view_modify_def)
+  done
 
 text\<open>\<^verbatim>\<open><[T]>::get\<close> by a range (\<^verbatim>\<open>a..b\<close>, \<^verbatim>\<open>a..=b\<close>, \<^verbatim>\<open>..b\<close>, \<^verbatim>\<open>..=b\<close>, \<^verbatim>\<open>a..\<close>,
   \<^verbatim>\<open>..\<close>; the last four by their only field): the subslice, \<^verbatim>\<open>None\<close> if the range is decreasing or
@@ -563,11 +612,33 @@ definition hashmap_contains_key :: \<open>('k \<times> 'v \<times> tnil) list \<
 definition hashmap_get :: \<open>('k \<times> 'v \<times> tnil) list \<Rightarrow> 'k \<Rightarrow> ('s, 'v option, 'abort, 'i, 'o) function_body\<close> where
   \<open>hashmap_get m k \<equiv> FunctionBody (literal (hm_lookup m k))\<close>
 
-text\<open>\<^verbatim>\<open>Range<T>\<close> (\<^verbatim>\<open>a..b\<close>) of an unsigned integer as an iterator: the start while it is
-  below the end, each time increased.\<close>
+text\<open>\<^verbatim>\<open>Range<T>\<close> (\<^verbatim>\<open>a..b\<close>) and \<^verbatim>\<open>RangeInclusive<T>\<close> (\<^verbatim>\<open>a..=b\<close>) of an unsigned
+  integer as an iterator, from the front and from the back. An exhausted \<^verbatim>\<open>a..=b\<close> (Rust's flag
+  \<open>exhausted\<close>) is the empty \<^verbatim>\<open>b..b\<close>.\<close>
 definition range_next :: \<open>('l::len word range, 's, 'l word, 'abort, 'i, 'o) iter_step\<close> where
-  \<open>range_next r \<equiv> FunctionBody (literal (if start r < end r
-     then (Some (start r), make_range (start r + 1) (end r) (end_inclusive r), TNil) else (None, r, TNil)))\<close>
+  \<open>range_next r \<equiv> FunctionBody (literal (
+     if end_inclusive r then
+       (if start r \<le> end r then
+          (Some (start r), (if start r = end r then make_range (end r) (end r) False
+                            else make_range (start r + 1) (end r) True), TNil)
+        else (None, r, TNil))
+     else if start r < end r then (Some (start r), make_range (start r + 1) (end r) False, TNil)
+     else (None, r, TNil)))\<close>
+
+definition range_next_back :: \<open>('l::len word range, 's, 'l word, 'abort, 'i, 'o) iter_step\<close> where
+  \<open>range_next_back r \<equiv> FunctionBody (literal (
+     if end_inclusive r then
+       (if start r \<le> end r then
+          (Some (end r), (if start r = end r then make_range (end r) (end r) False
+                          else make_range (start r) (end r - 1) True), TNil)
+        else (None, r, TNil))
+     else if start r < end r then (Some (end r - 1), make_range (start r) (end r - 1) False, TNil)
+     else (None, r, TNil)))\<close>
+
+text\<open>\<^verbatim>\<open>Iterator::for_each\<close>: calls the function on every item, in order.\<close>
+definition iter_for_each :: \<open>nat \<Rightarrow> ('r, 's, 'v, 'abort, 'i, 'o) iter_step \<Rightarrow> ('v \<Rightarrow> ('s, unit, 'abort, 'i, 'o) function_body) \<Rightarrow>
+    'r \<Rightarrow> ('s, unit, 'abort, 'i, 'o) function_body\<close> where
+  \<open>iter_for_each fuel nv f st \<equiv> iter_fold fuel nv (\<lambda>u x. FunctionBody \<lbrakk> f(x) \<rbrakk>) st ()\<close>
 
 context reference
 begin
@@ -816,6 +887,97 @@ definition hashmap_entry_or_insert :: \<open>('a, 'b, ('k \<times> 'v \<times> t
      };
      let m2 = *ptr;
      \<llangle>focus_reference_via_lens (snd\<^sub>L \<circ>\<^sub>L fst\<^sub>L) (focus_nth (hm_index m2 k) ptr)\<rrangle>
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>mem::swap(x, y)\<close>.\<close>
+definition mem_swap :: \<open>('a, 'b, 'v) Global_Store.ref \<Rightarrow> ('a, 'b, 'v) Global_Store.ref \<Rightarrow>
+      ('s, unit, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>mem_swap x y \<equiv> FunctionBody \<lbrakk>
+     let a = *x;
+     let b = *y;
+     x = b;
+     y = a;
+     ()
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>mem::replace(dest, v)\<close>: the old value.\<close>
+definition mem_replace :: \<open>('a, 'b, 'v) Global_Store.ref \<Rightarrow> 'v \<Rightarrow>
+      ('s, 'v, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>mem_replace x v \<equiv> FunctionBody \<lbrakk>
+     let old = *x;
+     x = v;
+     old
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open><[T]>::get_mut(i)\<close>: a reference to the \<open>i\<close>-th element, \<^verbatim>\<open>None\<close> if out of bounds.\<close>
+definition slice_get_mut :: \<open>('a, 'b, 'v list) Global_Store.ref \<Rightarrow> 64 word \<Rightarrow>
+      ('s, ('a, 'b, 'v) Global_Store.ref option, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>slice_get_mut ptr i \<equiv> FunctionBody \<lbrakk>
+     let ls = *ptr;
+     if \<llangle>unat i < length ls\<rrangle> {
+       \<llangle>Some (focus_nth (unat i) ptr)\<rrangle>
+     } else {
+       None
+     }
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open><[T]>::iter_mut()\<close> as a value: the references to the elements (the state of
+  \<^verbatim>\<open>slice::IterMut\<close>).\<close>
+definition slice_iter_mut_list :: \<open>('a, 'b, 'v list) Global_Store.ref \<Rightarrow>
+      ('s, ('a, 'b, 'v) Global_Store.ref list, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>slice_iter_mut_list ptr \<equiv> FunctionBody \<lbrakk>
+     let ls = *ptr;
+     \<llangle>List.map (\<lambda>i. focus_nth i ptr) [0 ..< length ls]\<rrangle>
+  \<rbrakk>\<close>
+
+text\<open>The reference to the subslice \<open>[lo, hi)\<close> of the slice \<open>ptr\<close> refers to (focused on the
+  elements between the \<open>lo\<close> before and the \<open>len - hi\<close> after it); a panic unless
+  \<open>lo \<le> hi \<le> len\<close>.\<close>
+definition slice_sub_mut :: \<open>('a, 'b, 'v list) Global_Store.ref \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow>
+      ('s, ('a, 'b, 'v list) Global_Store.ref, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>slice_sub_mut ptr lo hi \<equiv> FunctionBody \<lbrakk>
+     let ls = *ptr;
+     if \<llangle>lo \<le> hi \<and> hi \<le> length ls\<rrangle> {
+       \<llangle>focus_focused (sublist_focus lo (length ls - hi)) ptr\<rrangle>
+     } else {
+       panic!("slice index out of range")
+     }
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>&mut s[r]\<close> for a range \<open>r\<close> (\<^verbatim>\<open>a..b\<close>, \<^verbatim>\<open>a..=b\<close>), \<^verbatim>\<open>a..\<close>, \<^verbatim>\<open>..b\<close> and
+  \<^verbatim>\<open>..=b\<close> (the last three by their only bound).\<close>
+definition slice_range_mut :: \<open>('a, 'b, 'v list) Global_Store.ref \<Rightarrow> 64 word range \<Rightarrow>
+      ('s, ('a, 'b, 'v list) Global_Store.ref, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>slice_range_mut ptr r \<equiv> slice_sub_mut ptr (unat (start r)) (if end_inclusive r then unat (end r) + 1 else unat (end r))\<close>
+
+definition slice_range_from_mut :: \<open>('a, 'b, 'v list) Global_Store.ref \<Rightarrow> 64 word \<Rightarrow>
+      ('s, ('a, 'b, 'v list) Global_Store.ref, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>slice_range_from_mut ptr lo \<equiv> FunctionBody \<lbrakk>
+     let ls = *ptr;
+     slice_sub_mut(ptr, \<llangle>unat lo\<rrangle>, \<llangle>length ls\<rrangle>)
+  \<rbrakk>\<close>
+
+definition slice_range_to_mut :: \<open>('a, 'b, 'v list) Global_Store.ref \<Rightarrow> 64 word \<Rightarrow>
+      ('s, ('a, 'b, 'v list) Global_Store.ref, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>slice_range_to_mut ptr hi \<equiv> slice_sub_mut ptr 0 (unat hi)\<close>
+
+definition slice_range_to_inclusive_mut :: \<open>('a, 'b, 'v list) Global_Store.ref \<Rightarrow> 64 word \<Rightarrow>
+      ('s, ('a, 'b, 'v list) Global_Store.ref, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>slice_range_to_inclusive_mut ptr hi \<equiv> slice_sub_mut ptr 0 (unat hi + 1)\<close>
+
+text\<open>\<^verbatim>\<open><[T]>::get_mut(r)\<close> for a range \<open>r\<close> (\<^verbatim>\<open>a..b\<close>, \<^verbatim>\<open>a..=b\<close>): the reference to the
+  subslice, \<^verbatim>\<open>None\<close> if the range is decreasing or exceeds the slice.\<close>
+definition slice_get_range_mut :: \<open>('a, 'b, 'v list) Global_Store.ref \<Rightarrow> 64 word range \<Rightarrow>
+      ('s, ('a, 'b, 'v list) Global_Store.ref option, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>slice_get_range_mut ptr r \<equiv> FunctionBody \<lbrakk>
+     let ls = *ptr;
+     let lo = \<llangle>unat (start r)\<rrangle>;
+     let hi = \<llangle>if end_inclusive r then unat (end r) + 1 else unat (end r)\<rrangle>;
+     if \<llangle>lo \<le> hi \<and> hi \<le> length ls\<rrangle> {
+       \<llangle>Some (focus_focused (sublist_focus lo (length ls - hi)) ptr)\<rrangle>
+     } else {
+       None
+     }
   \<rbrakk>\<close>
 
 no_adhoc_overloading store_update_const \<rightleftharpoons> update_fun
