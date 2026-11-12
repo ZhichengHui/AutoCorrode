@@ -614,12 +614,16 @@ definition hashmap_get :: \<open>('k \<times> 'v \<times> tnil) list \<Rightarro
 
 text\<open>\<^verbatim>\<open>Range<T>\<close> (\<^verbatim>\<open>a..b\<close>) and \<^verbatim>\<open>RangeInclusive<T>\<close> (\<^verbatim>\<open>a..=b\<close>) of an unsigned
   integer as an iterator, from the front and from the back. An exhausted \<^verbatim>\<open>a..=b\<close> (Rust's flag
-  \<open>exhausted\<close>) is the empty \<^verbatim>\<open>b..b\<close>.\<close>
+  \<open>exhausted\<close>) is the empty \<^verbatim>\<open>b+1..b+1\<close>, the range Rust indexes a slice with
+  (\<^verbatim>\<open>b..b\<close> for the largest \<open>b\<close>: as \<^verbatim>\<open>b+1\<close> overflows, a slice is shorter than it).\<close>
+definition range_exhausted :: \<open>'l::len word \<Rightarrow> 'l word range\<close> where
+  \<open>range_exhausted b \<equiv> if b = - 1 then make_range b b False else make_range (b + 1) (b + 1) False\<close>
+
 definition range_next :: \<open>('l::len word range, 's, 'l word, 'abort, 'i, 'o) iter_step\<close> where
   \<open>range_next r \<equiv> FunctionBody (literal (
      if end_inclusive r then
        (if start r \<le> end r then
-          (Some (start r), (if start r = end r then make_range (end r) (end r) False
+          (Some (start r), (if start r = end r then range_exhausted (end r)
                             else make_range (start r + 1) (end r) True), TNil)
         else (None, r, TNil))
      else if start r < end r then (Some (start r), make_range (start r + 1) (end r) False, TNil)
@@ -629,7 +633,7 @@ definition range_next_back :: \<open>('l::len word range, 's, 'l word, 'abort, '
   \<open>range_next_back r \<equiv> FunctionBody (literal (
      if end_inclusive r then
        (if start r \<le> end r then
-          (Some (end r), (if start r = end r then make_range (end r) (end r) False
+          (Some (end r), (if start r = end r then range_exhausted (end r)
                           else make_range (start r) (end r - 1) True), TNil)
         else (None, r, TNil))
      else if start r < end r then (Some (end r - 1), make_range (start r) (end r - 1) False, TNil)
