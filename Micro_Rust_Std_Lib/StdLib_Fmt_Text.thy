@@ -1,6 +1,6 @@
 (*<*)
 theory StdLib_Fmt_Text
-  imports "HOL-Library.Word" "Word_Lib.Signed_Words"
+  imports "HOL-Library.Word" "Word_Lib.Signed_Words" StdLib_Utf8
 begin
 (*>*)
 
@@ -17,13 +17,17 @@ datatype fmt_Formatter =
 
 subsection\<open>Pure functions\<close>
 
+text\<open>The code points of an ASCII \<^typ>\<open>String.literal\<close> (the fixed texts of the models).\<close>
 definition fmt_codes :: \<open>String.literal \<Rightarrow> nat list\<close> where
   \<open>fmt_codes s \<equiv> List.map of_char (String.explode s)\<close>
 
-text\<open>The string of a list of code points (the output of a formatter as a \<^verbatim>\<open>String\<close>);
-  \<^term>\<open>None\<close> if one is outside ASCII, which \<^typ>\<open>String.literal\<close> cannot hold.\<close>
-definition fmt_lit :: \<open>nat list \<Rightarrow> String.literal option\<close> where
-  \<open>fmt_lit xs \<equiv> if List.list_all (\<lambda>c. c < 128) xs then Some (String.implode (List.map char_of xs)) else None\<close>
+text\<open>The code points of a Rust string (UTF-8 bytes, see \<^verbatim>\<open>StdLib_Utf8\<close>).\<close>
+definition fmt_str_codes :: \<open>8 word list \<Rightarrow> nat list\<close> where
+  \<open>fmt_str_codes s \<equiv> List.map unat (utf8_decode s)\<close>
+
+text\<open>The Rust string of a list of code points (the output of a formatter as a \<^verbatim>\<open>String\<close>).\<close>
+definition fmt_codes_str :: \<open>nat list \<Rightarrow> 8 word list\<close> where
+  \<open>fmt_codes_str xs \<equiv> utf8_encode (List.map of_nat xs)\<close>
 
 definition fmt_flag :: \<open>fmt_Formatter \<Rightarrow> nat \<Rightarrow> bool\<close> where
   \<open>fmt_flag f n \<equiv> bit (fmt_opt_flags f) n\<close>
@@ -139,20 +143,20 @@ definition fmt_Display_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len 
   \<open>fmt_Display_sword_text f x \<equiv> fmt_display_int_codes f (0 \<le> sint x) (nat \<bar>sint x\<bar>)\<close>
 definition fmt_Display_bool_text :: \<open>fmt_Formatter \<Rightarrow> bool \<Rightarrow> nat list\<close> where
   \<open>fmt_Display_bool_text f x \<equiv> fmt_bool_codes f x\<close>
-definition fmt_Display_char_text :: \<open>fmt_Formatter \<Rightarrow> char \<Rightarrow> nat list\<close> where
-  \<open>fmt_Display_char_text f x \<equiv> fmt_display_char_codes f (of_char x)\<close>
-definition fmt_Display_str_text :: \<open>fmt_Formatter \<Rightarrow> String.literal \<Rightarrow> nat list\<close> where
-  \<open>fmt_Display_str_text f x \<equiv> fmt_pad_codes f (fmt_codes x)\<close>
+definition fmt_Display_char_text :: \<open>fmt_Formatter \<Rightarrow> 32 word \<Rightarrow> nat list\<close> where
+  \<open>fmt_Display_char_text f x \<equiv> fmt_display_char_codes f (unat x)\<close>
+definition fmt_Display_str_text :: \<open>fmt_Formatter \<Rightarrow> 8 word list \<Rightarrow> nat list\<close> where
+  \<open>fmt_Display_str_text f x \<equiv> fmt_pad_codes f (fmt_str_codes x)\<close>
 definition fmt_Debug_word_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len word \<Rightarrow> nat list\<close> where
   \<open>fmt_Debug_word_text f x \<equiv> fmt_debug_int_codes f True (unat x) (unat x)\<close>
 definition fmt_Debug_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len sword \<Rightarrow> nat list\<close> where
   \<open>fmt_Debug_sword_text f x \<equiv> fmt_debug_int_codes f (0 \<le> sint x) (nat \<bar>sint x\<bar>) (unat x)\<close>
 definition fmt_Debug_bool_text :: \<open>fmt_Formatter \<Rightarrow> bool \<Rightarrow> nat list\<close> where
   \<open>fmt_Debug_bool_text f x \<equiv> fmt_bool_codes f x\<close>
-definition fmt_Debug_char_text :: \<open>fmt_Formatter \<Rightarrow> char \<Rightarrow> nat list\<close> where
-  \<open>fmt_Debug_char_text f x \<equiv> fmt_debug_char_codes (of_char x)\<close>
-definition fmt_Debug_str_text :: \<open>fmt_Formatter \<Rightarrow> String.literal \<Rightarrow> nat list\<close> where
-  \<open>fmt_Debug_str_text f x \<equiv> fmt_debug_str_codes (fmt_codes x)\<close>
+definition fmt_Debug_char_text :: \<open>fmt_Formatter \<Rightarrow> 32 word \<Rightarrow> nat list\<close> where
+  \<open>fmt_Debug_char_text f x \<equiv> fmt_debug_char_codes (unat x)\<close>
+definition fmt_Debug_str_text :: \<open>fmt_Formatter \<Rightarrow> 8 word list \<Rightarrow> nat list\<close> where
+  \<open>fmt_Debug_str_text f x \<equiv> fmt_debug_str_codes (fmt_str_codes x)\<close>
 definition fmt_LowerHex_word_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len word \<Rightarrow> nat list\<close> where
   \<open>fmt_LowerHex_word_text f x \<equiv> fmt_radix_codes f 16 False (unat x)\<close>
 definition fmt_LowerHex_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len sword \<Rightarrow> nat list\<close> where
@@ -169,6 +173,33 @@ definition fmt_Binary_word_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len wo
   \<open>fmt_Binary_word_text f x \<equiv> fmt_radix_codes f 2 False (unat x)\<close>
 definition fmt_Binary_sword_text :: \<open>fmt_Formatter \<Rightarrow> 'l::len sword \<Rightarrow> nat list\<close> where
   \<open>fmt_Binary_sword_text f x \<equiv> fmt_radix_codes f 2 False (unat x)\<close>
+
+text\<open>\<^verbatim>\<open>Display\<close> of \<^verbatim>\<open>str::Utf8Error\<close> (\<^verbatim>\<open>write!\<close> with fresh options) and its
+  derived \<^verbatim>\<open>Debug\<close> (the fields are formatted with the formatter's options; \<^verbatim>\<open>#\<close> is the
+  multi-line form).\<close>
+definition fmt_Display_utf8_error_text :: \<open>fmt_Formatter \<Rightarrow> utf8_error \<Rightarrow> nat list\<close> where
+  \<open>fmt_Display_utf8_error_text f e \<equiv> case utf8_error_len e of
+     Some n \<Rightarrow> fmt_codes (STR ''invalid utf-8 sequence of '') @ fmt_digits 10 False (unat n)
+       @ fmt_codes (STR '' bytes from index '') @ fmt_digits 10 False (unat (utf8_error_valid_up_to e))
+   | None \<Rightarrow> fmt_codes (STR ''incomplete utf-8 byte sequence from index '')
+       @ fmt_digits 10 False (unat (utf8_error_valid_up_to e))\<close>
+definition fmt_Debug_utf8_error_text :: \<open>fmt_Formatter \<Rightarrow> utf8_error \<Rightarrow> nat list\<close> where
+  \<open>fmt_Debug_utf8_error_text f e \<equiv>
+     let v = fmt_debug_int_codes f True (unat (utf8_error_valid_up_to e)) (unat (utf8_error_valid_up_to e)) in
+     if fmt_flag f 23 then
+       fmt_codes (STR ''Utf8Error {'') @ [10] @ fmt_codes (STR ''    valid_up_to: '') @ v @ [44, 10]
+       @ fmt_codes (STR ''    error_len: '')
+       @ (case utf8_error_len e of
+            Some n \<Rightarrow> fmt_codes (STR ''Some('') @ [10] @ fmt_codes (STR ''        '') @ fmt_debug_int_codes f True (unat n) (unat n)
+              @ [44, 10] @ fmt_codes (STR ''    )'')
+          | None \<Rightarrow> fmt_codes (STR ''None''))
+       @ [44, 10, 125]
+     else
+       fmt_codes (STR ''Utf8Error { valid_up_to: '') @ v @ fmt_codes (STR '', error_len: '')
+       @ (case utf8_error_len e of
+            Some n \<Rightarrow> fmt_codes (STR ''Some('') @ fmt_debug_int_codes f True (unat n) (unat n) @ [41]
+          | None \<Rightarrow> fmt_codes (STR ''None''))
+       @ fmt_codes (STR '' }'')\<close>
 
 (*<*)
 end
