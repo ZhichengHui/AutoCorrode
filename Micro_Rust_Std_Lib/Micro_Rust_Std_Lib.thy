@@ -15,6 +15,7 @@ theory Micro_Rust_Std_Lib
     StdLib_Slice
     StdLib_References
     StdLib_Result
+    StdLib_Vec
 begin
 end
 (*>*)

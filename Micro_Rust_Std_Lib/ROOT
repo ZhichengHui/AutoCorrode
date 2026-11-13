@@ -26,6 +26,7 @@ session Micro_Rust_Std_Lib = HOL +
   theories
     StdLib_Utf8
     StdLib_Frontend_Models
+    StdLib_Vec
     StdLib_Fmt_Text
     StdLib_Fmt
     Micro_Rust_Std_Lib
