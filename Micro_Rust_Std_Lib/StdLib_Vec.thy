@@ -1,6 +1,6 @@
 (*<*)
 theory StdLib_Vec
-  imports "Micro_Rust_Std_Lib.StdLib_References" Crush.Crush
+  imports "Micro_Rust_Std_Lib.StdLib_References" Crush.Crush Misc.Result
 begin
 (*>*)
 
@@ -453,6 +453,69 @@ lemma rvec_len_unat:
     and \<open>unat (of_nat (rvec_cap v) :: 64 word) = rvec_cap v\<close>
   using rvec_wf_length_bound[OF assms] by (simp_all add: unat_of_nat_eq)
 
+subsection\<open>Conversions and comparisons\<close>
+
+text\<open>The layout of an element type that is a type parameter. The translation of generic code
+  does not know it: it is an unspecified constant for each HOL type (also the same for Rust types
+  of the same HOL type, such as \<^verbatim>\<open>T\<close> and \<^verbatim>\<open>&T\<close>), so a proof can use no property of it.\<close>
+consts rvec_layout_of :: \<open>'a itself \<Rightarrow> elem_layout\<close>
+
+text\<open>A new vector of the elements \<open>xs\<close>, with a capacity of at least their number
+  (\<^verbatim>\<open><[T]>::to_vec\<close>, \<^verbatim>\<open>collect\<close>, \<^verbatim>\<open>From<&[T]>\<close>, and \<^verbatim>\<open>String::into_bytes\<close>, whose
+  capacity is the string's, which the model of strings does not have); panics if there are too
+  many elements.\<close>
+definition rvec_alloc_val :: \<open>elem_layout \<Rightarrow> 'v list \<Rightarrow> 'v rvec option\<close> where
+  \<open>rvec_alloc_val l xs \<equiv>
+     if length xs \<le> rvec_cap_max l then Some (rvec_make l xs (rvec_alloc_cap l (length xs))) else None\<close>
+
+lemma rvec_alloc_val_Some:
+  assumes \<open>rvec_alloc_val l xs = Some v\<close>
+  shows \<open>rvec_wf v\<close> and \<open>rvec_elems v = xs\<close> and \<open>rvec_layout v = l\<close>
+  using assms rvec_alloc_cap_bounds[of \<open>length xs\<close> l]
+  by (auto simp add: rvec_alloc_val_def rvec_make_wf split: if_splits)
+
+definition rvec_of_list_alloc :: \<open>elem_layout \<Rightarrow> 'v list \<Rightarrow> ('s, 'v rvec, 'abort, 'i, 'o) function_body\<close> where
+  \<open>rvec_of_list_alloc l xs \<equiv> FunctionBody \<lbrakk>
+     match \<llangle>rvec_alloc_val l xs\<rrangle> {
+       Some(v) \<Rightarrow> v,
+       None \<Rightarrow> panic!("capacity overflow")
+     }
+  \<rbrakk>\<close>
+
+definition rvec_of_list_alloc_contract :: \<open>elem_layout \<Rightarrow> 'v list \<Rightarrow> ('s::sepalg, 'v rvec, 'abort) function_contract\<close> where
+  [crush_contracts]: \<open>rvec_of_list_alloc_contract l xs \<equiv>
+     let pre = \<langle>length xs \<le> rvec_cap_max l\<rangle> in
+     let post = \<lambda>r. \<langle>rvec_alloc_val l xs = Some r\<rangle> in
+       make_function_contract pre post\<close>
+
+lemma rvec_of_list_alloc_spec [crush_specs]:
+  shows \<open>\<Gamma> ; rvec_of_list_alloc l xs \<Turnstile>\<^sub>F rvec_of_list_alloc_contract l xs\<close>
+  by (crush_boot f: rvec_of_list_alloc_def contract: rvec_of_list_alloc_contract_def)
+     (crush_base simp add: rvec_alloc_val_def)
+
+text\<open>\<^verbatim>\<open>PartialEq\<close> of vectors whose elements' \<^verbatim>\<open>PartialEq\<close> is HOL's equality: the elements
+  (not the capacities) are compared.\<close>
+definition rvec_eq :: \<open>'v rvec \<Rightarrow> 'v rvec \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>rvec_eq a b \<equiv> FunctionBody (literal (rvec_elems a = rvec_elems b))\<close>
+
+definition rvec_ne :: \<open>'v rvec \<Rightarrow> 'v rvec \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>rvec_ne a b \<equiv> FunctionBody (literal (rvec_elems a \<noteq> rvec_elems b))\<close>
+
+text\<open>\<^verbatim>\<open>TryFrom<Vec<T>>\<close> for \<^verbatim>\<open>[T; N]\<close> (and \<^verbatim>\<open>Box<[T; N]>\<close>): \<^verbatim>\<open>Ok\<close> iff the vector has
+  \<open>N\<close> elements, otherwise the vector is the error.\<close>
+definition rvec_try_into_array :: \<open>'v rvec \<Rightarrow> 64 word \<Rightarrow> ('s, ('v list, 'v rvec) result, 'abort, 'i, 'o) function_body\<close> where
+  \<open>rvec_try_into_array v n \<equiv> FunctionBody (literal (if rvec_length v = unat n then Ok (rvec_elems v) else Err v))\<close>
+
+lemma rvec_compare_specs [crush_specs]:
+  shows \<open>\<Gamma> ; rvec_eq a b \<Turnstile>\<^sub>F rvec_value_contract (rvec_elems a = rvec_elems b)\<close>
+    and \<open>\<Gamma> ; rvec_ne a b \<Turnstile>\<^sub>F rvec_value_contract (rvec_elems a \<noteq> rvec_elems b)\<close>
+    and \<open>\<Gamma> ; rvec_try_into_array v n \<Turnstile>\<^sub>F
+           rvec_value_contract (if rvec_length v = unat n then Ok (rvec_elems v) else Err v)\<close>
+  subgoal by (crush_boot f: rvec_eq_def contract: rvec_value_contract_def) crush_base
+  subgoal by (crush_boot f: rvec_ne_def contract: rvec_value_contract_def) crush_base
+  subgoal by (crush_boot f: rvec_try_into_array_def contract: rvec_value_contract_def) crush_base
+  done
+
 text\<open>The functions that take a vector by mutable reference.\<close>
 
 context reference
@@ -594,13 +657,20 @@ definition rvec_shrink_to_fit :: \<open>('a, 'b, 'v rvec) Global_Store.ref \<Rig
       ('s, unit, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>rvec_shrink_to_fit ptr \<equiv> rvec_update ptr (\<lambda>v. rvec_shrink_to_val v 0)\<close>
 
+text\<open>\<^verbatim>\<open>Vec::dedup\<close> (the elements' \<^verbatim>\<open>PartialEq\<close> is HOL's equality): removes the adjacent
+  duplicates.\<close>
+definition rvec_dedup :: \<open>('a, 'b, 'v rvec) Global_Store.ref \<Rightarrow>
+      ('s, unit, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>rvec_dedup ptr \<equiv> rvec_update ptr (update_rvec_elems remdups_adj)\<close>
+
 lemma rvec_update_specs [crush_specs]:
   shows \<open>\<Gamma> ; rvec_truncate ptr n \<Turnstile>\<^sub>F rvec_update_contract ptr g v (update_rvec_elems (take (unat n)))\<close>
     and \<open>\<Gamma> ; rvec_clear ptr \<Turnstile>\<^sub>F rvec_update_contract ptr g v (update_rvec_elems (\<lambda>_. []))\<close>
     and \<open>\<Gamma> ; rvec_shrink_to ptr n \<Turnstile>\<^sub>F rvec_update_contract ptr g v (\<lambda>v. rvec_shrink_to_val v (unat n))\<close>
     and \<open>\<Gamma> ; rvec_shrink_to_fit ptr \<Turnstile>\<^sub>F rvec_update_contract ptr g v (\<lambda>v. rvec_shrink_to_val v 0)\<close>
+    and \<open>\<Gamma> ; rvec_dedup ptr \<Turnstile>\<^sub>F rvec_update_contract ptr g v (update_rvec_elems remdups_adj)\<close>
   by (simp_all only: rvec_truncate_def rvec_clear_def rvec_shrink_to_def rvec_shrink_to_fit_def
-      rvec_update_spec)
+      rvec_dedup_def rvec_update_spec)
 
 text\<open>\<^verbatim>\<open>Vec::pop\<close>: the last element, \<^verbatim>\<open>None\<close> if empty.\<close>
 definition rvec_pop :: \<open>('a, 'b, 'v rvec) Global_Store.ref \<Rightarrow>
