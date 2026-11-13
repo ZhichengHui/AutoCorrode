@@ -20,7 +20,9 @@ text\<open>
 
   The output is a list of Unicode code points. A Rust string is the list of its UTF-8 bytes and a
   character its code point (see \<^verbatim>\<open>StdLib_Utf8\<close>): a string written to the formatter is
-  decoded, the output read as a \<^verbatim>\<open>String\<close> (\<^verbatim>\<open>format!\<close>) is encoded.
+  decoded, the output read as a \<^verbatim>\<open>String\<close> (\<^verbatim>\<open>format!\<close>) is encoded. \<^verbatim>\<open>Debug\<close> of
+  a string or character outside ASCII aborts with \<^const>\<open>Unimplemented\<close>: its escapes depend
+  on Unicode properties that are not modelled.
 \<close>
 
 subsection\<open>uRust functions\<close>
@@ -110,10 +112,14 @@ definition fmt_Debug_bool :: \<open>bool \<Rightarrow> ('a, 'b, fmt_Formatter) G
   \<open>fmt_Debug_bool x ptr \<equiv> fmt_emit ptr (\<lambda>f. fmt_Debug_bool_text f x)\<close>
 definition fmt_Debug_char :: \<open>32 word \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
       ('s, (unit, fmt_Error) result, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
-  \<open>fmt_Debug_char x ptr \<equiv> fmt_emit ptr (\<lambda>f. fmt_Debug_char_text f x)\<close>
+  \<open>fmt_Debug_char x ptr \<equiv>
+     if x < 128 then fmt_emit ptr (\<lambda>f. fmt_Debug_char_text f x)
+     else FunctionBody (unimplemented STR ''formatting: Debug of a character outside ASCII'')\<close>
 definition fmt_Debug_str :: \<open>8 word list \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
       ('s, (unit, fmt_Error) result, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
-  \<open>fmt_Debug_str x ptr \<equiv> fmt_emit ptr (\<lambda>f. fmt_Debug_str_text f x)\<close>
+  \<open>fmt_Debug_str x ptr \<equiv>
+     if list_all (\<lambda>b. b < 128) x then fmt_emit ptr (\<lambda>f. fmt_Debug_str_text f x)
+     else FunctionBody (unimplemented STR ''formatting: Debug of a string outside ASCII'')\<close>
 definition fmt_Display_utf8_error :: \<open>utf8_error \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
       ('s, (unit, fmt_Error) result, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>fmt_Display_utf8_error x ptr \<equiv> fmt_emit ptr (\<lambda>f. fmt_Display_utf8_error_text f x)\<close>

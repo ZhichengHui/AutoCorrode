@@ -303,10 +303,11 @@ definition bytes_to_ascii_uppercase :: \<open>8 word list \<Rightarrow> ('s, 8 w
 definition bytes_to_ascii_lowercase :: \<open>8 word list \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
   \<open>bytes_to_ascii_lowercase s \<equiv> FunctionBody (literal (List.map ascii_lower s))\<close>
 
-text\<open>\<^verbatim>\<open>str::repeat(n)\<close>: panics when the length overflows \<^verbatim>\<open>usize\<close>.\<close>
+text\<open>\<^verbatim>\<open>str::repeat(n)\<close>: panics when the length exceeds \<^verbatim>\<open>isize::MAX\<close> (the capacity
+  overflows).\<close>
 definition str_repeat :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
   \<open>str_repeat s n \<equiv> FunctionBody \<lbrakk>
-     if \<llangle>length s * unat n \<ge> 2 ^ 64\<rrangle> { panic!("capacity overflow") };
+     if \<llangle>length s * unat n \<ge> 2 ^ 63\<rrangle> { panic!("capacity overflow") };
      \<llangle>List.concat (List.replicate (unat n) s)\<rrangle>
   \<rbrakk>\<close>
 
@@ -317,7 +318,7 @@ definition string_add :: \<open>8 word list \<Rightarrow> 8 word list \<Rightarr
 text\<open>\<^verbatim>\<open>Ord::cmp\<close> on strings: the lexicographic order of the bytes, which is the order of the
   characters.\<close>
 definition str_ord :: \<open>8 word list \<Rightarrow> 8 word list \<Rightarrow> ordering\<close> where
-  \<open>str_ord a b \<equiv> if bytes_cmp a b < 0 then Less else if bytes_cmp a b = 0 then Equal else Greater\<close>
+  \<open>str_ord a b \<equiv> let r = bytes_cmp a b in if r < 0 then Less else if r = 0 then Equal else Greater\<close>
 definition str_cmp :: \<open>8 word list \<Rightarrow> 8 word list \<Rightarrow> ('s, ordering, 'abort, 'i, 'o) function_body\<close> where
   \<open>str_cmp a b \<equiv> FunctionBody (literal (str_ord a b))\<close>
 
@@ -330,16 +331,26 @@ definition str_sub_opt :: \<open>8 word list \<Rightarrow> nat \<Rightarrow> nat
      if a \<le> b \<and> b \<le> length s \<and> str_is_char_boundary s a \<and> str_is_char_boundary s b
      then Some (take (b - a) (drop a s)) else None\<close>
 
-text\<open>\<^verbatim>\<open>str::get\<close> by a range (as \<^verbatim>\<open>slice_get_range\<close> and the following).\<close>
+text\<open>The substring of a range \<^verbatim>\<open>a..b\<close>, \<^verbatim>\<open>a..=b\<close> (a \<^typ>\<open>64 word range\<close>), \<^verbatim>\<open>..b\<close>,
+  \<^verbatim>\<open>..=b\<close>, \<^verbatim>\<open>a..\<close> (by their only field).\<close>
+definition str_range_opt :: \<open>8 word list \<Rightarrow> 64 word range \<Rightarrow> 8 word list option\<close> where
+  \<open>str_range_opt s r \<equiv> str_sub_opt s (unat (start r)) (if end_inclusive r then unat (end r) + 1 else unat (end r))\<close>
+definition str_to_opt :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> 8 word list option\<close> where
+  \<open>str_to_opt s b \<equiv> str_sub_opt s 0 (unat b)\<close>
+definition str_to_inclusive_opt :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> 8 word list option\<close> where
+  \<open>str_to_inclusive_opt s b \<equiv> str_sub_opt s 0 (unat b + 1)\<close>
+definition str_from_opt :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> 8 word list option\<close> where
+  \<open>str_from_opt s a \<equiv> str_sub_opt s (unat a) (length s)\<close>
+
+text\<open>\<^verbatim>\<open>str::get\<close> by a range.\<close>
 definition str_get_range :: \<open>8 word list \<Rightarrow> 64 word range \<Rightarrow> ('s, 8 word list option, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_get_range s r \<equiv> FunctionBody (literal (str_sub_opt s (unat (start r))
-     (if end_inclusive r then unat (end r) + 1 else unat (end r))))\<close>
+  \<open>str_get_range s r \<equiv> FunctionBody (literal (str_range_opt s r))\<close>
 definition str_get_to :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list option, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_get_to s b \<equiv> FunctionBody (literal (str_sub_opt s 0 (unat b)))\<close>
+  \<open>str_get_to s b \<equiv> FunctionBody (literal (str_to_opt s b))\<close>
 definition str_get_to_inclusive :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list option, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_get_to_inclusive s b \<equiv> FunctionBody (literal (str_sub_opt s 0 (unat b + 1)))\<close>
+  \<open>str_get_to_inclusive s b \<equiv> FunctionBody (literal (str_to_inclusive_opt s b))\<close>
 definition str_get_from :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list option, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_get_from s a \<equiv> FunctionBody (literal (str_sub_opt s (unat a) (length s)))\<close>
+  \<open>str_get_from s a \<equiv> FunctionBody (literal (str_from_opt s a))\<close>
 
 text\<open>\<^verbatim>\<open>s[r]\<close> on a \<^verbatim>\<open>str\<close>: panics where \<^verbatim>\<open>get\<close> gives \<^verbatim>\<open>None\<close>.\<close>
 definition str_index_opt :: \<open>8 word list option \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
@@ -350,14 +361,13 @@ definition str_index_opt :: \<open>8 word list option \<Rightarrow> ('s, 8 word 
      }
   \<rbrakk>\<close>
 definition str_index_range :: \<open>8 word list \<Rightarrow> 64 word range \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_index_range s r \<equiv> str_index_opt (str_sub_opt s (unat (start r))
-     (if end_inclusive r then unat (end r) + 1 else unat (end r)))\<close>
+  \<open>str_index_range s r \<equiv> str_index_opt (str_range_opt s r)\<close>
 definition str_index_to :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_index_to s b \<equiv> str_index_opt (str_sub_opt s 0 (unat b))\<close>
+  \<open>str_index_to s b \<equiv> str_index_opt (str_to_opt s b)\<close>
 definition str_index_to_inclusive :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_index_to_inclusive s b \<equiv> str_index_opt (str_sub_opt s 0 (unat b + 1))\<close>
+  \<open>str_index_to_inclusive s b \<equiv> str_index_opt (str_to_inclusive_opt s b)\<close>
 definition str_index_from :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_index_from s a \<equiv> str_index_opt (str_sub_opt s (unat a) (length s))\<close>
+  \<open>str_index_from s a \<equiv> str_index_opt (str_from_opt s a)\<close>
 
 text\<open>\<^verbatim>\<open>str::split_at(mid)\<close>: panics if \<open>mid\<close> is not a character boundary.\<close>
 definition str_split_at :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list \<times> 8 word list \<times> tnil, 'abort, 'i, 'o) function_body\<close> where
@@ -1073,8 +1083,9 @@ definition string_pop :: \<open>('a, 'b, 8 word list) Global_Store.ref \<Rightar
      if \<llangle>ls = []\<rrangle> {
         return None;
      };
-     ptr = \<llangle>take (length ls - length (char_utf8 (last (utf8_decode ls)))) ls\<rrangle>;
-     \<llangle>Some (last (utf8_decode ls))\<rrangle>
+     let c = \<llangle>last (utf8_decode ls)\<rrangle>;
+     ptr = \<llangle>take (length ls - length (char_utf8 c)) ls\<rrangle>;
+     Some(c)
   \<rbrakk>\<close>
 
 text\<open>\<^verbatim>\<open>String::truncate(&mut self, new_len)\<close>: no effect if \<open>new_len\<close> is not below the

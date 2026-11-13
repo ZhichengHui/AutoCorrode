@@ -100,8 +100,9 @@ definition fmt_debug_int_codes :: \<open>fmt_Formatter \<Rightarrow> bool \<Righ
      else fmt_display_int_codes f nonneg n\<close>
 
 text\<open>\<^verbatim>\<open>char::escape_debug_ext\<close> on a code point, for \<^verbatim>\<open>str\<close> (\<open>in_str\<close>: escape \<^verbatim>\<open>"\<close>)
-  or \<^verbatim>\<open>char\<close> (escape \<^verbatim>\<open>'\<close>). A code point from U+0080 on is kept (its escape depends on
-  Unicode properties), which makes the result non-ASCII.\<close>
+  or \<^verbatim>\<open>char\<close> (escape \<^verbatim>\<open>'\<close>), for a code point below U+0080: from U+0080 on, the escape
+  depends on Unicode properties (printable, grapheme extend), which are not modelled; the code
+  point is kept here and \<^verbatim>\<open>fmt_Debug_str\<close>, \<^verbatim>\<open>fmt_Debug_char\<close> abort instead.\<close>
 definition fmt_escape_debug :: \<open>bool \<Rightarrow> nat \<Rightarrow> nat list\<close> where
   \<open>fmt_escape_debug in_str c \<equiv>
      if c = 34 \<and> in_str then [92, 34]
