@@ -18,11 +18,11 @@ text\<open>
   28: precision set; 29--30: alignment, 0 left, 1 right, 2 center, 3 unset), the width and the
   precision.
 
-  The output is a list of Unicode code points. Strings are \<^typ>\<open>String.literal\<close>, which holds
-  ASCII characters only: when the output read as a \<^verbatim>\<open>String\<close> (\<^verbatim>\<open>format!\<close>) or a
-  \<^verbatim>\<open>str\<close> written to it contains a character outside ASCII, or so does the fill character read
-  as a \<^verbatim>\<open>char\<close>, the model aborts with \<^const>\<open>Unimplemented\<close> instead of producing a
-  different string.
+  The output is a list of Unicode code points. A Rust string is the list of its UTF-8 bytes and a
+  character its code point (see \<^verbatim>\<open>StdLib_Utf8\<close>): a string written to the formatter is
+  decoded, the output read as a \<^verbatim>\<open>String\<close> (\<^verbatim>\<open>format!\<close>) is encoded. \<^verbatim>\<open>Debug\<close> of
+  a string or character outside ASCII aborts with \<^const>\<open>Unimplemented\<close>: its escapes depend
+  on Unicode properties that are not modelled.
 \<close>
 
 subsection\<open>uRust functions\<close>
@@ -33,10 +33,8 @@ definition fmt_formatter_new :: \<open>32 word \<Rightarrow> 16 word \<Rightarro
   \<open>fmt_formatter_new fl w p \<equiv> FunctionBody (literal (fmt_opts fl w p))\<close>
 
 text\<open>The output of a formatter as a string, and as code points.\<close>
-definition fmt_formatter_buf :: \<open>fmt_Formatter \<Rightarrow> ('s, String.literal, 'abort, 'i, 'o) function_body\<close> where
-  \<open>fmt_formatter_buf f \<equiv> FunctionBody (case fmt_lit (fmt_buf f) of
-     Some s \<Rightarrow> literal s
-   | None \<Rightarrow> unimplemented STR ''formatting: a string outside ASCII'')\<close>
+definition fmt_formatter_buf :: \<open>fmt_Formatter \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>fmt_formatter_buf f \<equiv> FunctionBody (literal (fmt_codes_str (fmt_buf f)))\<close>
 definition fmt_formatter_codes :: \<open>fmt_Formatter \<Rightarrow> ('s, nat list, 'abort, 'i, 'o) function_body\<close> where
   \<open>fmt_formatter_codes f \<equiv> FunctionBody (literal (fmt_buf f))\<close>
 
@@ -53,10 +51,14 @@ definition fmt_width :: \<open>fmt_Formatter \<Rightarrow> ('s, 64 word option, 
   \<open>fmt_width f \<equiv> FunctionBody (literal (if fmt_flag f 27 then Some (ucast (fmt_opt_width f)) else None))\<close>
 definition fmt_precision :: \<open>fmt_Formatter \<Rightarrow> ('s, 64 word option, 'abort, 'i, 'o) function_body\<close> where
   \<open>fmt_precision f \<equiv> FunctionBody (literal (if fmt_flag f 28 then Some (ucast (fmt_opt_precision f)) else None))\<close>
-definition fmt_fill :: \<open>fmt_Formatter \<Rightarrow> ('s, char, 'abort, 'i, 'o) function_body\<close> where
-  \<open>fmt_fill f \<equiv> FunctionBody
-     (if fmt_fill_code f < 128 then literal (char_of (fmt_fill_code f))
-      else unimplemented STR ''formatting: fill character outside ASCII'')\<close>
+definition fmt_fill :: \<open>fmt_Formatter \<Rightarrow> ('s, 32 word, 'abort, 'i, 'o) function_body\<close> where
+  \<open>fmt_fill f \<equiv> FunctionBody (literal (of_nat (fmt_fill_code f)))\<close>
+
+text\<open>\<^verbatim>\<open>ToString::to_string\<close> of a value whose \<^verbatim>\<open>Display\<close> text \<open>g\<close> computes:
+  formatted with the default options \<open>fl\<close> (\<^verbatim>\<open>FormattingOptions::new()\<close>).\<close>
+definition fmt_to_string :: \<open>(fmt_Formatter \<Rightarrow> 'v \<Rightarrow> nat list) \<Rightarrow> 32 word \<Rightarrow> 'v \<Rightarrow>
+      ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>fmt_to_string g fl x \<equiv> FunctionBody (literal (fmt_codes_str (g (fmt_opts fl 0 0) x)))\<close>
 
 context reference
 begin
@@ -72,16 +74,16 @@ definition fmt_emit :: \<open>('a, 'b, fmt_Formatter) Global_Store.ref \<Rightar
      Ok(())
   \<rbrakk>\<close>
 
-text\<open>\<^verbatim>\<open>Formatter::write_str\<close> (of a string, or of code points: a literal outside ASCII, the
-  output of another formatter), \<^verbatim>\<open>Formatter::write_char\<close>, \<^verbatim>\<open>Formatter::pad\<close>,
+text\<open>\<^verbatim>\<open>Formatter::write_str\<close> (of a string, or of code points: the output of another
+  formatter), \<^verbatim>\<open>Formatter::write_char\<close>, \<^verbatim>\<open>Formatter::pad\<close>,
   \<^verbatim>\<open>Formatter::pad_integral\<close>.\<close>
-definition fmt_write_str where \<open>fmt_write_str ptr s \<equiv> fmt_emit ptr (\<lambda>_. fmt_codes s)\<close>
+definition fmt_write_str where \<open>fmt_write_str ptr s \<equiv> fmt_emit ptr (\<lambda>_. fmt_str_codes s)\<close>
 definition fmt_write_codes where \<open>fmt_write_codes ptr cs \<equiv> fmt_emit ptr (\<lambda>_. cs)\<close>
-definition fmt_write_char where \<open>fmt_write_char ptr c \<equiv> fmt_emit ptr (\<lambda>_. [of_char c])\<close>
-definition fmt_pad where \<open>fmt_pad ptr s \<equiv> fmt_emit ptr (\<lambda>f. fmt_pad_codes f (fmt_codes s))\<close>
+definition fmt_write_char where \<open>fmt_write_char ptr c \<equiv> fmt_emit ptr (\<lambda>_. [unat (c :: 32 word)])\<close>
+definition fmt_pad where \<open>fmt_pad ptr s \<equiv> fmt_emit ptr (\<lambda>f. fmt_pad_codes f (fmt_str_codes s))\<close>
 definition fmt_pad_integral where
   \<open>fmt_pad_integral ptr nonneg pfx digs \<equiv>
-     fmt_emit ptr (\<lambda>f. fmt_pad_integral_codes f nonneg (fmt_codes pfx) (fmt_codes digs))\<close>
+     fmt_emit ptr (\<lambda>f. fmt_pad_integral_codes f nonneg (fmt_str_codes pfx) (fmt_str_codes digs))\<close>
 
 text\<open>The formatting-trait implementations of the primitive types.\<close>
 definition fmt_Display_word :: \<open>'l::len word \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
@@ -93,10 +95,10 @@ definition fmt_Display_sword :: \<open>'l::len sword \<Rightarrow> ('a, 'b, fmt_
 definition fmt_Display_bool :: \<open>bool \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
       ('s, (unit, fmt_Error) result, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>fmt_Display_bool x ptr \<equiv> fmt_emit ptr (\<lambda>f. fmt_Display_bool_text f x)\<close>
-definition fmt_Display_char :: \<open>char \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
+definition fmt_Display_char :: \<open>32 word \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
       ('s, (unit, fmt_Error) result, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>fmt_Display_char x ptr \<equiv> fmt_emit ptr (\<lambda>f. fmt_Display_char_text f x)\<close>
-definition fmt_Display_str :: \<open>String.literal \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
+definition fmt_Display_str :: \<open>8 word list \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
       ('s, (unit, fmt_Error) result, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>fmt_Display_str x ptr \<equiv> fmt_emit ptr (\<lambda>f. fmt_Display_str_text f x)\<close>
 definition fmt_Debug_word :: \<open>'l::len word \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
@@ -108,12 +110,22 @@ definition fmt_Debug_sword :: \<open>'l::len sword \<Rightarrow> ('a, 'b, fmt_Fo
 definition fmt_Debug_bool :: \<open>bool \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
       ('s, (unit, fmt_Error) result, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>fmt_Debug_bool x ptr \<equiv> fmt_emit ptr (\<lambda>f. fmt_Debug_bool_text f x)\<close>
-definition fmt_Debug_char :: \<open>char \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
+definition fmt_Debug_char :: \<open>32 word \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
       ('s, (unit, fmt_Error) result, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
-  \<open>fmt_Debug_char x ptr \<equiv> fmt_emit ptr (\<lambda>f. fmt_Debug_char_text f x)\<close>
-definition fmt_Debug_str :: \<open>String.literal \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
+  \<open>fmt_Debug_char x ptr \<equiv>
+     if x < 128 then fmt_emit ptr (\<lambda>f. fmt_Debug_char_text f x)
+     else FunctionBody (unimplemented STR ''formatting: Debug of a character outside ASCII'')\<close>
+definition fmt_Debug_str :: \<open>8 word list \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
       ('s, (unit, fmt_Error) result, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
-  \<open>fmt_Debug_str x ptr \<equiv> fmt_emit ptr (\<lambda>f. fmt_Debug_str_text f x)\<close>
+  \<open>fmt_Debug_str x ptr \<equiv>
+     if list_all (\<lambda>b. b < 128) x then fmt_emit ptr (\<lambda>f. fmt_Debug_str_text f x)
+     else FunctionBody (unimplemented STR ''formatting: Debug of a string outside ASCII'')\<close>
+definition fmt_Display_utf8_error :: \<open>utf8_error \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
+      ('s, (unit, fmt_Error) result, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>fmt_Display_utf8_error x ptr \<equiv> fmt_emit ptr (\<lambda>f. fmt_Display_utf8_error_text f x)\<close>
+definition fmt_Debug_utf8_error :: \<open>utf8_error \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
+      ('s, (unit, fmt_Error) result, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>fmt_Debug_utf8_error x ptr \<equiv> fmt_emit ptr (\<lambda>f. fmt_Debug_utf8_error_text f x)\<close>
 definition fmt_LowerHex_word :: \<open>'l::len word \<Rightarrow> ('a, 'b, fmt_Formatter) Global_Store.ref \<Rightarrow>
       ('s, (unit, fmt_Error) result, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>fmt_LowerHex_word x ptr \<equiv> fmt_emit ptr (\<lambda>f. fmt_LowerHex_word_text f x)\<close>

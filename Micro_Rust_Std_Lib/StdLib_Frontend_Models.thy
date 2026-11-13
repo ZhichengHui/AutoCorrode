@@ -1,6 +1,7 @@
 (*<*)
 theory StdLib_Frontend_Models
-  imports Crush.Crush StdLib_References StdLib_Ordering Misc.Result "HOL-Library.Sublist" "Word_Lib.Word_Lib_Sumo"
+  imports Crush.Crush StdLib_References StdLib_Ordering StdLib_Option StdLib_Result StdLib_Utf8 Misc.Result
+    "HOL-Library.Sublist" "Word_Lib.Word_Lib_Sumo"
     \<comment>\<open>\<^verbatim>\<open>enum\<close>, for the enums the frontend declares with it\<close>
     "Enum_Theory.Enum_Theory"
   keywords "urust_const_data" :: thy_defn
@@ -197,43 +198,254 @@ definition iter_collect_list :: \<open>nat \<Rightarrow> ('r, 's, 'v, 'abort, 'i
     ('s, 'v list, 'abort, 'i, 'o) function_body\<close> where
   \<open>iter_collect_list fuel nv st \<equiv> iter_fold fuel nv (\<lambda>xs x. FunctionBody (literal (xs @ [x]))) st []\<close>
 
-section\<open>Strings\<close>
+section\<open>Strings and characters\<close>
 
-text\<open>A \<^verbatim>\<open>str\<close> is a @{typ String.literal}, whose characters are ASCII.\<close>
+text\<open>A \<^verbatim>\<open>str\<close> or \<^verbatim>\<open>String\<close> is the list of its UTF-8 bytes, a \<^verbatim>\<open>char\<close> its code point
+  (see \<^verbatim>\<open>StdLib_Utf8\<close>). The models of methods that return new strings or iterators compute
+  them at once; \<^verbatim>\<open>Lines\<close>, \<^verbatim>\<open>SplitWhitespace\<close>, \<^verbatim>\<open>Chars\<close>, \<^verbatim>\<open>CharIndices\<close> and
+  \<^verbatim>\<open>Bytes\<close> are the lists of the remaining items.\<close>
 
-definition strip_cr :: \<open>char list \<Rightarrow> char list\<close> where
-  \<open>strip_cr l \<equiv> if l \<noteq> [] \<and> last l = CHR 0x0D then butlast l else l\<close>
+definition strip_cr :: \<open>8 word list \<Rightarrow> 8 word list\<close> where
+  \<open>strip_cr l \<equiv> if l \<noteq> [] \<and> last l = 0x0D then butlast l else l\<close>
 
 text\<open>\<^verbatim>\<open>str::lines\<close>: \<^verbatim>\<open>split_inclusive('\n')\<close>, each piece without its \<^verbatim>\<open>\n\<close> and then
-  without a \<^verbatim>\<open>\r\<close> before it.\<close>
-fun lines_aux :: \<open>char list \<Rightarrow> char list \<Rightarrow> char list list\<close> where
+  without a \<^verbatim>\<open>\r\<close> before it (neither byte occurs inside a multi-byte sequence).\<close>
+fun lines_aux :: \<open>8 word list \<Rightarrow> 8 word list \<Rightarrow> 8 word list list\<close> where
   \<open>lines_aux cur [] = (if cur = [] then [] else [cur])\<close>
-| \<open>lines_aux cur (c # cs) = (if c = CHR 0x0A then strip_cr cur # lines_aux [] cs else lines_aux (cur @ [c]) cs)\<close>
+| \<open>lines_aux cur (c # cs) = (if c = 0x0A then strip_cr cur # lines_aux [] cs else lines_aux (cur @ [c]) cs)\<close>
 
-definition str_lines :: \<open>String.literal \<Rightarrow> ('s, String.literal list, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_lines s \<equiv> FunctionBody (literal (List.map String.implode (lines_aux [] (String.explode s))))\<close>
+definition str_lines :: \<open>8 word list \<Rightarrow> ('s, 8 word list list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_lines s \<equiv> FunctionBody (literal (lines_aux [] s))\<close>
 
-text\<open>\<^verbatim>\<open>char::is_whitespace\<close> on ASCII characters (Unicode \<open>White_Space\<close>).\<close>
-definition ascii_whitespace :: \<open>char \<Rightarrow> bool\<close> where
-  \<open>ascii_whitespace c \<equiv> of_char c \<in> {9, 10, 11, 12, 13, 32::nat}\<close>
-
-fun words_aux :: \<open>char list \<Rightarrow> char list \<Rightarrow> char list list\<close> where
+fun words_aux :: \<open>32 word list \<Rightarrow> 32 word list \<Rightarrow> 32 word list list\<close> where
   \<open>words_aux cur [] = (if cur = [] then [] else [cur])\<close>
-| \<open>words_aux cur (c # cs) = (if ascii_whitespace c then (if cur = [] then words_aux [] cs else cur # words_aux [] cs)
+| \<open>words_aux cur (c # cs) = (if char_is_whitespace c then (if cur = [] then words_aux [] cs else cur # words_aux [] cs)
      else words_aux (cur @ [c]) cs)\<close>
 
-text\<open>\<^verbatim>\<open>str::split_whitespace\<close>: the maximal non-empty runs of non-whitespace characters.\<close>
-definition str_split_whitespace :: \<open>String.literal \<Rightarrow> ('s, String.literal list, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_split_whitespace s \<equiv> FunctionBody (literal (List.map String.implode (words_aux [] (String.explode s))))\<close>
+text\<open>\<^verbatim>\<open>str::split_whitespace\<close>: the maximal non-empty runs of characters that are not
+  \<^verbatim>\<open>char::is_whitespace\<close>.\<close>
+definition str_split_whitespace :: \<open>8 word list \<Rightarrow> ('s, 8 word list list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_split_whitespace s \<equiv> FunctionBody (literal (List.map utf8_encode (words_aux [] (utf8_decode s))))\<close>
 
-definition str_starts_with_char :: \<open>String.literal \<Rightarrow> char \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_starts_with_char s c \<equiv> FunctionBody (literal (String.explode s \<noteq> [] \<and> hd (String.explode s) = c))\<close>
+text\<open>\<^verbatim>\<open>str::trim\<close>, \<^verbatim>\<open>trim_start\<close>, \<^verbatim>\<open>trim_end\<close>: without the leading and/or trailing
+  whitespace characters.\<close>
+definition str_trim_start :: \<open>8 word list \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_trim_start s \<equiv> FunctionBody (literal (utf8_encode (dropWhile char_is_whitespace (utf8_decode s))))\<close>
+definition str_trim_end :: \<open>8 word list \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_trim_end s \<equiv> FunctionBody (literal (utf8_encode (rev (dropWhile char_is_whitespace (rev (utf8_decode s))))))\<close>
+definition str_trim :: \<open>8 word list \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_trim s \<equiv> FunctionBody (literal (utf8_encode
+     (rev (dropWhile char_is_whitespace (rev (dropWhile char_is_whitespace (utf8_decode s)))))))\<close>
 
-definition str_starts_with_str :: \<open>String.literal \<Rightarrow> String.literal \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_starts_with_str s p \<equiv> FunctionBody (literal (prefix (String.explode p) (String.explode s)))\<close>
+text\<open>\<^verbatim>\<open>str::starts_with\<close>, \<^verbatim>\<open>ends_with\<close>, \<^verbatim>\<open>strip_prefix\<close>, \<^verbatim>\<open>strip_suffix\<close>,
+  \<^verbatim>\<open>contains\<close>, \<^verbatim>\<open>find\<close> with a \<^verbatim>\<open>char\<close> or a \<^verbatim>\<open>&str\<close> pattern: on the bytes (a
+  character is its encoding; a match of valid UTF-8 in valid UTF-8 starts at a character
+  boundary).\<close>
+definition str_starts_with_char :: \<open>8 word list \<Rightarrow> 32 word \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_starts_with_char s c \<equiv> FunctionBody (literal (prefix (char_utf8 c) s))\<close>
+definition str_starts_with_str :: \<open>8 word list \<Rightarrow> 8 word list \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_starts_with_str s p \<equiv> FunctionBody (literal (prefix p s))\<close>
+definition str_ends_with_char :: \<open>8 word list \<Rightarrow> 32 word \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_ends_with_char s c \<equiv> FunctionBody (literal (suffix (char_utf8 c) s))\<close>
+definition str_ends_with_str :: \<open>8 word list \<Rightarrow> 8 word list \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_ends_with_str s p \<equiv> FunctionBody (literal (suffix p s))\<close>
+definition str_strip_prefix_char :: \<open>8 word list \<Rightarrow> 32 word \<Rightarrow> ('s, 8 word list option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_strip_prefix_char s c \<equiv> FunctionBody (literal
+     (if prefix (char_utf8 c) s then Some (drop (length (char_utf8 c)) s) else None))\<close>
+definition str_strip_prefix_str :: \<open>8 word list \<Rightarrow> 8 word list \<Rightarrow> ('s, 8 word list option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_strip_prefix_str s p \<equiv> FunctionBody (literal (if prefix p s then Some (drop (length p) s) else None))\<close>
+definition str_strip_suffix_char :: \<open>8 word list \<Rightarrow> 32 word \<Rightarrow> ('s, 8 word list option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_strip_suffix_char s c \<equiv> FunctionBody (literal
+     (if suffix (char_utf8 c) s then Some (take (length s - length (char_utf8 c)) s) else None))\<close>
+definition str_strip_suffix_str :: \<open>8 word list \<Rightarrow> 8 word list \<Rightarrow> ('s, 8 word list option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_strip_suffix_str s p \<equiv> FunctionBody (literal (if suffix p s then Some (take (length s - length p) s) else None))\<close>
 
-definition str_as_bytes :: \<open>String.literal \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_as_bytes s \<equiv> FunctionBody (literal (List.map (of_nat \<circ> of_char) (String.explode s)))\<close>
+text\<open>The first position from \<open>i\<close> on where \<open>p\<close> occurs in \<open>s\<close>.\<close>
+fun bytes_find :: \<open>nat \<Rightarrow> 8 word list \<Rightarrow> 8 word list \<Rightarrow> nat option\<close> where
+  \<open>bytes_find i p [] = (if p = [] then Some i else None)\<close>
+| \<open>bytes_find i p (b # bs) = (if prefix p (b # bs) then Some i else bytes_find (i + 1) p bs)\<close>
+
+definition str_find_str :: \<open>8 word list \<Rightarrow> 8 word list \<Rightarrow> ('s, 64 word option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_find_str s p \<equiv> FunctionBody (literal (map_option of_nat (bytes_find 0 p s)))\<close>
+definition str_find_char :: \<open>8 word list \<Rightarrow> 32 word \<Rightarrow> ('s, 64 word option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_find_char s c \<equiv> FunctionBody (literal (map_option of_nat (bytes_find 0 (char_utf8 c) s)))\<close>
+definition str_contains_str :: \<open>8 word list \<Rightarrow> 8 word list \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_contains_str s p \<equiv> FunctionBody (literal (bytes_find 0 p s \<noteq> None))\<close>
+definition str_contains_char :: \<open>8 word list \<Rightarrow> 32 word \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_contains_char s c \<equiv> FunctionBody (literal (bytes_find 0 (char_utf8 c) s \<noteq> None))\<close>
+
+text\<open>\<^verbatim>\<open>str::as_bytes\<close>: the bytes themselves.\<close>
+definition str_as_bytes :: \<open>8 word list \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_as_bytes s \<equiv> FunctionBody (literal s)\<close>
+
+text\<open>\<^verbatim>\<open>str::chars\<close>, \<^verbatim>\<open>str::char_indices\<close> (each character with its byte offset).\<close>
+definition str_chars :: \<open>8 word list \<Rightarrow> ('s, 32 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_chars s \<equiv> FunctionBody (literal (utf8_decode s))\<close>
+
+fun char_indices_aux :: \<open>nat \<Rightarrow> 32 word list \<Rightarrow> (64 word \<times> 32 word \<times> tnil) list\<close> where
+  \<open>char_indices_aux i [] = []\<close>
+| \<open>char_indices_aux i (c # cs) = (of_nat i, c, TNil) # char_indices_aux (i + length (char_utf8 c)) cs\<close>
+
+definition str_char_indices :: \<open>8 word list \<Rightarrow> ('s, (64 word \<times> 32 word \<times> tnil) list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_char_indices s \<equiv> FunctionBody (literal (char_indices_aux 0 (utf8_decode s)))\<close>
+
+definition str_is_char_boundary_fn :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_is_char_boundary_fn s i \<equiv> FunctionBody (literal (str_is_char_boundary s (unat i)))\<close>
+
+text\<open>\<^verbatim>\<open>is_ascii\<close>, \<^verbatim>\<open>eq_ignore_ascii_case\<close>, \<^verbatim>\<open>to_ascii_uppercase\<close>,
+  \<^verbatim>\<open>to_ascii_lowercase\<close> on a string or a byte slice.\<close>
+definition bytes_is_ascii :: \<open>8 word list \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>bytes_is_ascii s \<equiv> FunctionBody (literal (list_all (\<lambda>b. b < 0x80) s))\<close>
+definition bytes_eq_ignore_ascii_case :: \<open>8 word list \<Rightarrow> 8 word list \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>bytes_eq_ignore_ascii_case a b \<equiv> FunctionBody (literal (List.map ascii_lower a = List.map ascii_lower b))\<close>
+definition bytes_to_ascii_uppercase :: \<open>8 word list \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>bytes_to_ascii_uppercase s \<equiv> FunctionBody (literal (List.map ascii_upper s))\<close>
+definition bytes_to_ascii_lowercase :: \<open>8 word list \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>bytes_to_ascii_lowercase s \<equiv> FunctionBody (literal (List.map ascii_lower s))\<close>
+
+text\<open>\<^verbatim>\<open>str::repeat(n)\<close>: panics when the length exceeds \<^verbatim>\<open>isize::MAX\<close> (the capacity
+  overflows).\<close>
+definition str_repeat :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_repeat s n \<equiv> FunctionBody \<lbrakk>
+     if \<llangle>length s * unat n \<ge> 2 ^ 63\<rrangle> { panic!("capacity overflow") };
+     \<llangle>List.concat (List.replicate (unat n) s)\<rrangle>
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>String + &str\<close>.\<close>
+definition string_add :: \<open>8 word list \<Rightarrow> 8 word list \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>string_add a b \<equiv> FunctionBody (literal (a @ b))\<close>
+
+text\<open>\<^verbatim>\<open>Ord::cmp\<close> on strings: the lexicographic order of the bytes, which is the order of the
+  characters.\<close>
+definition str_ord :: \<open>8 word list \<Rightarrow> 8 word list \<Rightarrow> ordering\<close> where
+  \<open>str_ord a b \<equiv> let r = bytes_cmp a b in if r < 0 then Less else if r = 0 then Equal else Greater\<close>
+definition str_cmp :: \<open>8 word list \<Rightarrow> 8 word list \<Rightarrow> ('s, ordering, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_cmp a b \<equiv> FunctionBody (literal (str_ord a b))\<close>
+
+subsection\<open>Substrings\<close>
+
+text\<open>The bytes from \<open>a\<close> to \<open>b\<close>, if \<open>a \<le> b \<le> length s\<close> and both are character
+  boundaries.\<close>
+definition str_sub_opt :: \<open>8 word list \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 8 word list option\<close> where
+  \<open>str_sub_opt s a b \<equiv>
+     if a \<le> b \<and> b \<le> length s \<and> str_is_char_boundary s a \<and> str_is_char_boundary s b
+     then Some (take (b - a) (drop a s)) else None\<close>
+
+text\<open>The substring of a range \<^verbatim>\<open>a..b\<close>, \<^verbatim>\<open>a..=b\<close> (a \<^typ>\<open>64 word range\<close>), \<^verbatim>\<open>..b\<close>,
+  \<^verbatim>\<open>..=b\<close>, \<^verbatim>\<open>a..\<close> (by their only field).\<close>
+definition str_range_opt :: \<open>8 word list \<Rightarrow> 64 word range \<Rightarrow> 8 word list option\<close> where
+  \<open>str_range_opt s r \<equiv> str_sub_opt s (unat (start r)) (if end_inclusive r then unat (end r) + 1 else unat (end r))\<close>
+definition str_to_opt :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> 8 word list option\<close> where
+  \<open>str_to_opt s b \<equiv> str_sub_opt s 0 (unat b)\<close>
+definition str_to_inclusive_opt :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> 8 word list option\<close> where
+  \<open>str_to_inclusive_opt s b \<equiv> str_sub_opt s 0 (unat b + 1)\<close>
+definition str_from_opt :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> 8 word list option\<close> where
+  \<open>str_from_opt s a \<equiv> str_sub_opt s (unat a) (length s)\<close>
+
+text\<open>\<^verbatim>\<open>str::get\<close> by a range.\<close>
+definition str_get_range :: \<open>8 word list \<Rightarrow> 64 word range \<Rightarrow> ('s, 8 word list option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_get_range s r \<equiv> FunctionBody (literal (str_range_opt s r))\<close>
+definition str_get_to :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_get_to s b \<equiv> FunctionBody (literal (str_to_opt s b))\<close>
+definition str_get_to_inclusive :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_get_to_inclusive s b \<equiv> FunctionBody (literal (str_to_inclusive_opt s b))\<close>
+definition str_get_from :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_get_from s a \<equiv> FunctionBody (literal (str_from_opt s a))\<close>
+
+text\<open>\<^verbatim>\<open>s[r]\<close> on a \<^verbatim>\<open>str\<close>: panics where \<^verbatim>\<open>get\<close> gives \<^verbatim>\<open>None\<close>.\<close>
+definition str_index_opt :: \<open>8 word list option \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_index_opt r \<equiv> FunctionBody \<lbrakk>
+     match r {
+       Some(x) \<Rightarrow> x,
+       None \<Rightarrow> panic!("byte index out of bounds or not on a char boundary")
+     }
+  \<rbrakk>\<close>
+definition str_index_range :: \<open>8 word list \<Rightarrow> 64 word range \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_index_range s r \<equiv> str_index_opt (str_range_opt s r)\<close>
+definition str_index_to :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_index_to s b \<equiv> str_index_opt (str_to_opt s b)\<close>
+definition str_index_to_inclusive :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_index_to_inclusive s b \<equiv> str_index_opt (str_to_inclusive_opt s b)\<close>
+definition str_index_from :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_index_from s a \<equiv> str_index_opt (str_from_opt s a)\<close>
+
+text\<open>\<^verbatim>\<open>str::split_at(mid)\<close>: panics if \<open>mid\<close> is not a character boundary.\<close>
+definition str_split_at :: \<open>8 word list \<Rightarrow> 64 word \<Rightarrow> ('s, 8 word list \<times> 8 word list \<times> tnil, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_split_at s m \<equiv> FunctionBody \<lbrakk>
+     if \<llangle>\<not> str_is_char_boundary s (unat m)\<rrangle> { panic!("failed to slice string") };
+     \<llangle>(take (unat m) s, drop (unat m) s, TNil)\<rrangle>
+  \<rbrakk>\<close>
+
+subsection\<open>UTF-8 conversion\<close>
+
+text\<open>\<^verbatim>\<open>alloc::string::FromUtf8Error\<close>: the bytes and the \<^verbatim>\<open>Utf8Error\<close>.\<close>
+datatype from_utf8_error = FromUtf8Error (from_utf8_error_bytes: \<open>8 word list\<close>) (from_utf8_error_error: utf8_error)
+
+definition utf8_result :: \<open>8 word list \<Rightarrow> (8 word list, utf8_error) result\<close> where
+  \<open>utf8_result bs \<equiv> case utf8_check 0 bs of None \<Rightarrow> Ok bs | Some (i, l) \<Rightarrow> Err (Utf8Error (of_nat i) l)\<close>
+
+text\<open>\<^verbatim>\<open>str::from_utf8\<close>, \<^verbatim>\<open>String::from_utf8\<close>: the bytes if they are valid UTF-8.\<close>
+definition str_from_utf8 :: \<open>8 word list \<Rightarrow> ('s, (8 word list, utf8_error) result, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_from_utf8 bs \<equiv> FunctionBody (literal (utf8_result bs))\<close>
+definition string_from_utf8 :: \<open>8 word list \<Rightarrow> ('s, (8 word list, from_utf8_error) result, 'abort, 'i, 'o) function_body\<close> where
+  \<open>string_from_utf8 bs \<equiv> FunctionBody (literal (case utf8_result bs of
+     Ok s \<Rightarrow> Ok s | Err e \<Rightarrow> Err (FromUtf8Error bs e)))\<close>
+
+text\<open>The accessors of \<^verbatim>\<open>Utf8Error\<close> and \<^verbatim>\<open>FromUtf8Error\<close>.\<close>
+definition utf8_error_valid_up_to_fn :: \<open>utf8_error \<Rightarrow> ('s, 64 word, 'abort, 'i, 'o) function_body\<close> where
+  \<open>utf8_error_valid_up_to_fn e \<equiv> FunctionBody (literal (utf8_error_valid_up_to e))\<close>
+definition utf8_error_error_len_fn :: \<open>utf8_error \<Rightarrow> ('s, 64 word option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>utf8_error_error_len_fn e \<equiv> FunctionBody (literal (map_option ucast (utf8_error_len e)))\<close>
+definition from_utf8_error_utf8_error :: \<open>from_utf8_error \<Rightarrow> ('s, utf8_error, 'abort, 'i, 'o) function_body\<close> where
+  \<open>from_utf8_error_utf8_error e \<equiv> FunctionBody (literal (from_utf8_error_error e))\<close>
+definition from_utf8_error_into_bytes :: \<open>from_utf8_error \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>from_utf8_error_into_bytes e \<equiv> FunctionBody (literal (from_utf8_error_bytes e))\<close>
+
+subsection\<open>Characters\<close>
+
+text\<open>\<^verbatim>\<open>char::from_u32\<close>, \<^verbatim>\<open>char::TryFrom<u32>\<close> (as an \<^verbatim>\<open>Option\<close>).\<close>
+definition char_from_u32 :: \<open>32 word \<Rightarrow> ('s, 32 word option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>char_from_u32 n \<equiv> FunctionBody (literal (if is_scalar n then Some n else None))\<close>
+
+text\<open>\<^verbatim>\<open>char::len_utf8\<close>.\<close>
+definition char_len_utf8 :: \<open>32 word \<Rightarrow> ('s, 64 word, 'abort, 'i, 'o) function_body\<close> where
+  \<open>char_len_utf8 c \<equiv> FunctionBody (literal (of_nat (length (char_utf8 c))))\<close>
+
+text\<open>\<^verbatim>\<open>ToString::to_string\<close>, \<^verbatim>\<open>String::from\<close> of a \<^verbatim>\<open>char\<close>.\<close>
+definition char_to_string :: \<open>32 word \<Rightarrow> ('s, 8 word list, 'abort, 'i, 'o) function_body\<close> where
+  \<open>char_to_string c \<equiv> FunctionBody (literal (char_utf8 c))\<close>
+
+text\<open>\<^verbatim>\<open>char::to_digit(radix)\<close>, \<^verbatim>\<open>char::from_digit(num, radix)\<close>.\<close>
+definition char_to_digit :: \<open>32 word \<Rightarrow> 32 word \<Rightarrow> ('s, 32 word option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>char_to_digit c radix \<equiv> FunctionBody \<lbrakk>
+     if \<llangle>radix < 2 \<or> 36 < radix\<rrangle> {
+       panic!("to_digit: invalid radix -- radix must be in the range 2 to 36 inclusive")
+     };
+     \<llangle>if char_digit_value c radix < radix then Some (char_digit_value c radix) else None\<rrangle>
+  \<rbrakk>\<close>
+definition char_from_digit :: \<open>32 word \<Rightarrow> 32 word \<Rightarrow> ('s, 32 word option, 'abort, 'i, 'o) function_body\<close> where
+  \<open>char_from_digit n radix \<equiv> FunctionBody \<lbrakk>
+     if \<llangle>36 < radix\<rrangle> { panic!("from_digit: radix is too high (maximum 36)") };
+     \<llangle>if n < radix then Some (if n < 10 then 48 + n else 87 + n) else None\<rrangle>
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>char::is_whitespace\<close>, \<^verbatim>\<open>char::is_control\<close>.\<close>
+definition char_is_whitespace_fn :: \<open>32 word \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>char_is_whitespace_fn c \<equiv> FunctionBody (literal (char_is_whitespace c))\<close>
+definition char_is_control_fn :: \<open>32 word \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>char_is_control_fn c \<equiv> FunctionBody (literal (char_is_control c))\<close>
+
+text\<open>The ASCII methods of \<^verbatim>\<open>u8\<close> and \<^verbatim>\<open>char\<close>: \<^verbatim>\<open>is_ascii_digit\<close> and the other
+  classes (the class \<open>p\<close> on the code), \<^verbatim>\<open>to_ascii_uppercase\<close>, \<^verbatim>\<open>to_ascii_lowercase\<close>,
+  \<^verbatim>\<open>eq_ignore_ascii_case\<close>.\<close>
+definition ascii_test :: \<open>(nat \<Rightarrow> bool) \<Rightarrow> 'l::len word \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>ascii_test p c \<equiv> FunctionBody (literal (unat c < 128 \<and> p (unat c)))\<close>
+definition ascii_to_uppercase :: \<open>'l::len word \<Rightarrow> ('s, 'l word, 'abort, 'i, 'o) function_body\<close> where
+  \<open>ascii_to_uppercase c \<equiv> FunctionBody (literal (ascii_upper c))\<close>
+definition ascii_to_lowercase :: \<open>'l::len word \<Rightarrow> ('s, 'l word, 'abort, 'i, 'o) function_body\<close> where
+  \<open>ascii_to_lowercase c \<equiv> FunctionBody (literal (ascii_lower c))\<close>
+definition ascii_eq_ignore_case :: \<open>'l::len word \<Rightarrow> 'l word \<Rightarrow> ('s, bool, 'abort, 'i, 'o) function_body\<close> where
+  \<open>ascii_eq_ignore_case a b \<equiv> FunctionBody (literal (ascii_lower a = ascii_lower b))\<close>
 
 subsection\<open>Parsing integers\<close>
 
@@ -241,33 +453,58 @@ text\<open>\<^verbatim>\<open>core::num::IntErrorKind\<close>; a \<^verbatim>\<o
 datatype int_error_kind = IntErrorKind_Empty | IntErrorKind_InvalidDigit | IntErrorKind_PosOverflow
   | IntErrorKind_NegOverflow | IntErrorKind_Zero
 
-text\<open>The decimal digits after the sign, as \<^verbatim>\<open>from_str_radix\<close>: a character that is not a digit is
-  an error before the overflow of the value accumulated so far.\<close>
-fun parse_digits :: \<open>bool \<Rightarrow> int \<Rightarrow> int \<Rightarrow> int \<Rightarrow> char list \<Rightarrow> (int, int_error_kind) result\<close> where
-  \<open>parse_digits neg lo hi a [] = Ok a\<close>
-| \<open>parse_digits neg lo hi a (c # cs) =
-     (if \<not> (48 \<le> (of_char c :: nat) \<and> (of_char c :: nat) \<le> 57) then Err IntErrorKind_InvalidDigit
-      else let d = int (of_char c :: nat) - 48; a' = (if neg then a * 10 - d else a * 10 + d) in
+text\<open>The digits in base \<open>r\<close> after the sign, as \<^verbatim>\<open>from_ascii_bytes_radix\<close>: a byte that is not a
+  digit (\<^verbatim>\<open>char::to_digit\<close>) is an error before the overflow of the value accumulated so far.\<close>
+fun parse_digits :: \<open>32 word \<Rightarrow> bool \<Rightarrow> int \<Rightarrow> int \<Rightarrow> int \<Rightarrow> 8 word list \<Rightarrow> (int, int_error_kind) result\<close> where
+  \<open>parse_digits r neg lo hi a [] = Ok a\<close>
+| \<open>parse_digits r neg lo hi a (c # cs) =
+     (let v = char_digit_value (ucast c) r in
+      if \<not> v < r then Err IntErrorKind_InvalidDigit
+      else let d = int (unat v); a' = (if neg then a * int (unat r) - d else a * int (unat r) + d) in
         if neg \<and> a' < lo then Err IntErrorKind_NegOverflow
         else if \<not> neg \<and> hi < a' then Err IntErrorKind_PosOverflow
-        else parse_digits neg lo hi a' cs)\<close>
+        else parse_digits r neg lo hi a' cs)\<close>
 
-definition parse_int :: \<open>bool \<Rightarrow> int \<Rightarrow> int \<Rightarrow> char list \<Rightarrow> (int, int_error_kind) result\<close> where
-  \<open>parse_int sg lo hi s \<equiv> (case s of
+definition parse_int :: \<open>32 word \<Rightarrow> bool \<Rightarrow> int \<Rightarrow> int \<Rightarrow> 8 word list \<Rightarrow> (int, int_error_kind) result\<close> where
+  \<open>parse_int r sg lo hi s \<equiv> (case s of
       [] \<Rightarrow> Err IntErrorKind_Empty
-    | c # r \<Rightarrow> if (c = CHR ''+'' \<or> c = CHR ''-'') \<and> r = [] then Err IntErrorKind_InvalidDigit
-        else if c = CHR ''+'' then parse_digits False lo hi 0 r
-        else if c = CHR ''-'' \<and> sg then parse_digits True lo hi 0 r
-        else parse_digits False lo hi 0 s)\<close>
+    | c # rest \<Rightarrow> if (c = 43 \<or> c = 45) \<and> rest = [] then Err IntErrorKind_InvalidDigit
+        else if c = 43 then parse_digits r False lo hi 0 rest
+        else if c = 45 \<and> sg then parse_digits r True lo hi 0 rest
+        else parse_digits r False lo hi 0 s)\<close>
+
+definition parse_word_result :: \<open>32 word \<Rightarrow> 8 word list \<Rightarrow> ('l::len word, int_error_kind) result\<close> where
+  \<open>parse_word_result r s \<equiv> case parse_int r False 0 (2 ^ LENGTH('l) - 1) s of
+     Ok n \<Rightarrow> Ok (word_of_int n) | Err e \<Rightarrow> Err e\<close>
+definition parse_sword_result :: \<open>32 word \<Rightarrow> 8 word list \<Rightarrow> ('l::len sword, int_error_kind) result\<close> where
+  \<open>parse_sword_result r s \<equiv> case parse_int r True (- (2 ^ (LENGTH('l) - 1))) (2 ^ (LENGTH('l) - 1) - 1) s of
+     Ok n \<Rightarrow> Ok (word_of_int n) | Err e \<Rightarrow> Err e\<close>
 
 text\<open>\<^verbatim>\<open>str::parse\<close> into an unsigned and into a signed integer type.\<close>
-definition str_parse_word :: \<open>String.literal \<Rightarrow> ('s, ('l::len word, int_error_kind) result, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_parse_word s \<equiv> FunctionBody (literal (case parse_int False 0 (2 ^ LENGTH('l) - 1) (String.explode s) of
-     Ok n \<Rightarrow> Ok (word_of_int n) | Err e \<Rightarrow> Err e))\<close>
+definition str_parse_word :: \<open>8 word list \<Rightarrow> ('s, ('l::len word, int_error_kind) result, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_parse_word s \<equiv> FunctionBody (literal (parse_word_result 10 s))\<close>
+definition str_parse_sword :: \<open>8 word list \<Rightarrow> ('s, ('l::len sword, int_error_kind) result, 'abort, 'i, 'o) function_body\<close> where
+  \<open>str_parse_sword s \<equiv> FunctionBody (literal (parse_sword_result 10 s))\<close>
 
-definition str_parse_sword :: \<open>String.literal \<Rightarrow> ('s, ('l::len sword, int_error_kind) result, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_parse_sword s \<equiv> FunctionBody (literal (case parse_int True (- (2 ^ (LENGTH('l) - 1))) (2 ^ (LENGTH('l) - 1) - 1) (String.explode s) of
-     Ok n \<Rightarrow> Ok (word_of_int n) | Err e \<Rightarrow> Err e))\<close>
+text\<open>\<^verbatim>\<open>from_str_radix(src, radix)\<close> of the integer types: panics if the radix is not from 2
+  to 36.\<close>
+definition from_str_radix_word :: \<open>8 word list \<Rightarrow> 32 word \<Rightarrow> ('s, ('l::len word, int_error_kind) result, 'abort, 'i, 'o) function_body\<close> where
+  \<open>from_str_radix_word s r \<equiv> FunctionBody \<lbrakk>
+     if \<llangle>r < 2 \<or> 36 < r\<rrangle> { panic!("from_ascii_bytes_radix: radix must lie in the range `[2, 36]`") };
+     \<llangle>parse_word_result r s\<rrangle>
+  \<rbrakk>\<close>
+definition from_str_radix_sword :: \<open>8 word list \<Rightarrow> 32 word \<Rightarrow> ('s, ('l::len sword, int_error_kind) result, 'abort, 'i, 'o) function_body\<close> where
+  \<open>from_str_radix_sword s r \<equiv> FunctionBody \<lbrakk>
+     if \<llangle>r < 2 \<or> 36 < r\<rrangle> { panic!("from_ascii_bytes_radix: radix must lie in the range `[2, 36]`") };
+     \<llangle>parse_sword_result r s\<rrangle>
+  \<rbrakk>\<close>
+
+text\<open>The message argument of \<^verbatim>\<open>Option::expect\<close>, \<^verbatim>\<open>Result::expect\<close> (a Rust string) as the
+  panic message.\<close>
+definition option_expect_str :: \<open>'v option \<Rightarrow> 8 word list \<Rightarrow> ('s, 'v, 'abort, 'i, 'o) function_body\<close> where
+  \<open>option_expect_str opt m \<equiv> option_expect opt (str_message m)\<close>
+definition result_expect_str :: \<open>('v, 'e) result \<Rightarrow> 8 word list \<Rightarrow> ('s, 'v, 'abort, 'i, 'o) function_body\<close> where
+  \<open>result_expect_str r m \<equiv> result_expect r (str_message m)\<close>
 
 section\<open>Option and Result\<close>
 
@@ -377,10 +614,6 @@ definition chunks_exact_next :: \<open>('v list list \<times> 'v list \<times> t
   \<open>chunks_exact_next st \<equiv> FunctionBody (literal (case fst st of
        [] \<Rightarrow> (None, st, TNil)
      | c # r \<Rightarrow> (Some c, (r, fst (snd st), TNil), TNil)))\<close>
-
-text\<open>\<^verbatim>\<open>str::chars\<close>: the characters.\<close>
-definition str_chars :: \<open>String.literal \<Rightarrow> ('s, char list, 'abort, 'i, 'o) function_body\<close> where
-  \<open>str_chars s \<equiv> FunctionBody (literal (String.explode s))\<close>
 
 subsection\<open>Subslices\<close>
 
@@ -577,12 +810,7 @@ fun dedup_list :: \<open>'v list \<Rightarrow> 'v list\<close> where
 | \<open>dedup_list [x] = [x]\<close>
 | \<open>dedup_list (x # y # ys) = (if x = y then dedup_list (x # ys) else x # dedup_list (y # ys))\<close>
 
-section\<open>Characters\<close>
-
-text\<open>The UTF-8 encoding of a character (whose code point is below 256).\<close>
-definition char_utf8 :: \<open>char \<Rightarrow> 8 word list\<close> where
-  \<open>char_utf8 c \<equiv> let n = (of_char c :: nat) in
-     if n < 128 then [of_nat n] else [of_nat (192 + n div 64), of_nat (128 + n mod 64)]\<close>
+section\<open>Comparisons\<close>
 
 text\<open>\<^verbatim>\<open>PartialOrd::partial_cmp\<close> on integers: \<^verbatim>\<open>Some\<close> of the comparison.\<close>
 definition partial_cmp_word :: \<open>'l::len word \<Rightarrow> 'l word \<Rightarrow> ('s, ordering option, 'abort, 'i, 'o) function_body\<close> where
@@ -826,7 +1054,7 @@ definition vec_swap_remove :: \<open>('a, 'b, 'v list) Global_Store.ref \<Righta
 
 text\<open>\<^verbatim>\<open>char::encode_utf8(self, &mut [u8])\<close> followed by \<^verbatim>\<open>as_bytes\<close>: writes the encoding to
   the start of the buffer (panics if it is too short) and returns it.\<close>
-definition char_encode_utf8_bytes :: \<open>char \<Rightarrow> ('a, 'b, 8 word list) Global_Store.ref \<Rightarrow>
+definition char_encode_utf8_bytes :: \<open>32 word \<Rightarrow> ('a, 'b, 8 word list) Global_Store.ref \<Rightarrow>
       ('s, 8 word list, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
   \<open>char_encode_utf8_bytes c ptr \<equiv> FunctionBody \<lbrakk>
      let ls = *ptr;
@@ -836,6 +1064,41 @@ definition char_encode_utf8_bytes :: \<open>char \<Rightarrow> ('a, 'b, 8 word l
      } else {
         panic!("encode_utf8: buffer too small")
      }
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>String::push(&mut self, c)\<close>: appends the encoding of \<open>c\<close>.\<close>
+definition string_push :: \<open>('a, 'b, 8 word list) Global_Store.ref \<Rightarrow> 32 word \<Rightarrow>
+      ('s, unit, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>string_push ptr c \<equiv> FunctionBody \<lbrakk>
+     let ls = *ptr;
+     ptr = \<llangle>ls @ char_utf8 c\<rrangle>;
+     ()
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>String::pop(&mut self)\<close>: removes and returns the last character.\<close>
+definition string_pop :: \<open>('a, 'b, 8 word list) Global_Store.ref \<Rightarrow>
+      ('s, 32 word option, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>string_pop ptr \<equiv> FunctionBody \<lbrakk>
+     let ls = *ptr;
+     if \<llangle>ls = []\<rrangle> {
+        return None;
+     };
+     let c = \<llangle>last (utf8_decode ls)\<rrangle>;
+     ptr = \<llangle>take (length ls - length (char_utf8 c)) ls\<rrangle>;
+     Some(c)
+  \<rbrakk>\<close>
+
+text\<open>\<^verbatim>\<open>String::truncate(&mut self, new_len)\<close>: no effect if \<open>new_len\<close> is not below the
+  length; panics if it is not a character boundary.\<close>
+definition string_truncate :: \<open>('a, 'b, 8 word list) Global_Store.ref \<Rightarrow> 64 word \<Rightarrow>
+      ('s, unit, 'abort, 'i prompt, 'o prompt_output) function_body\<close> where
+  \<open>string_truncate ptr n \<equiv> FunctionBody \<lbrakk>
+     let ls = *ptr;
+     if \<llangle>unat n \<le> length ls \<and> \<not> str_is_char_boundary ls (unat n)\<rrangle> {
+        panic!("assertion failed: self.is_char_boundary(new_len)")
+     };
+     ptr = \<llangle>take (unat n) ls\<rrangle>;
+     ()
   \<rbrakk>\<close>
 
 text\<open>\<^verbatim>\<open>HashMap::insert\<close>: replaces the value of an existing key (keeping the key), or adds the
